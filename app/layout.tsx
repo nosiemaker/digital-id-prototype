@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Zambia Digital ID System',
+  description: 'Official Zambia Digital Identity Management System — register, verify, and manage your digital identity.',
   generator: 'v0.app',
   icons: {
     icon: [
