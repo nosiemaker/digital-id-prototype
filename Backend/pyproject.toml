@@ -1,0 +1,14 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.0.4",
+    "django-fastapi-bridge>=0.2",
+    "fastapi>=0.136.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-jose[cryptography,cyptography]>=3.5.0",
+    "uvicorn>=0.44.0",
+]
