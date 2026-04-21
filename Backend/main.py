@@ -1,7 +1,9 @@
 import os
 import django
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
 
