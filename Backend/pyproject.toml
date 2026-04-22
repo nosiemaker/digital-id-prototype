@@ -10,6 +10,7 @@ dependencies = [
     "django-fastapi-bridge>=0.2",
     "fastapi>=0.136.0",
     "passlib[bcrypt]>=1.7.4",
+    "pydantic[email]>=2.13.3",
     "python-decouple>=3.8",
     "python-jose[cryptography,cyptography]>=3.5.0",
     "uvicorn>=0.44.0",

@@ -1,23 +1,53 @@
 import os
+import sys
 import django
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
+
+django.setup()
+ 
+from routers import auth, citizens, registration
+from middleware.auth import AuthMiddleware
+from Utils.audit_logger import AuditMiddleware
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    django.setup()
     yield
+
 
 app = FastAPI(
     title="ZDID API Gateway",
     description="Backend for zambia Digital ID",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
+
+# Include routers
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(citizens.router, prefix="/citizens", tags=["citizens"])
+app.include_router(registration.router, prefix="/enrollments", tags=["enrollments"])
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add authentication middleware
+app.add_middleware(AuthMiddleware)
+
+# Add audit logging middleware
+app.add_middleware(AuditMiddleware)
+
 
 @app.get("/")
 async def root():
-    return {"message" : "ZDID Backend is live"}
+    return {"message": "ZDID Backend is live"}
