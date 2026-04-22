@@ -4,7 +4,7 @@ Provides helper functions for database operations.
 """
 
 from typing import Generator
-from citizens.models import Citizen, BiometricRecord, FamilyLink
+from citizens.models import Citizen
 
 
 def get_db() -> Generator:
