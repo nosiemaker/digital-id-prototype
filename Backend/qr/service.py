@@ -16,7 +16,7 @@ QR Payload structure:
         "sig":   "IWc_iA..."          # base64url ECDSA signature over din+nonce+exp
     }
 
-What the signature covers (Option A):
+What the signature covers:
     canonical = f"{din}.{nonce}.{exp}"   — simple, deterministic, no JSON parsing needed
     signed with ECDSA P-256 + SHA-256 using the server private key
 
