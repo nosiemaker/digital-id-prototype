@@ -1,7 +1,9 @@
 from typing import Any
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from pydantic import BaseModel
 from asgiref.sync import sync_to_async
+from django.utils import timezone
 
 from kyc.service.services import KYCService, StatisticsService
 from kyc.models import KYCRequest
@@ -116,7 +118,8 @@ async def respond_to_kyc_request(
     consent_record = await sync_to_async(KYCService.process_citizen_response)(
         kyc_request_id=kyc_request_id,
         decision=response_data.decision,
-        citizen_id=citizen_id
+        citizen_id=citizen_id,
+        fields_granted=response_data.fields_granted
     )
     
     # Log the action
@@ -210,6 +213,22 @@ async def retrieve_approved_kyc_data(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"KYC request status is {kyc_request.status}, not APPROVED"
+        )
+    
+    # Check if request has expired
+    if kyc_request.expires_at and kyc_request.expires_at < timezone.now():
+        await audit.alog(
+            actor_id=institution_id,
+            actor_role="THIRD_PARTY",
+            action="KYC_DATA_RETRIEVAL_FAILED",
+            target_type="KYC_REQUEST",
+            target_id=str(kyc_request_id),
+            outcome="FAILURE",
+            meta={"reason": "KYC request has expired"}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="KYC request has expired"
         )
     
     # Verify consent record exists and decision is APPROVED

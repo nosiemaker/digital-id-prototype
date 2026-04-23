@@ -3,10 +3,12 @@ KYC Service Layer for Third-Party Identity Gateway and Administrative Statistics
 Handles selective data sharing and demographic analytics.
 """
 from typing import Any
+from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Count, Q
 from citizens.models import Citizen, CitizenStatus, Gender, Province
 from ..models import KYCRequest, ConsentRecord, ThirdPartyInstitution, KYCRequestStatus
+from ..schema import KYCRequestResponse, ConsentRecordResponse, ConsentDecision
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,6 +16,12 @@ logger = logging.getLogger(__name__)
 
 class KYCService:
     """Service for handling KYC requests and selective data disclosure."""
+    
+    # Valid fields that can be shared via KYC requests (must match filter_citizen_data)
+    VALID_SHAREABLE_FIELDS = {
+        'full_name', 'dob', 'phone', 'nrc', 'din', 'gender', 
+        'province', 'status', 'language', 'created_at', 'updated_at'
+    }
 
     @staticmethod
     def filter_citizen_data(citizen: Citizen, fields_requested: list[str]) -> dict[str, Any]:
@@ -65,17 +73,31 @@ class KYCService:
             
         Returns:
             Created KYCRequest instance
+            
+        Raises:
+            ValueError: If requested fields are outside institution's permitted_scope or invalid
         """
         try:
             institution = ThirdPartyInstitution.objects.get(id=institution_id)
             citizen = Citizen.objects.get(din=citizen_din)
+            
+            # Validate requested fields exist as valid shareable fields
+            invalid_fields = set(fields_requested) - KYCService.VALID_SHAREABLE_FIELDS
+            if invalid_fields:
+                raise ValueError(f"Invalid fields requested: {invalid_fields}. Valid fields: {KYCService.VALID_SHAREABLE_FIELDS}")
+            
+            # Validate scope: all requested fields must be within institution's permitted_scope
+            scope_violation = set(fields_requested) - set(institution.permitted_scope)
+            if scope_violation:
+                raise ValueError(f"Fields not in permitted scope: {scope_violation}")
             
             kyc_request = KYCRequest.objects.create(
                 institution=institution,
                 citizen_din=citizen_din,
                 citizen=citizen,
                 fields_requested=fields_requested,
-                status=KYCRequestStatus.PENDING
+                status=KYCRequestStatus.PENDING,
+                expires_at=timezone.now() + timedelta(hours=24)
             )
             
             logger.info(f"KYC request created: {institution.name} -> {citizen_din}")
@@ -89,7 +111,12 @@ class KYCService:
             raise
 
     @staticmethod
-    def process_citizen_response(kyc_request_id: int, decision: str, citizen_id: int) -> ConsentRecord:
+    def process_citizen_response(
+        kyc_request_id: int,
+        decision: str,
+        citizen_id: int,
+        fields_granted: list[str] | None = None
+    ) -> ConsentRecord:
         """
         Process citizen's approval/denial of a KYC request.
         
@@ -97,9 +124,13 @@ class KYCService:
             kyc_request_id: ID of the KYCRequest
             decision: Either 'APPROVED' or 'DENIED'
             citizen_id: ID of the citizen making the decision
+            fields_granted: Optional subset of fields citizen approved. If None, all requested fields are granted.
             
         Returns:
             Created ConsentRecord instance
+            
+        Raises:
+            ValueError: If decision is invalid or fields_granted contains invalid fields
         """
         try:
             kyc_request = KYCRequest.objects.get(id=kyc_request_id)
@@ -108,14 +139,28 @@ class KYCService:
             # Verify the citizen matches the request
             if kyc_request.citizen != citizen:
                 raise ValueError("Citizen does not match KYC request")
+            
+            # Validate decision against schema
+            try:
+                ConsentDecision(decision)
+            except ValueError:
+                raise ValueError(f"Invalid decision: {decision}. Must be 'APPROVED' or 'DENIED'")
                 
             # Update the KYC request
             kyc_request.status = KYCRequestStatus.APPROVED if decision == 'APPROVED' else KYCRequestStatus.DENIED
             kyc_request.responded_at = timezone.now()
             
             if decision == 'APPROVED':
-                # Citizen approved - grant the requested fields
-                kyc_request.fields_granted = kyc_request.fields_requested
+                # Validate fields_granted is subset of fields_requested
+                if fields_granted is not None:
+                    invalid_fields = set(fields_granted) - set(kyc_request.fields_requested)
+                    if invalid_fields:
+                        raise ValueError(
+                            f"Fields granted contain invalid fields not in request: {invalid_fields}. "
+                            f"Allowed fields: {kyc_request.fields_requested}"
+                        )
+                # Citizen approved - use their explicit field choice or default to all requested
+                kyc_request.fields_granted = fields_granted or kyc_request.fields_requested
             else:
                 # Citizen denied - no fields granted
                 kyc_request.fields_granted = []

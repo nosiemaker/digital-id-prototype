@@ -11,7 +11,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
 
 django.setup()
  
-from routers import auth, citizens, registration, kyc
+from routers import auth, citizens, registration, kyc, digital_id, qr
 from middleware.auth import AuthMiddleware
 from Utils.audit_logger import AuditMiddleware
 
@@ -32,6 +32,8 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(citizens.router, prefix="/citizens", tags=["citizens"])
 app.include_router(registration.router, prefix="/enrollments", tags=["enrollments"])
 app.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
+app.include_router(qr.router, prefix="/qr", tags=["qr"])
+app.include_router(digital_id.router)
 
 # Add CORS middleware
 app.add_middleware(

@@ -137,7 +137,7 @@ async def _awrite(
 
 class AuditLogger:
     """
-    Thin façade.  Import once and use across the whole project:
+    Import once and use across the whole project:
 
         from Utils.audit_logger import audit
 

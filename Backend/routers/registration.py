@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, status as http_status, Depends
+from fastapi import APIRouter, Request, Depends
 from typing import Optional
 from datetime import datetime
 

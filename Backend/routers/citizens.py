@@ -168,7 +168,6 @@ async def delete_citizen(
 
 # Additional endpoints for specific operations
 
-
 @router.get("/{din}/biometrics", response_model=BiometricRecordResponse)
 async def get_citizen_biometrics(
     din: str,
@@ -335,7 +334,6 @@ async def get_family_tree(
 
 
 # List citizens with filtering
-
 
 @router.get("/", response_model=list[CitizenSummary])
 async def list_citizens(

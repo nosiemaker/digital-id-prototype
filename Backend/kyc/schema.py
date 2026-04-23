@@ -55,7 +55,7 @@ class ThirdPartyInstitutionResponse(ThirdPartyInstitutionBase):
     """
     GET /institutions/{id}
     Standard response. 
-    🚨 NOTE: `oidc_secret` is intentionally omitted to prevent accidental exposure.
+    NOTE: `oidc_secret` is intentionally omitted to prevent accidental exposure.
     """
     model_config = ConfigDict(from_attributes=True)
 

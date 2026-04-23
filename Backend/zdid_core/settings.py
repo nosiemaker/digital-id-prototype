@@ -31,6 +31,27 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
+# ============================================================================
+# Digital ID — ECDSA P-256 server signing keypair
+# ============================================================================
+# These are loaded once at startup by digital_id/service.py
+# If either is missing the app will refuse to start (ImproperlyConfigured).
+#
+# Generate a keypair locally:
+#   openssl ecparam -name prime256v1 -genkey -noout -out zdid_signing.pem
+#   openssl ec -in zdid_signing.pem -pubout -out zdid_signing_pub.pem
+#
+# Then paste the contents into .env — newlines replaced with \n:
+#   ZDID_SIGNING_PRIVATE_KEY="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
+#   ZDID_SIGNING_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+
+ZDID_SIGNING_PRIVATE_KEY = config("ZDID_SIGNING_PRIVATE_KEY", default="").replace("\\n", "\n")
+ZDID_SIGNING_PUBLIC_KEY = config("ZDID_SIGNING_PUBLIC_KEY", default="").replace("\\n", "\n")
+
+# Biometric salt (already in your system for DIN derivation — keep alongside)
+BIOMETRIC_SALT = config("BIOMETRIC_SALT", default="")
+
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -46,6 +67,7 @@ INSTALLED_APPS = [
     "hospital",
     "kyc",
     "registration",
+    "qr",
 ]
 
 MIDDLEWARE = [
