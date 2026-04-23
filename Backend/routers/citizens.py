@@ -18,6 +18,8 @@ from Utils.rbac import (
     Permission,
 )
 from Utils.audit_logger import audit
+from Utils.rbac import has_permission, Permission
+from asgiref.sync import sync_to_async
 
 router = APIRouter(prefix="/citizens", tags=["citizens"])
 logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ async def get_citizen(
     """
     # Check authentication
     current_user = request.state.user
+
     if not current_user:
         raise HTTPException(
             status_code=http_status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
@@ -54,9 +57,12 @@ async def get_citizen(
     user_id = current_user.get("id")
     
     # Citizens can only view their own profile
+    get_func = sync_to_async(citizen_service.get_citizen_by_din)
+
     if user_role == "CITIZEN":
         # Get the citizen record to check if it matches the current user
-        citizen = citizen_service.get_citizen_by_din(din)
+        citizen = await get_func(din)
+
         if not citizen or citizen.id != user_id:
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
@@ -64,15 +70,14 @@ async def get_citizen(
             )
     # ROs, Registrars, and Supervisors can view any citizen profile
     elif user_role not in ["REGISTRATION_OFFICER", "REGISTRAR", "SUPERVISOR"]:
-        # For other roles, check if they have the specific permission
-        from Utils.rbac import has_permission, Permission
+        # check permission for other roles
         if not has_permission(user_role, Permission.RO_READ_CITIZEN_PROFILE):
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
                 detail=f"Insufficient permissions. Required: {Permission.RO_READ_CITIZEN_PROFILE.value}",
             )
     
-    citizen = citizen_service.get_citizen_by_din(din)
+    citizen = await get_func(din)
     if not citizen:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found"
@@ -102,9 +107,10 @@ async def update_citizen(
     user_id = current_user.get("id")
     
     # Citizens can only update their own profile
+    get_func = sync_to_async(citizen_service.get_citizen_by_din)    
     if user_role == "CITIZEN":
         # Get the citizen record to check if it matches the current user
-        citizen = citizen_service.get_citizen_by_din(din)
+        citizen = await get_func(din)
         if not citizen or citizen.id != user_id:
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
@@ -113,7 +119,6 @@ async def update_citizen(
     # ROs, Registrars, and Supervisors can update any citizen profile
     elif user_role not in ["REGISTRATION_OFFICER", "REGISTRAR", "SUPERVISOR"]:
         # For other roles, check if they have the specific permission
-        from Utils.rbac import has_permission, Permission
         if not has_permission(user_role, Permission.RO_READ_CITIZEN_PROFILE):
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
@@ -121,18 +126,19 @@ async def update_citizen(
             )
 
     # Check if citizen exists
-    citizen = citizen_service.get_citizen_by_din(din)
+    citizen = await get_func(din)
     if not citizen:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found"
         )
 
     # Update citizen
-    updated_citizen = citizen_service.update_citizen(din, citizen_data, actor_id=current_user.get("id"), actor_role=user_role)
+    updated_citizen = await sync_to_async(citizen_service.update_citizen)(din, citizen_data, actor_id=current_user.get("id"), actor_role=user_role)
     
     # Log the citizen update
     updated_fields = list(citizen_data.dict(exclude_unset=True).keys())
-    audit.citizen_updated(current_user.get("id"), user_role, din, fields=updated_fields)
+
+    await sync_to_async(audit.citizen_updated)(current_user.get("id"), user_role, din, fields=updated_fields)
     
     logger.info(f"Updated citizen: {din}")
     return updated_citizen
@@ -153,24 +159,23 @@ async def delete_citizen(
         )
 
     # Check if citizen exists
-    citizen = citizen_service.get_citizen_by_din(din)
+    citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din)
     if not citizen:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found"
         )
 
     # Delete citizen
-    citizen_service.delete_citizen(din, actor_id=current_user.get("id"), actor_role=current_user.get("role"))
+    await sync_to_async(citizen_service.delete_citizen)(din, actor_id=current_user.get("id"), actor_role=current_user.get("role"))
     
     # Log the deletion
-    audit.citizen_deleted(current_user.get("id"), current_user.get("role"), din)
+    await sync_to_async(audit.citizen_deleted)(current_user.get("id"), current_user.get("role"), din)
     
     logger.info(f"Deleted citizen: {din}")
     return None
 
 
 # Additional endpoints for specific operations
-
 
 @router.get("/{din}/biometrics", response_model=BiometricRecordResponse)
 async def get_citizen_biometrics(
@@ -194,7 +199,7 @@ async def get_citizen_biometrics(
     # Citizens can only view their own biometrics
     if user_role == "CITIZEN":
         # Get the citizen record to check if it matches the current user
-        citizen = citizen_service.get_citizen_by_din(din)
+        citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din)
         if not citizen or citizen.id != user_id:
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
@@ -203,14 +208,13 @@ async def get_citizen_biometrics(
     # ROs can view any citizen's biometrics
     elif user_role != "REGISTRATION_OFFICER":
         # For other roles, check if they have the specific permission
-        from Utils.rbac import has_permission, Permission
         if not has_permission(user_role, Permission.RO_READ_CITIZEN_PROFILE):
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
                 detail=f"Insufficient permissions. Required: {Permission.RO_READ_CITIZEN_PROFILE.value}",
             )
 
-    biometric_record = biometric_service.get_biometric_by_citizen_din(din)
+    biometric_record = await sync_to_async(biometric_service.get_biometric_by_citizen_din)(din)
     if not biometric_record:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Biometric record not found"
@@ -238,7 +242,6 @@ async def create_citizen_biometrics(
     # Check authorization - only Registration Officers can create biometrics
     user_role = current_user.get("role")
     if user_role != "REGISTRATION_OFFICER":
-        from Utils.rbac import has_permission, Permission
         if not has_permission(user_role, Permission.RO_CAPTURE_BIOMETRICS):
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
@@ -246,19 +249,19 @@ async def create_citizen_biometrics(
             )
 
     # Check if citizen exists
-    citizen = citizen_service.get_citizen_by_din(din)
+    citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din)
     if not citizen:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found"
         )
 
     # Create biometric record
-    biometric_record = biometric_service.create_biometric_record(
+    biometric_record = await sync_to_async(biometric_service.create_biometric_record)(
         din, biometric_data, actor_id=current_user.get("id"), actor_role=user_role
     )
     
     # Log biometric capture
-    audit.biometric_captured(current_user.get("id"), din)
+    await sync_to_async(audit.biometric_captured)(current_user.get("id"), din)
     
     logger.info(f"Created biometric record for citizen: {din}")
     return biometric_record
@@ -281,19 +284,19 @@ async def update_citizen_biometrics(
         )
 
     # Check if citizen exists
-    citizen = citizen_service.get_citizen_by_din(din)
+    citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din)
     if not citizen:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found"
         )
 
     # Update biometric record
-    updated_biometric = biometric_service.update_biometric_record(
+    updated_biometric = await(biometric_service.update_biometric_record)(
         din, biometric_data, actor_id=current_user.get("id"), actor_role=current_user.get("role")
     )
     
     # Log biometric update
-    audit.biometric_updated(current_user.get("id"), din)
+    await sync_to_async(audit.biometric_updated)(current_user.get("id"), din)
     
     logger.info(f"Updated biometric record for citizen: {din}")
     return updated_biometric
@@ -311,14 +314,14 @@ async def create_family_link(
     _check_auth(request)
 
     # Check if citizen exists
-    citizen = citizen_service.get_citizen_by_din(din)
+    citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din)
     if not citizen:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found"
         )
 
     # Create family link
-    family_link = family_service.create_family_link(din, family_link_data)
+    family_link = await sync_to_async(family_service.create_family_link)(din, family_link_data)
     logger.info(f"Created family link for citizen: {din}")
     return family_link
 
@@ -333,12 +336,11 @@ async def get_family_tree(
     """
     _check_auth(request)
 
-    family_tree = family_service.get_family_tree(din)
+    family_tree = await sync_to_async(family_service.get_family_tree)(din)
     return family_tree
 
 
 # List citizens with filtering
-
 
 @router.get("/", response_model=list[CitizenSummary])
 async def list_citizens(
@@ -354,7 +356,7 @@ async def list_citizens(
     """
     _check_auth(request)
 
-    citizens = citizen_service.list_citizens(
+    citizens = await sync_to_async(citizen_service.list_citizens)(
         status=status,
         language=language,
         search=search,

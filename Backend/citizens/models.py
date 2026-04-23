@@ -17,6 +17,23 @@ class Language(models.TextChoices):
     TONGA = "toi", "Tonga"
     LOZI = "loz", "Lozi"
 
+class Gender(models.TextChoices):
+    MALE = "MALE", "Male"
+    FEMALE = "FEMALE", "Female"
+    OTHER = "OTHER", "Other"
+
+class Province(models.TextChoices):
+    CENTRAL = "CENTRAL", "Central"
+    COPPERBELT = "COPPERBELT", "Copperbelt"
+    EASTERN = "EASTERN", "Eastern"
+    LUAPULA = "LUAPULA", "Luapula"
+    LUSAKA = "LUSAKA", "Lusaka"
+    MUCHINGA = "MUCHINGA", "Muchinga"
+    NORTHERN = "NORTHERN", "Northern"
+    NORTHWEST = "NORTHWEST", "North-Western"
+    SOUTHERN = "SOUTHERN", "Southern"
+    WESTERN = "WESTERN", "Western"
+
 class RelationshipType(models.TextChoices):
     PARENT = "PARENT", "Parent"
     CHILD = "CHILD", "Child"
@@ -30,12 +47,13 @@ class Citizen(models.Model):
     full_name = models.CharField(max_length=255)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)
+    province = models.CharField(max_length=20, choices=Province.choices, null=True, blank=True)
     public_key = models.TextField(null= True)
     status = models.CharField(max_length=20, choices=CitizenStatus.choices, default=CitizenStatus.PENDING)
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.ENGLISH)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
 
     class Meta:
         db_table = "citizen"
@@ -43,6 +61,8 @@ class Citizen(models.Model):
             models.Index(fields=["din"]),
             models.Index(fields=["nrc"]),
             models.Index(fields=["status"]),
+            models.Index(fields=["gender"]),
+            models.Index(fields=["province"]),
         ]
     def __str__(self):
         return f"{self.full_name}({self.din or 'PENDING'})" 

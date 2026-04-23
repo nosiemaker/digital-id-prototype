@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Request, status as http_status, Depends
+from fastapi import APIRouter, Request, Depends, status,HTTPException
 from typing import Optional
 from datetime import datetime
+from asgiref.sync import sync_to_async
 
 from registration.schema import (
     EnrollmentRequestResponse,
@@ -37,7 +38,7 @@ async def list_enrollment_requests(
     List enrollment requests with filtering and pagination.
     Used by Registration Officer Dashboard to see pending requests.
     """
-    return service_list_enrollment_requests(
+    return await sync_to_async( service_list_enrollment_requests)(
         status=status,
         ro_id=ro_id,
         submitted_after=submitted_after,
@@ -58,7 +59,7 @@ async def approve_enrollment_request(
     Approve an enrollment request.
     Generates activation challenge and sets status to APPROVED.
     """
-    return service_approve_enrollment_request(
+    return await sync_to_async(service_approve_enrollment_request)(
         enrollment_id=enrollment_id,
         approval_data=approval_data,
         current_user_id=current_user["id"],
@@ -76,7 +77,7 @@ async def reject_enrollment_request(
     Reject an enrollment request.
     Sets status to REJECTED and records rejection reason.
     """
-    return service_reject_enrollment_request(
+    return await sync_to_async(service_reject_enrollment_request)(
         enrollment_id=enrollment_id,
         rejection_data=rejection_data,
         current_user_id=current_user["id"],

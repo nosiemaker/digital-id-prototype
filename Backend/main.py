@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
 django.setup()
 from routers import auth, citizens, registration,citizen_registration,hospital
+from routers import auth, citizens, registration, kyc, digital_id, qr
 from middleware.auth import AuthMiddleware
 from Utils.audit_logger import AuditMiddleware
 
@@ -31,6 +32,10 @@ app.include_router(citizens.router, prefix="/citizens", tags=["citizens"])
 app.include_router(citizen_registration.router)
 app.include_router(hospital.birth_router)
 app.include_router(hospital.death_router)
+app.include_router(registration.router, prefix="/enrollments", tags=["enrollments"])
+app.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
+app.include_router(qr.router, prefix="/qr", tags=["qr"])
+app.include_router(digital_id.router)
 
 # Add CORS middleware
 app.add_middleware(

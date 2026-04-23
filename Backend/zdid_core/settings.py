@@ -21,11 +21,35 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("DJANGO_SECRET_KEY")
+SECRET_KEY = config(
+    "DJANGO_SECRET_KEY",
+    default="TZE9KfgO7sl6sdGkQBN8t0LK3Da03Kxbqv4T1dTJL8g_hjMt3x6iJ3lR8aH2MrMZysw",
+)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+
+# ============================================================================
+# Digital ID — ECDSA P-256 server signing keypair
+# ============================================================================
+# These are loaded once at startup by digital_id/service.py
+# If either is missing the app will refuse to start (ImproperlyConfigured).
+#
+# Generate a keypair locally:
+#   openssl ecparam -name prime256v1 -genkey -noout -out zdid_signing.pem
+#   openssl ec -in zdid_signing.pem -pubout -out zdid_signing_pub.pem
+#
+# Then paste the contents into .env — newlines replaced with \n:
+#   ZDID_SIGNING_PRIVATE_KEY="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
+#   ZDID_SIGNING_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+
+ZDID_SIGNING_PRIVATE_KEY = config("ZDID_SIGNING_PRIVATE_KEY", default="").replace("\\n", "\n")
+ZDID_SIGNING_PUBLIC_KEY = config("ZDID_SIGNING_PUBLIC_KEY", default="").replace("\\n", "\n")
+
+# Biometric salt (already in your system for DIN derivation — keep alongside)
+BIOMETRIC_SALT = config("BIOMETRIC_SALT", default="")
 
 
 # Application definition
@@ -43,7 +67,8 @@ INSTALLED_APPS = [
     'hospital',
     'kyc',
     'registration',
-    'rest_framework'
+    'rest_framework',
+    "qr",
 ]
 
 MIDDLEWARE = [
@@ -92,16 +117,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -109,9 +134,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -121,4 +146,4 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"

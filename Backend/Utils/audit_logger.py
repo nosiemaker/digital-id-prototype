@@ -137,7 +137,7 @@ async def _awrite(
 
 class AuditLogger:
     """
-    Thin façade.  Import once and use across the whole project:
+    Import once and use across the whole project:
 
         from Utils.audit_logger import audit
 
@@ -347,6 +347,37 @@ class AuditLogger:
             "KYC_REQUEST",
             institution_id,
             outcome="FAILURE",
+        )
+
+    async def kyc_request_initiated(
+        self,
+        user_id: str | int,
+        institution_id: str | int,
+        citizen_din: str,
+        kyc_request_id: int
+    ) -> None:
+        await self.alog(
+            user_id,
+            "THIRD_PARTY",
+            "KYC_REQUEST_INITIATED",
+            "KYC_REQUEST",
+            str(kyc_request_id),
+            meta={"institution_id": institution_id, "citizen_din": citizen_din}
+        )
+
+    async def kyc_request_responded(
+        self,
+        user_id: str | int,
+        kyc_request_id: int,
+        decision: str
+    ) -> None:
+        await self.alog(
+            user_id,
+            "CITIZEN",
+            "KYC_REQUEST_RESPONDED",
+            "KYC_REQUEST",
+            str(kyc_request_id),
+            meta={"decision": decision}
         )
 
     # ---- Birth / Death records ----
