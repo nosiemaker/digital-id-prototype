@@ -349,6 +349,37 @@ class AuditLogger:
             outcome="FAILURE",
         )
 
+    async def kyc_request_initiated(
+        self,
+        user_id: str | int,
+        institution_id: str | int,
+        citizen_din: str,
+        kyc_request_id: int
+    ) -> None:
+        await self.alog(
+            user_id,
+            "THIRD_PARTY",
+            "KYC_REQUEST_INITIATED",
+            "KYC_REQUEST",
+            str(kyc_request_id),
+            meta={"institution_id": institution_id, "citizen_din": citizen_din}
+        )
+
+    async def kyc_request_responded(
+        self,
+        user_id: str | int,
+        kyc_request_id: int,
+        decision: str
+    ) -> None:
+        await self.alog(
+            user_id,
+            "CITIZEN",
+            "KYC_REQUEST_RESPONDED",
+            "KYC_REQUEST",
+            str(kyc_request_id),
+            meta={"decision": decision}
+        )
+
     # ---- Birth / Death records ----
 
     def birth_record_submitted(self, worker_id: str | int, record_id: str) -> None:
