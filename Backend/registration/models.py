@@ -27,7 +27,7 @@ class EnrollmentRequest(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="reviewed_enrollments",
+        related_name="enrollment_requests_reviewed",
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
@@ -50,7 +50,7 @@ class EnrollmentRequest(models.Model):
         ]
 
     def __str__(self):
-        return f"Enrollment for {self.citizen} — {self.status}"
+        return f"Enrollment for {self.citizen}-{self.id} — {self.status}"
 
 
 class RegistrationOfficer(models.Model):

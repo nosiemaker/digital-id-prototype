@@ -53,7 +53,7 @@ class SystemUser(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.role})"
+        return f"{self.id} ({self.role})"
 
 
 class Transaction(models.Model):
@@ -63,7 +63,7 @@ class Transaction(models.Model):
     citizen_din: the citizen being charged.
     institution: FK to ThirdPartyInstitution via string ref (kyc app).
     """
-    citizen_din = models.CharField(max_length=12)
+    citizen_din = models.CharField(max_length=20)
     institution = models.ForeignKey(
         "kyc.ThirdPartyInstitution",
         on_delete=models.CASCADE,

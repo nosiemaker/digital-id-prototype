@@ -3,6 +3,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
+from citizens.models import Citizen
+
 
 # -------------------------------------------------------------------
 # Enums
@@ -28,7 +30,7 @@ class EnrollmentApproval(BaseModel):
     """
     PATCH /enrollments/{id}/approve
     Payload submitted by RO or system to approve the enrollment.
-    """
+
     activation_challenge: str = Field(
         ..., 
         max_length=64, 
@@ -38,6 +40,9 @@ class EnrollmentApproval(BaseModel):
         ..., 
         description="Timestamp when the challenge expires"
     )
+    """
+    status: EnrollmentStatus.APPROVED
+
 
 
 class EnrollmentRejection(BaseModel):

@@ -4,8 +4,11 @@ from django.db import models
 class CitizenStatus(models.TextChoices):
     PENDING = "PENDING", "pending"
     ACTIVE = "ACTIVE", "active"
+    INACTIVE = "INACTIVE"
     SUSPENDED = "SUSPENDED", "suspended"
     DECEASED = "DECEASED", "deceased"
+    REJECTED = "REJECTED"
+
 
 class Language(models.TextChoices):
     ENGLISH = "en", "English"
@@ -22,16 +25,17 @@ class RelationshipType(models.TextChoices):
     GUARDIAN = "GUARDIAN", "Guardian"
 
 class Citizen(models.Model):
-    din = models.CharField(max_length=12, unique=True, null=True, blank=True)
-    nrc = models.CharField(max_length=15, unique=True)
+    din = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    nrc = models.CharField(max_length=15, unique=True,null=True)
     full_name = models.CharField(max_length=255)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
-    public_key = models.TextField()
+    public_key = models.TextField(null= True)
     status = models.CharField(max_length=20, choices=CitizenStatus.choices, default=CitizenStatus.PENDING)
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.ENGLISH)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
 
     class Meta:
         db_table = "citizen"

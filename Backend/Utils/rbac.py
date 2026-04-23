@@ -4,7 +4,9 @@ Defines permissions and role-based access checks.
 """
 
 from enum import Enum
-from typing import Set
+from typing import Set, List
+from Utils.auth import decode_token
+from jose import JWTError
 from fastapi import HTTPException, status
 from starlette.requests import Request
 

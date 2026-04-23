@@ -39,7 +39,7 @@ def create_biometric_record(
     
     # Log the biometric capture if actor info is provided
     if actor_id:
-        audit.biometric_captured(actor_id=actor_id, citizen_din=citizen_din)
+        audit.biometric_captured(r_id, citizen_din)
     
     return biometric_record
 

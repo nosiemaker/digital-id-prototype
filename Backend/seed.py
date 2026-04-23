@@ -19,11 +19,11 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
 sys.path.insert(0, os.path.dirname(__file__))
 django.setup()
 
-from admin_ops.models import SystemUser, UserRole  # noqa: E402
-from citizens.models import Citizen, CitizenStatus  # noqa: E402
+from admin_ops.models import SystemUser, UserRole                     # noqa: E402
+from citizens.models import Citizen, CitizenStatus                    # noqa: E402
 from registration.models import EnrollmentRequest, EnrollmentStatus  # noqa: E402
-from Utils.auth import hash_password  # noqa: E402
-from Utils.biometrics import (  # noqa: E402
+from Utils.auth import hash_password                                  # noqa: E402
+from Utils.biometrics import (                                        # noqa: E402
     quantize_embedding,
     derive_din_from_embedding,
 )
@@ -43,7 +43,7 @@ deleted, _ = SystemUser.objects.filter(email__in=SEED_EMAILS).delete()
 print(f"  Removed {deleted} existing seed user(s)")
 
 # ── Create system users ────────────────────────────────────────────────────────
-pw = hash_password("zdid123")  # All dev accounts use the same password
+pw = hash_password("zdid1234")  # All dev accounts use the same password
 
 ro = SystemUser.objects.create(
     role=UserRole.REGISTRATION_OFFICER,

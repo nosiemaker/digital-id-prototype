@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, status as http_status
-
+from fastapi import APIRouter, HTTPException, Request, status as http_status, Depends
 from typing import Optional
 import logging
 
@@ -14,6 +13,10 @@ from citizens.schema import (
     FamilyLinkResponse,
 )
 from citizens.services import citizen_service, biometric_service, family_service
+from Utils.rbac import (
+    get_permission_dependency,
+    Permission,
+)
 from Utils.audit_logger import audit
 
 router = APIRouter(prefix="/citizens", tags=["citizens"])
