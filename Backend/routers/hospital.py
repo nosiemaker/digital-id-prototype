@@ -5,8 +5,8 @@ from dependencies.auth import require_groups, UserRole
 from hospital.schema import BirthRecordBase,DeathRecordBase,RecordRejection
 from hospital.services.birth_death_recording import record_submission, create_death_record,create_birth_record,death_record_approval,death_record_rejection,birth_record_rejection,birth_record_approval,get_all_death_records,get_single_death_record,get_single_birth_record,get_all_births_records,get_single_pending_birth,get_all_pending_births,get_all_pending_deaths,get_single_pending_death
 0
-birth_router = APIRouter(prefix="/birth_record", tags=["birth_records"])
-death_router = APIRouter(prefix="/death_record", tags=["death_records"])
+birth_router = APIRouter()
+death_router = APIRouter()
 
 @birth_router.post("/submit")
 async def create_birth_record(body:BirthRecordBase,request:Request, user= Depends(require_groups([UserRole.HEALTH_WORKER]))):
