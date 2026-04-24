@@ -43,7 +43,7 @@ class CryptoService {
             const keyPair = await crypto.subtle.generateKey(
                 {
                     name: 'ECDSA',
-                    namedCurve: 'p-256'
+                    namedCurve: 'P-256'
                 },
                 false,
                 ['sign', 'verify']

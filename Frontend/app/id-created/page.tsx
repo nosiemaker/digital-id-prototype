@@ -71,7 +71,7 @@ export default function IDCreatedPage() {
             <div className="h-16 w-16 rounded-lg bg-background flex items-center justify-center shrink-0 border border-border">
               <div className="grid grid-cols-4 gap-0.5">
                 {Array.from({ length: 16 }).map((_, i) => (
-                  <div key={i} className={`h-2.5 w-2.5 rounded-sm ${[0,2,5,7,8,10,13,15].includes(i) ? "bg-foreground" : "bg-transparent"}`} />
+                  <div key={i} className={`h-2.5 w-2.5 rounded-sm ${[0, 2, 5, 7, 8, 10, 13, 15].includes(i) ? "bg-foreground" : "bg-transparent"}`} />
                 ))}
               </div>
             </div>
