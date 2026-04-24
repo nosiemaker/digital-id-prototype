@@ -382,16 +382,16 @@ class AuditLogger:
 
     # ---- Birth / Death records ----
 
-    def birth_record_submitted(self, worker_id: str | int, record_id: str) -> None:
+    def birth_record_submitted(self, worker_id: str | int, record_id: int | str) -> None:
         self.log(worker_id, "HEALTH_WORKER", "BIRTH_RECORD_SUBMITTED", "BIRTH_RECORD", record_id)
 
-    def birth_record_approved(self, ro_id: str | int, record_id: str) -> None:
+    def birth_record_approved(self, ro_id: str | int, record_id: int | str) -> None:
         self.log(ro_id, "RO", "BIRTH_RECORD_APPROVED", "BIRTH_RECORD", record_id)
 
-    def death_record_submitted(self, worker_id: str | int, record_id: str) -> None:
+    def death_record_submitted(self, worker_id: str | int, record_id: int | str) -> None:
         self.log(worker_id, "HEALTH_WORKER", "DEATH_RECORD_SUBMITTED", "DEATH_RECORD", record_id)
 
-    def death_record_approved(self, ro_id: str | int, record_id: str) -> None:
+    def death_record_approved(self, ro_id: str | int, record_id: int | str) -> None:
         self.log(ro_id, "RO", "DEATH_RECORD_APPROVED", "DEATH_RECORD", record_id)
 
 

@@ -106,7 +106,7 @@ def approve_enrollment_request(
     # Log the enrollment approval
     audit.enrollment_approved(current_user_id, enrollment_id)
 
-    # TODO: Activate the citizen record (set CitizenStatus to ACTIVE, generate DIN)
+
     # This would involve updating the related Citizen record.
     # For now, we just update the enrollment request.
 

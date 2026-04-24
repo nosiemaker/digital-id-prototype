@@ -36,7 +36,7 @@ class SystemUser(models.Model):
         choices=UserRole.choices,
     )
     email = models.EmailField(unique=True)
-    password_hash = models.CharField(max_length=255)
+    password_hash = models.CharField(max_length=255,null=True)
     name = models.CharField(max_length=255)
     citizen_din = models.CharField(max_length=12, null=True, blank=True)  # For CITIZEN role
     is_active = models.BooleanField(default=True)

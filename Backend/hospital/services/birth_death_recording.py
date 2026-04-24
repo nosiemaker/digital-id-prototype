@@ -1,5 +1,7 @@
 import datetime
 from django.db import transaction
+from fastapi import HTTPException
+from Utils.audit_logger import audit
 from citizens.models import Citizen, CitizenStatus
 from citizens.serializer import CitizenSerializer
 from citizens.utilities.id_generation import generate_id, child_seed_generation
@@ -19,9 +21,14 @@ def record_submission(record_type:str,request_body:dict,user_id:int):
         request_serializer = DeathRecordRequestSerializer(data=new_request)
         if request_serializer.is_valid():
             request_serializer.save()
+            audit.death_record_submitted(user_id,request_serializer.data.id)
             return {"details": "Request Submitted","created_request": request_serializer.data ,"status": status.HTTP_201_CREATED}
         else:
-            return {"details": request_serializer.errors, "created_request": None,"status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=request_serializer.errors,
+            )
+
     elif record_type == "birth":
         partial_birth_record = create_birth_record(request_body)
         if type(partial_birth_record) == dict:
@@ -33,13 +40,21 @@ def record_submission(record_type:str,request_body:dict,user_id:int):
         birth_request_serializer = BirthRecordRequestSerializer(data=new_birth_request)
         if birth_request_serializer.is_valid():
             birth_request_serializer.save()
+            audit.birth_record_submitted(user_id, birth_request_serializer.data.id)
             return {"details": "Request Submitted", "created_request": birth_request_serializer.data,
                     "status": status.HTTP_201_CREATED}
         else:
-            return {"details": birth_request_serializer.errors, "created_request": None,
-                    "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=birth_request_serializer.errors,
+            )
+
     else:
-        return{"details": "Invalid Request", "status": status.HTTP_400_BAD_REQUEST}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Request",
+        )
+
 
 def create_death_record (request_body: dict):
     serializer = DeathRecordSerializer(data=request_body)
@@ -47,7 +62,11 @@ def create_death_record (request_body: dict):
         record = serializer.save()
         return record
     else:
-        return {"details": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+
 
 def create_birth_record (request_body: dict):
     serializer = BirthRecordSerializer(data=request_body)
@@ -55,29 +74,49 @@ def create_birth_record (request_body: dict):
         record = serializer.save()
         return record
     else:
-        return {"details": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+
 
 def death_record_approval(request_id:int, ro_id: int) -> dict:
     try:
         submission_request = (DeathRecordSubmissions.objects.select_related("record").get(id = request_id))
     except DeathRecordSubmissions.DoesNotExist:
-        return {"details": "Request Not Found", "status": status.HTTP_404_NOT_FOUND}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Request Not Found",
+        )
 
     if submission_request.status != RecordStatus.PENDING:
-        return {"details": "Request is not pending", "status": status.HTTP_409_CONFLICT}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Request is not pending",
+        )
     record = submission_request.record
 
     try:
         citizen_to_update = Citizen.objects.get(din=record.deceased_din)
     except Citizen.DoesNotExist:
+        details = death_record_rejection(request_id, ro_id, "Citizen ID not found")
         record.delete()
-        return {"details": "Citizen ID not found", "status": status.HTTP_400_BAD_REQUEST}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=details,
+        )
 
     try:
         record_check = DeathRecord.objects.get(deceased_din=record.deceased_din)
-    except Citizen.DoesNotExist:
+    except DeathRecord.DoesNotExist:
+        pass
+    else:
+        details = death_record_rejection(request_id, ro_id, "Certificate Already Exists")
         record.delete()
-        return {"details": "Certificate Already Exists", "status": status.HTTP_409_CONFLICT}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=details,
+        )
 
     with transaction.atomic():
         record_submission_serializer = DeathRecordRequestSerializer(
@@ -91,7 +130,10 @@ def death_record_approval(request_id:int, ro_id: int) -> dict:
         )
 
         if not record_submission_serializer.is_valid():
-            return {"details": record_submission_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_submission_serializer.errors,
+            )
 
         record_submission_serializer.save()
 
@@ -105,7 +147,10 @@ def death_record_approval(request_id:int, ro_id: int) -> dict:
         )
 
         if not record_serializer.is_valid():
-            return {"details": record_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_serializer.errors,
+            )
 
         record_serializer.save()
 
@@ -118,9 +163,12 @@ def death_record_approval(request_id:int, ro_id: int) -> dict:
 
         )
         if not citizen_serializer.is_valid():
-            return {"details": citizen_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=citizen_serializer.errors,
+            )
         citizen_serializer.save()
-
+        audit.death_record_approved(ro_id, record_serializer.data.id)
         return {"details": "Approval Successful","request": record_serializer.data ,"status": status.HTTP_200_OK}
 
 def death_record_rejection(request_id: int, ro_id: int, rejection_reason:str) -> dict :
@@ -128,10 +176,17 @@ def death_record_rejection(request_id: int, ro_id: int, rejection_reason:str) ->
     try:
         submission_request = (DeathRecordSubmissions.objects.select_related("record").get(id = request_id))
     except DeathRecordSubmissions.DoesNotExist:
-        return {"details": "Record Request Not Found", "status": status.HTTP_404_NOT_FOUND}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record Request Not Found",
+        )
 
     if submission_request.status != RecordStatus.PENDING:
-        return {"details": "Request is not pending", "status": status.HTTP_409_CONFLICT}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Request is not pending",
+        )
+
     record = submission_request.record
 
     with transaction.atomic():
@@ -148,7 +203,10 @@ def death_record_rejection(request_id: int, ro_id: int, rejection_reason:str) ->
         )
 
         if not record_submission_serializer.is_valid():
-            return {"details": record_submission_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_submission_serializer.errors,
+            )
 
         record_submission_serializer.save()
 
@@ -161,11 +219,14 @@ def death_record_rejection(request_id: int, ro_id: int, rejection_reason:str) ->
         )
 
         if not record_serializer.is_valid():
-            return {"details": record_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_serializer.errors,
+            )
 
         record_serializer.save()
 
-        return {"details": "Request Successfully Rejected",
+        return {"details": "Request Rejected",
                 "request": record_submission_serializer.data,
                 "status": status.HTTP_200_OK}
 
@@ -173,17 +234,30 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
     try:
         submission_request = (BirthRecordSubmissions.objects.select_related("record").get(id = request_id))
     except BirthRecordSubmissions.DoesNotExist:
-        return {"details": "Record Request Not Found", "status": status.HTTP_404_NOT_FOUND}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record Request Not Found",
+        )
+
     if submission_request.status != RecordStatus.PENDING:
-        return {"details": "Request is not pending", "status": status.HTTP_409_CONFLICT}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Request is not pending",
+        )
+
 
     record = submission_request.record
 
     try:
         mother = Citizen.objects.get(din = record.mother_din)
     except Citizen.DoesNotExist:
+        details = birth_record_rejection(request_id, ro_id, "Mother ID Not Found")
         record.delete()
-        return {"details": "Citizen ID not found", "status": status.HTTP_400_BAD_REQUEST}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=details,
+        )
+
 
     child_id = generate_id(
         child_seed_generation(record.child_full_name, record.child_dob, record.born_at, record.mother_din))
@@ -195,7 +269,10 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
     else:
         details=birth_record_rejection(request_id, ro_id, "Certificate Already Exists")
         record.delete()
-        return {"details": "Certificate Already Exists","request":details,"status": status.HTTP_409_CONFLICT}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=details,
+        )
 
     with transaction.atomic():
         record_submission_serializer = BirthRecordRequestSerializer(
@@ -209,7 +286,10 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
         )
 
         if not record_submission_serializer.is_valid():
-            return {"details": record_submission_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_submission_serializer.errors,
+            )
 
         record_submission_serializer.save()
 
@@ -225,7 +305,10 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
         )
 
         if not record_serializer.is_valid():
-            return {"details": record_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_serializer.errors,
+            )
 
         record_serializer.save()
 
@@ -239,19 +322,28 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
         )
 
         if not citizen_serializer.is_valid():
-            return {"details": citizen_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=citizen_serializer.errors,
+            )
         citizen_serializer.save()
-
+        audit.birth_record_approved(ro_id,record_serializer.data.id)
         return {"details": "Approval Successful","request": record_serializer.data ,"status": status.HTTP_200_OK}
 
 def birth_record_rejection(request_id: int, ro_id: int, rejection_reason:str) -> dict :
     try:
         submission_request = (BirthRecordSubmissions.objects.select_related("record").get(id = request_id))
     except BirthRecordSubmissions.DoesNotExist:
-        return {"details": "Record Request Not Found", "status": status.HTTP_404_NOT_FOUND}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record Request Not Found",
+        )
 
     if submission_request.status != RecordStatus.PENDING:
-        return {"details": "Request is not pending", "status": status.HTTP_409_CONFLICT}
+        raise HTTPException(
+            status_code= status.HTTP_409_CONFLICT,
+            detail="Request is not pending",
+        )
     record = submission_request.record
 
     with transaction.atomic():
@@ -268,9 +360,12 @@ def birth_record_rejection(request_id: int, ro_id: int, rejection_reason:str) ->
         )
 
         if not record_submission_serializer.is_valid():
-            return {"details": record_submission_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_submission_serializer.errors,
+            )
 
-        updated_request = record_submission_serializer.save()
+        record_submission_serializer.save()
 
         record_serializer = BirthRecordSerializer(
             instance=record,
@@ -281,11 +376,13 @@ def birth_record_rejection(request_id: int, ro_id: int, rejection_reason:str) ->
         )
 
         if not record_serializer.is_valid():
-            return {"details": record_serializer.errors, "status": status.HTTP_400_BAD_REQUEST}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=record_serializer.errors,
+            )
 
         record_serializer.save()
-
-        return {"details": "Request Successfully Rejected",
+        return {"details": "Request Rejected",
                 "request": record_submission_serializer.data,
                 "status": status.HTTP_200_OK}
 
@@ -309,7 +406,10 @@ def get_single_pending_birth(request_id: int):
     try:
         pending_submission = BirthRecordSubmissions.objects.get(id=request_id).firtst()
     except BirthRecordSubmissions.DoesNotExist:
-        return {"details": "Record Does Not Exist", "record": None}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Submission Does Not Exist",
+        )
     serializer = BirthRecordRequestSerializer(pending_submission)
     return {"details": "Submission Found", "pending_submission": serializer.data}
 
@@ -317,7 +417,10 @@ def get_single_pending_death(request_id: int):
     try:
         pending_submission = DeathRecordSubmissions.objects.get(id=request_id).firtst()
     except DeathRecordSubmissions.DoesNotExist:
-        return {"details": "Record Does Not Exist", "record": None}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Submission Does Not Exist",
+        )
     serializer = DeathRecordRequestSerializer(pending_submission)
     return {"details": "Submissions Found", "pending_submission": serializer.data}
 
@@ -325,15 +428,21 @@ def get_single_birth_record(request_id: int):
     try:
         record = BirthRecord.objects.get(id=request_id).firtst()
     except BirthRecord.DoesNotExist:
-        return {"details": "Record Does Not Exist", "record": None}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record Does Not Exist",
+        )
     serializer = BirthRecordSerializer(record)
     return {"details": "Record Found", "record": serializer.data}
 
 def get_single_death_record(request_id: int):
     try:
-        record = DeathRecord.objects.get(id=request_id).firtst()
+        record = DeathRecord.objects.get(id=request_id)
     except DeathRecord.DoesNotExist:
-        return {"details":"Record Does Not Exist", "record": None}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record Does Not Exist",
+        )
     serializer = DeathRecordSerializer(record)
     return {"details": "Record Found","record": serializer.data}
 
