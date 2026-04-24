@@ -7,7 +7,6 @@ from fastapi import APIRouter, Request
 from asgiref.sync import sync_to_async
 from fastapi.params import Depends
 
-from Utils.auth import create_access_token
 from registration.schema import EnrollmentRejection
 from citizens.schema import CitizenBase
 from dependencies.auth import require_groups,UserRole
@@ -38,10 +37,7 @@ async def reject(request_id: int, body: EnrollmentRejection, request: Request, u
 @router.post("/submit")
 async def new_citizen_enrollment_request(body: CitizenBase, request: Request):
     result = await sync_to_async(create_citizen_request)(body.model_dump())
-    # TODO: Remove test token generation below before going to production
-    token_health = create_access_token(22,UserRole.HEALTH_WORKER,"example@gmail.com")
-    token_ro = create_access_token(19,UserRole.REGISTRATION_OFFICER,"example@gmail.com")
-    return {"result": result, "token_health":token_health, "token_ro":token_ro}
+    return result
 
 # Returns all enrollment requests that are currently in PENDING status.
 # Only accessible to users with the REGISTRATION_OFFICER role.

@@ -151,7 +151,9 @@ def get_user_permissions(role: str) -> Set[Permission]:
     Returns:
         Set of Permission enums
     """
-    return ROLE_PERMISSIONS.get(role, set())
+    role_map = {"RO": "REGISTRATION_OFFICER"}
+    normalized_role = role_map.get(role, role)
+    return ROLE_PERMISSIONS.get(normalized_role, set())
 
 
 def has_permission(user_role: str, permission: Permission) -> bool:

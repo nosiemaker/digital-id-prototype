@@ -30,7 +30,7 @@ class CitizenBase(BaseModel):
     full_name: str = Field(..., max_length=255)
     dob: date = Field(..., description="Date of birth")
     phone: Optional[str] = Field(None, max_length=20)
-    #public_key: str = Field(..., description="PEM-encoded ECDSA P-256 public key")
+    public_key: str = Field(..., description="PEM-encoded ECDSA P-256 public key")
     language: Language = Field(default=Language.ENGLISH)
 
 class BiometricRecordBase(BaseModel):

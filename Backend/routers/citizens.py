@@ -291,7 +291,7 @@ async def update_citizen_biometrics(
         )
 
     # Update biometric record
-    updated_biometric = await(biometric_service.update_biometric_record)(
+    updated_biometric = await sync_to_async(biometric_service.update_biometric_record)(
         din, biometric_data, actor_id=current_user.get("id"), actor_role=current_user.get("role")
     )
     
