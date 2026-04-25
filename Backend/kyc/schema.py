@@ -28,12 +28,18 @@ class ConsentDecision(str, Enum):
 # Third Party Institution Schemas
 # -------------------------------------------------------------------
 class ThirdPartyInstitutionBase(BaseModel):
+    email:str = Field(..., description="Email Address")
     name: str = Field(..., max_length=255)
     reg_number: str = Field(..., max_length=100, description="Business registration number")
     permitted_scope: list[str] = Field(
         default_factory=list, 
         description="List of fields this institution is permitted to request (e.g., ['full_name', 'dob'])"
     )
+class ThirdPartyApprovalRequest(BaseModel):
+    permitted_scope: list[str]
+
+class RejectionRequest(BaseModel):
+    rejection_reason: str
 
 class ThirdPartyInstitutionCreate(ThirdPartyInstitutionBase):
     """

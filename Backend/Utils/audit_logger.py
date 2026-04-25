@@ -234,6 +234,13 @@ class AuditLogger:
             ro_id, "RO", "APPROVE_ENROLLMENT", "ENROLLMENT", str(enrollment_id), meta=meta
         )
 
+    def third_party_enrollment_approved(
+        self, registrar_id: str | int, enrollment_id: int, meta: Optional[dict] = None
+    ) -> None:
+        self.log(
+            registrar_id, "Registrar", "APPROVE_THIRD_PARTY_ENROLLMENT", "ENROLLMENT", str(enrollment_id), meta=meta
+        )
+
     def enrollment_rejected(
         self,
         ro_id: str | int,
@@ -251,7 +258,23 @@ class AuditLogger:
             outcome="FAILURE",
             meta=merged,
         )
-
+    def third_party_enrollment_rejected(
+        self,
+        registrar_id: str | int,
+        enrollment_id: int,
+        reason: str,
+        meta: Optional[dict] = None,
+    ) -> None:
+        merged = {"rejection_reason": reason, **(meta or {})}
+        self.log(
+            registrar_id,
+            "Registrar",
+            "REJECT_THIRD_PARTY_ENROLLMENT",
+            "ENROLLMENT",
+            str(enrollment_id),
+            outcome="FAILURE",
+            meta=merged,
+        )
     # ---- Biometrics ----
 
     def biometric_captured(

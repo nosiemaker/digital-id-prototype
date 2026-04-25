@@ -34,11 +34,11 @@ async def reject(request_id: int, body: EnrollmentRejection, request: Request, u
 # Open endpoint — no authentication required for initial enrollment submission.
 # NOTE: The response currently includes generated JWT tokens for testing purposes;
 # these should be removed before deploying to production.
-@router.post("/submit")
+"""@router.post("/submit")
 async def new_citizen_enrollment_request(body: CitizenBase, request: Request):
     result = await sync_to_async(create_citizen_request)(body.model_dump())
     return result
-
+"""
 # Returns all enrollment requests that are currently in PENDING status.
 # Only accessible to users with the REGISTRATION_OFFICER role.
 @router.get("/pending_requests")

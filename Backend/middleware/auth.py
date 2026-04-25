@@ -7,7 +7,16 @@ import os
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 ALGORITHM = "HS256"
 
-PUBLIC_ROUTES = ["/docs", "/openapi.json", "/enrollments/submit", "/auth/login", "/auth/register"]
+PUBLIC_ROUTES = [
+    "/docs", 
+    "/openapi.json", 
+    "/enrollments/submit", 
+    "/auth/login", 
+    "/auth/register",
+    "/third_party/register",
+    "/users/activate/{din}",
+    "/users/set-password"
+]
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):

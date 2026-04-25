@@ -47,6 +47,7 @@ class Citizen(models.Model):
     password = models.CharField(max_length=20, null=True, blank=True)
     nrc = models.CharField(max_length=15, unique=True,null=True)
     full_name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True,null=True)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)

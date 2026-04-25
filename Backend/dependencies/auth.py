@@ -17,8 +17,9 @@ def get_current_user(request:Request):
 
 def require_groups(required_groups: list):
     def check_groups(user: dict = Depends(get_current_user)):
-        user_groups = user.get("role", "").upper().strip()
-        if user_groups not in required_groups:
+        user_g = user.get("role", "").upper().strip()
+        user_groups = set(user_g.split(','))
+        if not user_groups.intersection(set(required_groups)):
             raise HTTPException(status_code=403, detail=f"User {user_groups} Not allowed")
         return user
     return check_groups

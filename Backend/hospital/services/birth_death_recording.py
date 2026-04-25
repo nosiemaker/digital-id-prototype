@@ -315,7 +315,7 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
 
     # Generate a deterministic child DIN derived from child details and mother's DIN
     child_id = generate_id(
-        child_seed_generation(record.child_full_name, record.child_dob, record.born_at, record.mother_din))
+        child_seed_generation(record.child_full_name, record.child_dob, record.born_at, record.mother_din), "CITIZEN")
 
     # Prevent duplicate birth certificates for the same child
     try:

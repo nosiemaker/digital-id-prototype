@@ -27,7 +27,7 @@ def create_check_sum(generated_id):
     check_value = (36 - (total % 36)) % 36
     return value_to_char(check_value)
 
-def generate_id(seed: bytes):
+def generate_id(seed: bytes,type: str):
     if not isinstance(seed, bytes):
         raise ValueError("Seed must be in bytes")
 
@@ -51,8 +51,10 @@ def generate_id(seed: bytes):
 
     check_sum_value = create_check_sum(final_hmac_id)
 
-
-    return f"ZM-{final_hmac_id}{check_sum_value}"
+    if type == "CITIZEN":
+        return f"ZM-{final_hmac_id}{check_sum_value}"
+    elif type == "THIRD_PARTY":
+        return f"TP-{final_hmac_id}{check_sum_value}"
 
 def child_seed_generation(name: str, dob, born, mothers_din):
     input_string = f"{name}{dob}{born}{mothers_din}"

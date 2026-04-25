@@ -10,7 +10,7 @@ from typing import Optional
 # -------------------------------------------------------------------
 class UserRole(str, Enum):
     CITIZEN = 'CITIZEN'
-    REGISTRATION_OFFICER = 'RO'
+    REGISTRATION_OFFICER = 'REGISTRATION_OFFICER'
     REGISTRAR = 'REGISTRAR'
     SUPERVISOR = 'SUPERVISOR'
     HEALTH_WORKER = 'HEALTH_WORKER'
@@ -33,24 +33,26 @@ class TransactionMethod(str, Enum):
 # System User Schemas
 # -------------------------------------------------------------------
 class SystemUserBase(BaseModel):
-    role: UserRole
+    role: str
     email: EmailStr
     name: str = Field(..., max_length=255)
-    citizen_din: Optional[str] = Field(None, max_length=12, description="Only populated for CITIZEN role")
+    citizen_din:str = Field(..., max_length=20, description="Only populated for CITIZEN role")
     is_active: bool = True
 
-class SystemUserCreate(SystemUserBase):
-    """
-    POST /users/
-    Requires a plain-text password. The backend MUST hash this using bcrypt
-    before saving to the `password_hash` database field.
-    """
+class UpdateUserPermissions(BaseModel):
+    role: str
+    citizen_din: str = Field(..., max_length=20, description="Only populated for CITIZEN role")
+
+class SystemUserCreatePassword(BaseModel):
+
+    citizen_din: str = Field(..., max_length=20, description="Only populated for CITIZEN role")
     password: str = Field(..., min_length=8, description="Plain text password to be hashed by backend")
 
 class SystemUserUpdate(BaseModel):
     """
     PATCH /users/{id}
     """
+    password: str = Field(..., min_length=8, description="Plain text password to be hashed by backend")
     email: Optional[EmailStr] = None
     name: Optional[str] = Field(None, max_length=255)
     is_active: Optional[bool] = None
@@ -64,6 +66,11 @@ class SystemUserResponse(SystemUserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    email: str
+    name: str
+    role: str
+    citizen_din: Optional[str] = None
+    is_active: bool
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
