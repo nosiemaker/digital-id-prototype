@@ -27,11 +27,16 @@ class RelationshipType(str, Enum):
 
 class CitizenBase(BaseModel):
     nrc: str = Field(..., max_length=20, description="National Registration Card Number")
+    email: str = Field(..., max_length=255, description="Email address")
+    password: str = Field(..., max_length=20, description="Password")
     full_name: str = Field(..., max_length=255)
     dob: date = Field(..., description="Date of birth")
     phone: Optional[str] = Field(None, max_length=20)
     public_key: str = Field(..., description="PEM-encoded ECDSA P-256 public key")
     language: Language = Field(default=Language.ENGLISH)
+    nrc_front_url: Optional[str] = Field(None, max_length=500)
+    nrc_back_url: Optional[str] = Field(None, max_length=500)
+    face_image_url: Optional[str] = Field(None, max_length=500)
 
 class BiometricRecordBase(BaseModel):
     facial_template: Optional[str] = Field(None, description="Base64-encoded facial template")

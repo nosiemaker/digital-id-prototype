@@ -36,71 +36,14 @@ from django.core.exceptions import ImproperlyConfigured
 
 from citizens.models import Citizen, CitizenStatus
 from citizens.schema import DigitalIDPayload
+from Utils.signing import load_pem_public_key, load_private_key
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Key loading — happens once at import time
-# ---------------------------------------------------------------------------
-
-def _load_private_key() -> ec.EllipticCurvePrivateKey:
-    """
-    Load the server ECDSA P-256 private key from Django settings.
-    Settings reads it from ZDID_SIGNING_PRIVATE_KEY in .env.
-
-    Raises ImproperlyConfigured if the key is missing or not a valid
-    PEM-encoded ECDSA P-256 private key.
-    """
-    pem: str = getattr(settings, "ZDID_SIGNING_PRIVATE_KEY", None)
-    if not pem:
-        raise ImproperlyConfigured(
-            "ZDID_SIGNING_PRIVATE_KEY is not set. "
-            "Generate a key with: "
-            "openssl ecparam -name prime256v1 -genkey -noout -out key.pem"
-        )
-    try:
-        key = serialization.load_pem_private_key(
-            pem.encode() if isinstance(pem, str) else pem,
-            password=None,
-        )
-    except Exception as exc:
-        raise ImproperlyConfigured(
-            f"ZDID_SIGNING_PRIVATE_KEY is not a valid PEM private key: {exc}"
-        ) from exc
-
-    if not isinstance(key, ec.EllipticCurvePrivateKey):
-        raise ImproperlyConfigured(
-            "ZDID_SIGNING_PRIVATE_KEY must be an ECDSA key (EC), not RSA or other."
-        )
-    if not isinstance(key.curve, ec.SECP256R1):
-        raise ImproperlyConfigured(
-            f"ZDID_SIGNING_PRIVATE_KEY must use curve P-256 (prime256v1), "
-            f"got: {key.curve.name}"
-        )
-
-    return key
-
-
-def _load_public_key_pem() -> str:
-    """
-    Load the server public key PEM from Django settings.
-    Included in the DigitalIDPayload so verifiers can confirm the signature
-    without needing a separate key-distribution endpoint.
-    """
-    pem: str = getattr(settings, "ZDID_SIGNING_PUBLIC_KEY", None)
-    if not pem:
-        raise ImproperlyConfigured(
-            "ZDID_SIGNING_PUBLIC_KEY is not set. "
-            "Export it with: openssl ec -in key.pem -pubout -out pubkey.pem"
-        )
-    return pem.strip()
-
-
 # Module-level singletons — loaded once, reused for every request
 try:
-    _SIGNING_KEY: ec.EllipticCurvePrivateKey = _load_private_key()
-    _SERVER_PUBLIC_KEY_PEM: str = _load_public_key_pem()
+    _SIGNING_KEY: ec.EllipticCurvePrivateKey = load_private_key()
+    _SERVER_PUBLIC_KEY_PEM = load_pem_public_key
     logger.info("ZDID signing key loaded successfully.")
 except ImproperlyConfigured:
     # Re-raise so the app fails fast at startup, not silently mid-request
@@ -125,9 +68,9 @@ def _build_canonical_payload(citizen: Citizen, issued_at: datetime) -> dict:
         "din": citizen.din,
         "dob": citizen.dob.isoformat(),          # "YYYY-MM-DD"
         "full_name": citizen.full_name,
-        "issued_at": issued_at.isoformat(),       # "YYYY-MM-DDTHH:MM:SS+00:00"
+        "issued_at": issued_at.isoformat(),
         "nrc": citizen.nrc,
-        "public_key": citizen.public_key,         # citizen's device key
+        "public_key": citizen.public_key,
         "status": citizen.status,
     }
 

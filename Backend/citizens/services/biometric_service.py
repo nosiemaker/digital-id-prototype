@@ -44,7 +44,7 @@ def create_biometric_record(
     return biometric_record
 
 
-def get_biometric_by_citizen_din(db, citizen_din: str) -> Optional[BiometricRecord]:
+def get_biometric_by_citizen_din(citizen_din: str) -> Optional[BiometricRecord]:
     """
     Get biometric record by citizen DIN.
     """
