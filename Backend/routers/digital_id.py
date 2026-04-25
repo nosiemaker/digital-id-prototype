@@ -90,7 +90,6 @@ async def get_public_key():
 )
 async def get_digital_id(
     din: str,
-    request: Request,
     current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
 ):
     """
@@ -141,9 +140,4 @@ async def get_digital_id(
         target_type="CITIZEN",
         target_id=din,
         meta={"requested_by_role": user_role},
-    )
-
-    return DigitalIDResponse(
-        payload=digital_id_payload,
-        issued_at=digital_id_payload.issued_at,
     )

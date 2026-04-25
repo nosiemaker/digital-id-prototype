@@ -39,12 +39,12 @@ def create_biometric_record(
     
     # Log the biometric capture if actor info is provided
     if actor_id:
-        audit.biometric_captured(r_id, citizen_din)
+        audit.biometric_captured(actor_id, citizen_din)
     
     return biometric_record
 
 
-def get_biometric_by_citizen_din(db, citizen_din: str) -> Optional[BiometricRecord]:
+def get_biometric_by_citizen_din(citizen_din: str) -> Optional[BiometricRecord]:
     """
     Get biometric record by citizen DIN.
     """

@@ -17,6 +17,7 @@ from citizens.serializer import CitizenSerializer
 from uuid import uuid4
 from citizens.utilities.id_generation import generate_id
 from Utils.audit_logger import audit
+from Utils.auth import hash_password
 
 
 # Creates a new citizen record and a linked enrollment request.
@@ -25,6 +26,10 @@ from Utils.audit_logger import audit
 def create_citizen_request (request_body: dict):
     serializer = CitizenSerializer(data=request_body)
     if serializer.is_valid():
+
+        if "password" in serializer.validated_data:
+            plain_password = serializer.validated_data["password"]
+            serializer.validated_data["password"] = hash_password(plain_password)
         citizen = serializer.save()
         # Link the newly created citizen to the enrollment request
         new_request = {"citizen":citizen.id}
@@ -80,7 +85,7 @@ def approve_citizen_registration(request_id: int, ro_id:int) -> dict:
     din = generate_id(uuid4().bytes, "CITIZEN")
     # Check whether a citizen with this DIN already exists to prevent collisions
     try:
-        citizen_check = Citizen.objects.get(din = din).first()
+        citizen_check = Citizen.objects.filter(din = din).first()
     except Citizen.DoesNotExist:
         # No collision — safe to proceed with this DIN
         pass

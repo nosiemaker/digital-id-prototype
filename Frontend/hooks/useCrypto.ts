@@ -3,7 +3,7 @@ import { cryptoService } from '@/service/crypto';
 
 export function useCrypto() {
     const [ready, setReady] = useState(false);
-    const [hasKey, sethasKey] = useState(false);
+    const [hasKey, setHasKey] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
@@ -15,7 +15,7 @@ export function useCrypto() {
 
     const checkKey = async () => {
         const exists = await cryptoService.hasKeys();
-        sethasKey(true);
+        setHasKey(exists);
 
     };
 
@@ -24,7 +24,7 @@ export function useCrypto() {
         try {
             const result = await cryptoService.generateKeys();
             if (result.success) {
-                sethasKey(true);
+                setHasKey(true);
                 return result.publicKeyJwt;
             }
             return null

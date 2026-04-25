@@ -4,9 +4,7 @@ Defines permissions and role-based access checks.
 """
 
 from enum import Enum
-from typing import Set, List
-from Utils.auth import decode_token
-from jose import JWTError
+from typing import Set
 from fastapi import HTTPException, status
 from starlette.requests import Request
 
@@ -151,7 +149,9 @@ def get_user_permissions(role: str) -> Set[Permission]:
     Returns:
         Set of Permission enums
     """
-    return ROLE_PERMISSIONS.get(role, set())
+    role_map = {"RO": "REGISTRATION_OFFICER"}
+    normalized_role = role_map.get(role, role)
+    return ROLE_PERMISSIONS.get(normalized_role, set())
 
 
 def has_permission(user_role: str, permission: Permission) -> bool:

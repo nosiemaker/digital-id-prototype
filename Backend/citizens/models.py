@@ -43,16 +43,23 @@ class RelationshipType(models.TextChoices):
 
 class Citizen(models.Model):
     din = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    email = models.EmailField(unique=True, null=True, blank=True)
+    password = models.CharField(max_length=20, null=True, blank=True)
     nrc = models.CharField(max_length=15, unique=True,null=True)
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True,null=True)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)
+    nrc_front_url = models.URLField(max_length=500, null=True, blank=True)
+    nrc_back_url = models.URLField(max_length=500, null=True, blank=True)
+    face_image_url = models.URLField(max_length=500, null=True, blank=True)
     province = models.CharField(max_length=20, choices=Province.choices, null=True, blank=True)
     public_key = models.TextField(null= True)
+    activation_nonce = models.CharField(max_length=64, null=True, blank=True)
     status = models.CharField(max_length=20, choices=CitizenStatus.choices, default=CitizenStatus.PENDING)
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.ENGLISH)
+    challenge_expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1,46 +1,41 @@
 import { useState } from 'react';
 import { useCrypto } from './useCrypto';
 import { cryptoService } from '@/service/crypto';
-
-const API_BASE = '';
+import { enrollmentApi, CitizenBase } from '@/lib/axios';
+import { AwardIcon } from 'lucide-react';
 
 export function useEnrollment() {
     const { ready, hasKey, genarateKeys, signChallenge } = useCrypto();
-    const [enrolling, setEnrolling] = useState();
-    const [pendingId, setPendingId] = useState();
+    const [enrolling, setEnrolling] = useState(false);
+    const [pendingId, setPendingId] = useState<number | null>(null);
 
-    const startEnrollment = async (nrc: string, fullName: string, phone: string) => {
+    const startEnrollment = async (data: Omit<CitizenBase, 'public_key'>) => {
         if(!ready) throw new Error('Crypto not ready');
         setEnrolling(true);
 
         try {
-            //GenerateKey if not present
-            let publicKeyJwt = await cryptoService.getPublicKey();
+            // Generate key if not present
+            let publicKeyJwt: string | JsonWebKey | null = await cryptoService.getPublicKey();
             if (!publicKeyJwt) {
                 const result = await genarateKeys();
                 if (!result) throw new Error('Key generation failed');
                 publicKeyJwt = result;
             }
 
-            const res = await fetch(`${API_BASE}/enrollment`, {
-                method: 'POST',
-                headers: { 'Content-Type' : 'application/json' },
-                body: JSON.stringify({
-                    nrc,
-                    fullName,
-                    phoneNumber: phone,
-                    publicKeyJwt
-                })
+            const publicKeyString = typeof publicKeyJwt === 'string'
+                ? publicKeyJwt
+                : JSON.stringify(publicKeyJwt);
+
+            const response = await enrollmentApi.submit({
+                ...data,
+                public_key: publicKeyString
             });
 
-            if (!ready.ok) throw new Error('Enrollment failed');
-
-            const data = await res.json();
-            setEnrolling(data.enrollmentId);
+            setPendingId(response.id);
 
             return {
-                enrollmentId:  data.enrollmentId,
-                status: 'PENDING_OFFICE_VISIT',
+                enrollmentId:  response.id,
+                status: response.status,
                 message: 'Visit registration office to complete verification'
             };
         } finally {
@@ -49,13 +44,13 @@ export function useEnrollment() {
     };
 
     const activate = async (enrollmentId: string, nonce: string) => {
-        const signture = await signChallenge(enrollmentId, nonce);
-        if (!signture) throw new Error('Signing failed');
-
-        const res = await fetch(`${API_BASE}/enrollment/activate`, {
+        const signature = await signChallenge(enrollmentId, nonce);
+        if (!signature) throw new Error('Signing failed');
+        // todo: write endpoint for activition challenge
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrollment/activate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enrollmentId, signture})
+            body: JSON.stringify({ enrollmentId, signature})
         });
 
         if (!res.ok) throw new Error('Activation failed');
