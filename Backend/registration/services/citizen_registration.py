@@ -7,6 +7,8 @@
 import datetime
 from django.db import transaction
 from fastapi import HTTPException
+from dependencies.auth import UserRole
+from admin_ops.services.user_management import create_system_user
 from citizens.models import Citizen, CitizenStatus
 from registration.models import EnrollmentRequest,EnrollmentStatus
 from registration.serializers import CitizenRegistrationRequestSerializer
@@ -60,9 +62,14 @@ def get_single_pending(request_id: int):
 # record by assigning the generated DIN and setting status to ACTIVE.
 def approve_citizen_registration(request_id: int, ro_id:int) -> dict:
     # Fetch the enrollment request along with its related citizen in one query
-    enrollment_request = (EnrollmentRequest.objects.select_related("citizen").get(id=request_id))
+    try:
+        enrollment_request = (EnrollmentRequest.objects.select_related("citizen").get(id=request_id))
+    except EnrollmentRequest.DoesNotExist:
+         raise HTTPException(
+             status_code=status.HTTP_404_NOT_FOUND,
+             detail="Request Is Not Found",
+         )
 
-    # Guard: only PENDING requests can be approved
     if enrollment_request.status != EnrollmentStatus.PENDING:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -70,8 +77,7 @@ def approve_citizen_registration(request_id: int, ro_id:int) -> dict:
         )
 
     # Generate a candidate DIN using a random UUID as the seed
-    din = generate_id(uuid4().bytes)
-
+    din = generate_id(uuid4().bytes, "CITIZEN")
     # Check whether a citizen with this DIN already exists to prevent collisions
     try:
         citizen_check = Citizen.objects.get(din = din).first()
@@ -130,6 +136,7 @@ def approve_citizen_registration(request_id: int, ro_id:int) -> dict:
             )
 
         citizen_serializer.save()
+
         # Log the approval event for audit trail
         audit.enrollment_approved(ro_id,enrollment_serializer.data.id, enrollment_serializer.data)
         return {"details": "Approval Successful","request": enrollment_serializer.data, "status": status.HTTP_200_OK}
@@ -144,9 +151,10 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason:st
         # Fetch the enrollment request along with its related citizen in one query
         enrollment_request = (EnrollmentRequest.objects.select_related("citizen").get(id=request_id))
     except EnrollmentRequest.DoesNotExist:
-        # Silently pass — the subsequent status check will still catch invalid states;
-        # NOTE: this will raise an UnboundLocalError if the object was not found.
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Request Is Not Found",
+        )
 
     # Guard: only PENDING requests can be rejected
     if enrollment_request.status != EnrollmentStatus.PENDING:

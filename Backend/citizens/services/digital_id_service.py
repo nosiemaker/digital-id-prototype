@@ -24,6 +24,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -59,9 +60,18 @@ def _load_private_key() -> ec.EllipticCurvePrivateKey:
             "Generate a key with: "
             "openssl ecparam -name prime256v1 -genkey -noout -out key.pem"
         )
+
+    if isinstance(pem, str) and os.path.isfile(pem):
+        with open(pem, "rb") as key_file:
+            key_data = key_file.read()
+    elif isinstance(pem, str):
+        key_data = pem.replace('\\n', '\n').encode('utf-8')
+    else:
+        key_data = pem
+
     try:
         key = serialization.load_pem_private_key(
-            pem.encode() if isinstance(pem, str) else pem,
+            key_data,
             password=None,
         )
     except Exception as exc:
@@ -94,7 +104,11 @@ def _load_public_key_pem() -> str:
             "ZDID_SIGNING_PUBLIC_KEY is not set. "
             "Export it with: openssl ec -in key.pem -pubout -out pubkey.pem"
         )
-    return pem.strip()
+    if isinstance(pem, str) and os.path.isfile(pem):
+        with open(pem, "r") as key_file:
+            return key_file.read().strip()
+
+    return pem.replace('\\n', '\n').strip()
 
 
 # Module-level singletons — loaded once, reused for every request

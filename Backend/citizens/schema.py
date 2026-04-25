@@ -26,6 +26,7 @@ class RelationshipType(str, Enum):
 ##Shared fields
 
 class CitizenBase(BaseModel):
+    email:str = Field(..., description="Email Address ")
     nrc: str = Field(..., max_length=20, description="National Registration Card Number")
     full_name: str = Field(..., max_length=255)
     dob: date = Field(..., description="Date of birth")

@@ -1,5 +1,8 @@
 from django.db import models
 
+from kyc.models import ThirdPartyInstitution
+from registration.models import EnrollmentStatus
+
 
 class UserRole(models.TextChoices):
     CITIZEN = "CITIZEN", "Citizen"
@@ -23,6 +26,41 @@ class TransactionMethod(models.TextChoices):
     AIRTEL_MONEY = "AIRTEL_MONEY", "Airtel Money"
     BANK_TRANSFER = "BANK_TRANSFER", "Bank Transfer"
 
+class ThirdPartyEnrollmentRequest(models.Model):
+
+    third_party_institution = models.OneToOneField(
+        ThirdPartyInstitution,
+        on_delete=models.CASCADE,
+        related_name="enrollment_request",
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+
+    registrar = models.ForeignKey(
+        "admin_ops.SystemUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="third_party_enrollment_requests_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=EnrollmentStatus.choices,
+        default=EnrollmentStatus.PENDING,
+    )
+    rejection_reason = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "third_party_enrollment_requests"
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["submitted_at"]),
+        ]
+
+    def __str__(self):
+        return f"Enrollment for {self.third_party_institution}-{self.id} — {self.status}"
+
 
 class SystemUser(models.Model):
     """
@@ -31,15 +69,13 @@ class SystemUser(models.Model):
     citizen_din: only populated for CITIZEN role — links to Citizen record.
     is_active: set False to suspend without deleting.
     """
-    role = models.CharField(
-        max_length=20,
-        choices=UserRole.choices,
-    )
+    role = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     password_hash = models.CharField(max_length=255,null=True)
     name = models.CharField(max_length=255)
-    citizen_din = models.CharField(max_length=12, null=True, blank=True)  # For CITIZEN role
-    is_active = models.BooleanField(default=True)
+    citizen_din = models.CharField(max_length=20,blank=True, unique=True,null=True)
+    institution_din = models.CharField(max_length=20, blank=True, unique=True, null=True)
+    is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_login = models.DateTimeField(null=True, blank=True)

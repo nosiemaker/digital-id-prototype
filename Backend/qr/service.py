@@ -84,11 +84,17 @@ def _load_private_key() -> ec.EllipticCurvePrivateKey:
     pem: str = getattr(settings, "ZDID_SIGNING_PRIVATE_KEY", None)
     if not pem:
         raise ImproperlyConfigured("ZDID_SIGNING_PRIVATE_KEY is not set.")
+
+    if isinstance(pem, str) and os.path.isfile(pem):
+        with open(pem, "rb") as f:
+            key_data = f.read()
+    elif isinstance(pem, str):
+        key_data = pem.replace('\\n', '\n').encode('utf-8')
+    else:
+        key_data = pem
+
     try:
-        key = serialization.load_pem_private_key(
-            pem.encode() if isinstance(pem, str) else pem,
-            password=None,
-        )
+        key = serialization.load_pem_private_key(key_data, password=None)
     except Exception as exc:
         raise ImproperlyConfigured(f"ZDID_SIGNING_PRIVATE_KEY invalid: {exc}") from exc
     return key
@@ -98,21 +104,19 @@ def _load_public_key() -> ec.EllipticCurvePublicKey:
     pem: str = getattr(settings, "ZDID_SIGNING_PUBLIC_KEY", None)
     if not pem:
         raise ImproperlyConfigured("ZDID_SIGNING_PUBLIC_KEY is not set.")
+
+    if isinstance(pem, str) and os.path.isfile(pem):
+        with open(pem, "rb") as f:
+            key_data = f.read()
+    elif isinstance(pem, str):
+        key_data = pem.replace('\\n', '\n').encode('utf-8')
+    else:
+        key_data = pem
+
     try:
-        return serialization.load_pem_public_key(
-            pem.encode() if isinstance(pem, str) else pem
-        )
+        return serialization.load_pem_public_key(key_data)
     except Exception as exc:
         raise ImproperlyConfigured(f"ZDID_SIGNING_PUBLIC_KEY invalid: {exc}") from exc
-
-
-# Module-level singletons
-try:
-    _SIGNING_KEY: ec.EllipticCurvePrivateKey = _load_private_key()
-    _VERIFY_KEY: ec.EllipticCurvePublicKey = _load_public_key()
-    logger.info("QR signing keys loaded successfully.")
-except ImproperlyConfigured:
-    raise
 
 
 # ---------------------------------------------------------------------------

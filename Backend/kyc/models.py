@@ -7,6 +7,7 @@ class InstitutionStatus(models.TextChoices):
     ACTIVE = "ACTIVE", "Active"
     SUSPENDED = "SUSPENDED", "Suspended"
     REVOKED = "REVOKED", "Revoked"
+    REJECTED = "REJECTED","Rejected"
 
 
 class KYCRequestStatus(models.TextChoices):
@@ -21,6 +22,8 @@ class ThirdPartyInstitution(models.Model):
     External institutions (banks, telecoms, etc.) that can request KYC data.
     Registrar enrolls and approves them. OIDC credentials generated on approval.
     """
+    email = models.EmailField(unique=True,null=True)
+    institution_id = models.CharField(max_length=20,blank=True, unique=True)
     name = models.CharField(max_length=255)
     reg_number = models.CharField(max_length=100, unique=True)  # Business registration number
     oidc_client_id = models.CharField(max_length=128, unique=True, null=True, blank=True)
