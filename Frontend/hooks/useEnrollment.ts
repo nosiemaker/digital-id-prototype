@@ -47,7 +47,7 @@ export function useEnrollment() {
         const signature = await signChallenge(enrollmentId, nonce);
         if (!signature) throw new Error('Signing failed');
         // todo: write endpoint for activition challenge
-        const res = await fetch(`${process.env.NODE_ENV}/enrollment/activate`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrollment/activate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enrollmentId, signature})
