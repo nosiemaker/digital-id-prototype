@@ -1,3 +1,4 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 from kyc.models import ThirdPartyInstitution
@@ -62,23 +63,22 @@ class ThirdPartyEnrollmentRequest(models.Model):
         return f"Enrollment for {self.third_party_institution}-{self.id} — {self.status}"
 
 
-class SystemUser(models.Model):
+class SystemUser(AbstractUser):
     """
-    All users across all roles. Citizens who use the mobile app are also SystemUsers.
-    password_hash: bcrypt hash. Never store plain text.
-    citizen_din: only populated for CITIZEN role — links to Citizen record.
-    is_active: set False to suspend without deleting.
+    All users across all roles. Inherits from AbstractUser to work with Django Admin.
     """
-    role = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    password_hash = models.CharField(max_length=255,null=True)
-    name = models.CharField(max_length=255)
+    role = models.CharField(max_length=100, choices=UserRole.choices, default=UserRole.CITIZEN)
     citizen_din = models.CharField(max_length=20,blank=True, unique=True,null=True)
     institution_din = models.CharField(max_length=20, blank=True, unique=True, null=True)
-    is_active = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    last_login = models.DateTimeField(null=True, blank=True)
+
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_expires_at = models.DateTimeField(null=True, blank=True)
+    is_email_verified = models.BooleanField(default=False)
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
 
     class Meta:
         db_table = "system_users"
@@ -89,7 +89,7 @@ class SystemUser(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.id} ({self.role})"
+        return f"{self.email} ({self.role})"
 
 
 class Transaction(models.Model):

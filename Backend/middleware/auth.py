@@ -8,11 +8,24 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 ALGORITHM = "HS256"
 
 PUBLIC_ROUTES = [
+<<<<<<< HEAD
     "/docs", 
     "/openapi.json", 
     "/enrollments/submit", 
     "/auth/login", 
     "/auth/register",
+=======
+    "/",
+    "/docs",
+    "/openapi.json",
+    "/auth/login",
+    "/auth/logout",
+    "/auth/refresh",
+    "/auth/me",
+    "/enrollments/register",
+    "/enrollments/verify-otp",
+    "/enrollments/resend-otp",
+>>>>>>> a311e98404b43c4b492bfc036bdf146bdf5140d0
     "/third_party/register",
     "/users/activate/{din}",
     "/users/set-password"

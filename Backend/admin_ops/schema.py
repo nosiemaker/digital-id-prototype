@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
 from typing import Optional
@@ -28,6 +28,70 @@ class TransactionMethod(str, Enum):
     AIRTEL_MONEY = 'AIRTEL_MONEY'
     BANK_TRANSFER = 'BANK_TRANSFER'
 
+# ====== Phase 1: Account Creation =======
+
+class AccountCreateRequest(BaseModel):
+    """
+    POST /auth/register
+    Creates a SystemUser and sends an email OTP.
+    No citizen data yet — just identity credentials.
+    """
+    name:     str      = Field(..., max_length=255, description="Full display name")
+    email:    EmailStr
+    password: str      = Field(..., min_length=8,  description="Plaintext — hashed server-side")
+
+class AccountCreateResponse(BaseModel):
+    """
+    Returned after POST /auth/register.
+    Tells the client what to do next.
+    """
+    user_id: int
+    email:   str
+    message: str = "OTP sent to your email address. Please verify to activate your account."
+
+class OTPVerifyRequest(BaseModel):
+    """
+    POST /auth/verify-otp
+    """
+    email: EmailStr
+    otp:   str = Field(..., min_length=6, max_length=6, description="6-digit OTP")
+
+
+class OTPVerifyResponse(BaseModel):
+    message: str
+    is_email_verified: bool
+
+
+class ResendOTPRequest(BaseModel):
+    """
+    POST /auth/resend-otp
+    Caller must supply their email; no auth token required yet.
+    """
+    email: EmailStr
+
+# ======= Phase 2: Identity Submission =========
+class IdentitySubmitRequest(BaseModel):
+    """
+    POST /auth/submit-identity
+    Submitted from the dashboard once the user is logged in.
+    Creates a Citizen record + EnrollmentRequest.
+    """
+    nrc:           str  = Field(..., max_length=15,  description="National Registration Card number")
+    full_name:     str  = Field(..., max_length=255)
+    dob:           date = Field(..., description="Date of birth")
+    phone:         Optional[str] = Field(None, max_length=20)
+    gender:        Optional[str] = Field(None, description="MALE | FEMALE | OTHER")
+    province:      Optional[str] = Field(None, description="Zambian province code")
+    nrc_front_url: Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC front image")
+    nrc_back_url:  Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC back image")
+    face_image_url:Optional[str] = Field(None, max_length=500, description="URL to uploaded face photo")
+    public_key:    str  = Field(..., description="PEM-encoded ECDSA P-256 public key from WebCrypto")
+    language:      str  = Field(default="en", description="Preferred language code")
+
+class IdentitySubmitResponse(BaseModel):
+    enrollment_request_id: int
+    citizen_id:            int
+    message: str = "Identity submitted. An officer will review your request."
 
 # -------------------------------------------------------------------
 # System User Schemas
@@ -61,7 +125,7 @@ class SystemUserUpdate(BaseModel):
 class SystemUserResponse(SystemUserBase):
     """
     GET /users/{id}
-    🚨 NOTE: `password_hash` is intentionally omitted to prevent leakage.
+    NOTE: `password_hash` is intentionally omitted to prevent leakage.
     """
     model_config = ConfigDict(from_attributes=True)
 
