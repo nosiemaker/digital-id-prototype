@@ -1,5 +1,6 @@
 
 from asgiref.sync import sync_to_async
+from django.db.models.expressions import result
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from pydantic import BaseModel, EmailStr
 
@@ -9,7 +10,7 @@ from Utils.auth import (
     create_access_token,
     create_refresh_token,
     decode_access_token,
-    verify_password,
+    verify_password, decode_refresh_token,
 )
 from admin_ops.models import SystemUser
 from Utils.rbac import (
@@ -58,6 +59,7 @@ async def _get_user_by_id(user_id: int):
     return await sync_to_async(lambda: SystemUser.objects.filter(id=user_id).first())()
 
 
+
 @router.post("/login", response_model=LoginResponse)
 async def login(body: LoginRequest, request: Request):
 
@@ -65,7 +67,7 @@ async def login(body: LoginRequest, request: Request):
     
     ip = request.client.host if request.client else None
 
-    if not user or not verify_password(body.password, user.password_hash):
+    if not user or not verify_password(body.password, user.password):
         await audit.login_failed(body.email, ip=ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,7 +96,7 @@ async def login(body: LoginRequest, request: Request):
         refresh_token=refresh_token,
         user_id=user.id,
         role=user.role,
-        name=user.name,
+        name=user.username,
     )
 
 
@@ -102,7 +104,7 @@ async def login(body: LoginRequest, request: Request):
 async def refresh_token(body: RefreshRequest):
 
     try:
-        payload = decode_access_token(body.refresh_token)
+        payload = decode_refresh_token(body.refresh_token)
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
