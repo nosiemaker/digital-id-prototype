@@ -34,6 +34,7 @@ SEED_EMAILS = [
     "supervisor@zdid.zm",
     "healthworker@zdid.zm",
     "citizen@zdid.zm",
+    "mary@zdid.zm",
 ]
 
 print("🌱 Seeding ZDID database...")
@@ -41,6 +42,9 @@ print("🌱 Seeding ZDID database...")
 # ── Clean existing seed users ──────────────────────────────────────────────────
 deleted, _ = SystemUser.objects.filter(email__in=SEED_EMAILS).delete()
 print(f"  Removed {deleted} existing seed user(s)")
+
+deleted_citizens, _ = Citizen.objects.filter(nrc__in=["123456/78/1", "987654/32/1"]).delete()
+print(f"  Removed {deleted_citizens} existing seed citizen(s)")
 
 # ── Create system users ────────────────────────────────────────────────────────
 pw = hash_password("zdid1234")  # All dev accounts use the same password

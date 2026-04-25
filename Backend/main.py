@@ -36,20 +36,20 @@ app.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
 app.include_router(qr.router, prefix="/qr", tags=["qr"])
 app.include_router(digital_id.router)
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Add authentication middleware
 app.add_middleware(AuthMiddleware)
 
 # Add audit logging middleware
 app.add_middleware(AuditMiddleware)
+
+# Add CORS middleware (MUST be added last so it is the outermost layer)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")

@@ -7,11 +7,17 @@ import os
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 ALGORITHM = "HS256"
 
-PUBLIC_ROUTES = ["/docs", "/openapi.json","/enrollments/submit"]
+PUBLIC_ROUTES = ["/docs", "/openapi.json", "/enrollments/submit", "/auth/login", "/auth/register"]
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
 
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        # Check if the exact path or base path is public
+        # Using startswith for routes that might have path parameters if necessary,
+        # but exact match is safer. For now, exact match:
         if request.url.path in PUBLIC_ROUTES:
             return await call_next(request)
 
