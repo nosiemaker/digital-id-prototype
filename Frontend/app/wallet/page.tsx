@@ -18,6 +18,12 @@ import {
   History,
   ChevronRight,
   GitGraph,
+  Globe,
+  Moon,
+  Smartphone,
+  CreditCard,
+  Mail,
+  Smartphone as Phone,
 } from "lucide-react"
 
 const sidebarLinks = [
@@ -30,10 +36,19 @@ const sidebarLinks = [
 ]
 
 const recentActivity = [
-  { action: "ID Verified", location: "Zanaco Bank, Lusaka", time: "2 hours ago", status: "success" },
-  { action: "ID Shared", location: "Ministry of Health Portal", time: "Yesterday", status: "success" },
-  { action: "Login Attempt", location: "Zamtel Service Centre", time: "3 days ago", status: "success" },
-  { action: "ID Downloaded", location: "Self-service", time: "1 week ago", status: "success" },
+  { action: "ID Verified", location: "Zanaco Bank, Lusaka", time: "2 hours ago", status: "success", type: "verify" },
+  { action: "ID Shared", location: "Ministry of Health Portal", time: "Yesterday", status: "success", type: "share" },
+  { action: "Login Attempt", location: "Zamtel Service Centre", time: "3 days ago", status: "success", type: "login" },
+  { action: "ID Downloaded", location: "Self-service", time: "1 week ago", status: "success", type: "download" },
+  { action: "Connection Added", location: "Family Portal", time: "2 weeks ago", status: "success", type: "family" },
+  { action: "Address Updated", location: "Ministry of Home Affairs", time: "1 month ago", status: "success", type: "profile" },
+]
+
+const notifications = [
+  { id: 1, title: "Identity Verified", message: "Your Digital ID was successfully verified at Zanaco Bank.", time: "2 hours ago", unread: true },
+  { id: 2, title: "New Family Connection", message: "Mutale Kalinda has been added to your family tree.", time: "2 days ago", unread: false },
+  { id: 3, title: "System Update", message: "A new version of the Digital ID Wallet is available.", time: "1 week ago", unread: false },
+  { id: 4, title: "Security Alert", message: "New login detected from a Chrome browser on Windows.", time: "2 weeks ago", unread: false },
 ]
 
 const familyMembers = [
@@ -54,6 +69,9 @@ export default function WalletPage() {
       case "wallet": return "My Digital ID Wallet"
       case "profile": return "My Profile"
       case "family": return "My Family Tree"
+      case "activity": return "Activity Log"
+      case "notifications": return "Notifications"
+      case "settings": return "Settings"
       default: return "Digital ID Wallet"
     }
   }
@@ -63,6 +81,9 @@ export default function WalletPage() {
       case "wallet": return "Manage and share your identity"
       case "profile": return "View and manage your personal details"
       case "family": return "View your verified family connections"
+      case "activity": return "A history of your identity usage"
+      case "notifications": return "Stay updated on your ID status"
+      case "settings": return "Manage your preferences and security"
       default: return ""
     }
   }
@@ -120,7 +141,10 @@ export default function WalletPage() {
             <p className="text-xs text-muted-foreground">{getPageSubtitle()}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors relative">
+            <button 
+              onClick={() => setActiveTab("notifications")}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors relative"
+            >
               <Bell className="h-5 w-5" />
               <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
             </button>
@@ -225,7 +249,7 @@ export default function WalletPage() {
                   <History className="h-4 w-4 text-primary" /> Recent Activity
                 </h2>
                 <div className="space-y-3">
-                  {recentActivity.map((item, i) => (
+                  {recentActivity.slice(0, 4).map((item, i) => (
                     <div key={i} className="flex items-center justify-between rounded-lg bg-secondary/40 px-4 py-3 hover:bg-secondary/60 transition-colors cursor-default">
                       <div className="flex items-center gap-3">
                         <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
@@ -237,6 +261,12 @@ export default function WalletPage() {
                       <span className="text-xs text-muted-foreground">{item.time}</span>
                     </div>
                   ))}
+                  <button 
+                    onClick={() => setActiveTab("activity")}
+                    className="w-full py-2 text-xs font-semibold text-primary hover:underline mt-2"
+                  >
+                    View All Activity
+                  </button>
                 </div>
               </div>
             </>
@@ -352,17 +382,6 @@ export default function WalletPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Security Settings shortcut */}
-                  <div className="rounded-2xl border border-border bg-card p-6 bg-primary/5 border-primary/20">
-                    <h3 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2">
-                       Security
-                    </h3>
-                    <p className="text-xs text-muted-foreground mb-4">Protect your account by enabling two-factor authentication or changing your PIN.</p>
-                    <button className="w-full rounded-lg bg-primary py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity">
-                      Security Settings
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -429,10 +448,140 @@ export default function WalletPage() {
                     </div>
                   ))}
                 </div>
-                
-                <button className="mt-8 w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all font-medium text-sm">
-                   Add Family Connection
-                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "activity" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="rounded-2xl border border-border bg-card p-6">
+                <h2 className="text-xl font-bold text-foreground mb-6">Full Activity Log</h2>
+                <div className="space-y-4">
+                  {recentActivity.map((item, i) => (
+                    <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-border bg-secondary/20">
+                      <div className="mt-1 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <History className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-bold text-foreground">{item.action}</p>
+                          <span className="text-[10px] font-medium text-muted-foreground">{item.time}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{item.location}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-tight">Status: {item.status}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "notifications" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="rounded-2xl border border-border bg-card p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-foreground">Notifications</h2>
+                  <button className="text-xs font-bold text-primary hover:underline">Mark all as read</button>
+                </div>
+                <div className="space-y-3">
+                  {notifications.map((notif) => (
+                    <div key={notif.id} className={`p-4 rounded-xl border border-border ${notif.unread ? 'bg-primary/5 border-primary/20' : 'bg-secondary/20'} relative overflow-hidden transition-all hover:bg-secondary/30`}>
+                      {notif.unread && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />}
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className={`text-sm font-bold ${notif.unread ? 'text-primary' : 'text-foreground'} mb-1`}>{notif.title}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{notif.message}</p>
+                          <p className="text-[10px] text-muted-foreground mt-2 font-medium">{notif.time}</p>
+                        </div>
+                        {notif.unread && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "settings" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Account Settings */}
+                <div className="rounded-2xl border border-border bg-card p-6">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" /> Account Preferences
+                  </h3>
+                  <div className="space-y-4">
+                    {[
+                      { label: "Language", value: "English (UK)", icon: Globe },
+                      { label: "Theme", value: "System Default", icon: Moon },
+                      { label: "Linked Devices", value: "2 Devices", icon: Smartphone },
+                    ].map((setting) => (
+                      <button key={setting.label} className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors text-left group">
+                        <div className="flex items-center gap-3">
+                          <setting.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                          <div>
+                            <p className="text-xs font-bold text-foreground">{setting.label}</p>
+                            <p className="text-[10px] text-muted-foreground">{setting.value}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Security Settings */}
+                <div className="rounded-2xl border border-border bg-card p-6">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" /> Security & Privacy
+                  </h3>
+                  <div className="space-y-4">
+                    {[
+                      { label: "Two-Factor Auth", value: "Enabled", icon: Smartphone },
+                      { label: "Change Wallet PIN", value: "Last updated 3m ago", icon: Settings },
+                      { label: "Privacy Mode", value: "Standard", icon: Eye },
+                    ].map((setting) => (
+                      <button key={setting.label} className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors text-left group">
+                        <div className="flex items-center gap-3">
+                          <setting.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                          <div>
+                            <p className="text-xs font-bold text-foreground">{setting.label}</p>
+                            <p className="text-[10px] text-muted-foreground">{setting.value}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notification Settings */}
+                <div className="rounded-2xl border border-border bg-card p-6 md:col-span-2">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-primary" /> Notification Settings
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[
+                      { label: "Email Notifications", desc: "Receive updates about your ID via email." },
+                      { label: "Push Notifications", desc: "Get real-time alerts on your smartphone." },
+                      { label: "SMS Alerts", desc: "Critical security alerts via text message." },
+                      { label: "Newsletter", desc: "Receive monthly updates from Digital ID Zambia." },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/10">
+                        <div className="flex-1 pr-4">
+                          <p className="text-xs font-bold text-foreground">{item.label}</p>
+                          <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                        </div>
+                        <div className="h-5 w-9 rounded-full bg-primary/20 relative flex items-center px-1 cursor-pointer">
+                          <div className="h-3 w-3 rounded-full bg-primary" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
