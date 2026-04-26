@@ -3,12 +3,14 @@
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { useState } from "react"
 import { Menu, X } from "lucide-react"
+import { ProtectedRoute } from "@/components/protected-route"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-background font-sans overflow-hidden">
+    <ProtectedRoute allowedRoles={["RO", "REGISTRATION_OFFICER", "SUPERVISOR", "REGISTRAR"]}>
+      <div className="flex h-screen bg-background font-sans overflow-hidden">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
         <AdminSidebar />
@@ -37,5 +39,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   )
 }

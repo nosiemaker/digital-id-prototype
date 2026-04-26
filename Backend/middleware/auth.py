@@ -9,9 +9,9 @@ ALGORITHM = "HS256"
 
 PUBLIC_ROUTES = [
     "/",
-    "/docs",
-    "/openapi.json",
-    "/auth/login",
+    "/docs", 
+    "/openapi.json", 
+    "/auth/login", 
     "/auth/logout",
     "/auth/refresh",
     "/enrollments/register",

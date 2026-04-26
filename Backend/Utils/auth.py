@@ -9,11 +9,11 @@ from django.contrib.auth.hashers import make_password, check_password
 from dotenv import load_dotenv
 
 load_dotenv()
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 6000))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))
-
 
 def hash_password(plain: str) -> str:
     return make_password(plain)

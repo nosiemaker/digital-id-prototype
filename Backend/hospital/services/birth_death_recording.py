@@ -484,7 +484,7 @@ def get_all_pending_deaths():
 # Raises 404 if the submission does not exist.
 def get_single_pending_birth(request_id: int):
     try:
-        pending_submission = BirthRecordSubmissions.objects.get(id=request_id).firtst()
+        pending_submission = BirthRecordSubmissions.objects.get(id=request_id)
     except BirthRecordSubmissions.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -497,7 +497,7 @@ def get_single_pending_birth(request_id: int):
 # Raises 404 if the submission does not exist.
 def get_single_pending_death(request_id: int):
     try:
-        pending_submission = DeathRecordSubmissions.objects.get(id=request_id).firtst()
+        pending_submission = DeathRecordSubmissions.objects.get(id=request_id)
     except DeathRecordSubmissions.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -510,7 +510,7 @@ def get_single_pending_death(request_id: int):
 # Raises 404 if the record does not exist.
 def get_single_birth_record(request_id: int):
     try:
-        record = BirthRecord.objects.get(id=request_id).firtst()
+        record = BirthRecord.objects.get(id=request_id)
     except BirthRecord.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

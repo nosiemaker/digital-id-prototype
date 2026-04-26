@@ -18,9 +18,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -62,16 +59,6 @@ const icd11Codes = [
   { code: "PB00", description: "Unknown cause" },
 ]
 
-const deathRecords = [
-  { id: "DR-2024-001", deceasedName: "Mwape Chola", sex: "Male", dod: "2024-03-14", age: 72, placeOfDeath: "UTH Lusaka", deathType: "hospital", causeCode: "PA00", causeName: "Natural causes (old age)", informant: "Jane Chola (Daughter)", status: "certified", registrationDate: "2024-03-16", province: "Lusaka" },
-  { id: "DR-2024-002", deceasedName: "Martha Mbewe", sex: "Female", dod: "2024-03-13", age: 45, placeOfDeath: "Home - Kabwe", deathType: "home", causeCode: "CA40", causeName: "Malignant neoplasm of lung", informant: "Thomas Mbewe (Husband)", status: "pending", registrationDate: "2024-03-15", province: "Central" },
-  { id: "DR-2024-003", deceasedName: "Joseph Banda", sex: "Male", dod: "2024-03-12", age: 58, placeOfDeath: "Kitwe Central Hospital", deathType: "hospital", causeCode: "BA00", causeName: "Acute myocardial infarction", informant: "Mary Banda (Wife)", status: "certified", registrationDate: "2024-03-14", province: "Copperbelt" },
-  { id: "DR-2024-004", deceasedName: "Grace Tembo", sex: "Female", dod: "2024-03-10", age: 34, placeOfDeath: "Road - Great East Road", deathType: "other", causeCode: "NB20", causeName: "Road traffic accident", informant: "Police Report", status: "under_investigation", registrationDate: "2024-03-12", province: "Lusaka" },
-  { id: "DR-2024-005", deceasedName: "Peter Mwansa", sex: "Male", dod: "2024-03-08", age: 67, placeOfDeath: "Ndola Teaching Hospital", deathType: "hospital", causeCode: "BD10", causeName: "Cerebrovascular disease", informant: "Agnes Mwansa (Wife)", status: "certified", registrationDate: "2024-03-10", province: "Copperbelt" },
-  { id: "DR-2024-006", deceasedName: "Esther Phiri", sex: "Female", dod: "2024-03-05", age: 29, placeOfDeath: "Chipata General Hospital", deathType: "hospital", causeCode: "1C62", causeName: "HIV disease", informant: "John Phiri (Brother)", status: "certified", registrationDate: "2024-03-08", province: "Eastern" },
-  { id: "DR-2024-007", deceasedName: "Charles Ng'andu", sex: "Male", dod: "2024-03-01", age: 81, placeOfDeath: "Home - Kasama", deathType: "home", causeCode: "PA00", causeName: "Natural causes (old age)", informant: "Joyce Ng'andu (Daughter)", status: "pending", registrationDate: "2024-03-04", province: "Northern" },
-]
-
 const stats = [
   { label: "Total Deaths", value: "847", change: "+3%", icon: Skull, color: "text-muted-foreground" },
   { label: "Hospital", value: "512", change: "-2%", icon: Building2, color: "text-blue-500" },
@@ -88,21 +75,83 @@ const languages = [
   { code: "kqn", label: "Kaonde" },
   { code: "lun", label: "Lunda" },
 ]
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { deathRecordApi, type DeathRecordBase } from "@/lib/axios"
+import { useEffect } from "react"
+import { toast } from "sonner"
 
 export default function DeathRecordsPage() {
+  const [records, setRecords] = useState<any[]>([])
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [registerOpen, setRegisterOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState<typeof deathRecords[0] | null>(null)
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null)
   const [language, setLanguage] = useState("en")
+  const [activeTab, setActiveTab] = useState<"certified" | "pending">("certified")
 
-  const filteredRecords = deathRecords.filter((record) => {
+  const [form, setForm] = useState<DeathRecordBase>({
+    citizen_din: "",
+    hospital_name: "",
+    death_date: new Date().toISOString().split('T')[0],
+    cause_of_death: "",
+  })
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  async function fetchData() {
+    setLoading(true)
+    try {
+      const response: any = await deathRecordApi.getPendingSubmissions()
+      setPendingSubmissions(response.pending_submissions || [])
+      
+      // Mocked certified records for now
+      setRecords([
+        { id: "DR-2024-001", deceasedName: "Mwape Chola", sex: "Male", dod: "2024-03-14", age: 72, placeOfDeath: "UTH Lusaka", deathType: "hospital", causeCode: "PA00", causeName: "Natural causes (old age)", informant: "Jane Chola (Daughter)", status: "certified", registrationDate: "2024-03-16", province: "Lusaka" },
+        { id: "DR-2024-003", deceasedName: "Joseph Banda", sex: "Male", dod: "2024-03-12", age: 58, placeOfDeath: "Kitwe Central Hospital", deathType: "hospital", causeCode: "BA00", causeName: "Acute myocardial infarction", informant: "Mary Banda (Wife)", status: "certified", registrationDate: "2024-03-14", province: "Copperbelt" },
+      ])
+    } catch (err) {
+      console.error("Failed to fetch death records", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await deathRecordApi.submit(form)
+      toast.success("Death record submitted for review")
+      setRegisterOpen(false)
+      fetchData()
+    } catch (err) {
+      toast.error("Failed to submit record")
+    }
+  }
+
+  async function handleApprove(id: number) {
+    try {
+      await deathRecordApi.approve(id)
+      toast.success("Record approved and certified")
+      fetchData()
+    } catch (err) {
+      toast.error("Approval failed")
+    }
+  }
+
+  const currentList = activeTab === "certified" ? records : pendingSubmissions
+
+  const filteredRecords = currentList.filter((record) => {
+    const name = record.deceasedName || record.full_name || ""
     const matchesSearch =
-      record.deceasedName.toLowerCase().includes(search.toLowerCase()) ||
-      record.id.toLowerCase().includes(search.toLowerCase()) ||
-      record.causeCode.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = statusFilter === "all" || record.status === statusFilter
-    return matchesSearch && matchesStatus
+      name.toLowerCase().includes(search.toLowerCase()) ||
+      (record.id || "").toString().toLowerCase().includes(search.toLowerCase())
+    return matchesSearch
   })
 
   return (
@@ -159,6 +208,33 @@ export default function DeathRecordsPage() {
         })}
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab("certified")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+            activeTab === "certified" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Certified Records
+        </button>
+        <button
+          onClick={() => setActiveTab("pending")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+            activeTab === "pending" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Pending Submissions
+          {pendingSubmissions.length > 0 && (
+            <Badge className="ml-2 bg-primary/20 text-primary border-none text-[10px] h-4 px-1.5">
+              {pendingSubmissions.length}
+            </Badge>
+          )}
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -211,9 +287,9 @@ export default function DeathRecordsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                        {record.deceasedName.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        {(record.deceasedName || record.full_name || "U").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                       </div>
-                      <span className="font-medium text-foreground">{record.deceasedName}</span>
+                      <span className="font-medium text-foreground">{record.deceasedName || record.full_name || "Unknown"}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{record.age}y / {record.sex[0]}</td>
@@ -280,7 +356,7 @@ export default function DeathRecordsPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between border-t border-border px-4 py-3">
           <p className="text-xs text-muted-foreground">
-            Showing {filteredRecords.length} of {deathRecords.length} records
+            Showing {filteredRecords.length} of {currentList.length} records
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled className="h-8">

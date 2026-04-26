@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { authApi, tokenStore } from "@/lib/axios"
+
 import {
   LayoutDashboard,
   Users,
@@ -32,6 +34,21 @@ const civilRegistrationLinks = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const userName = tokenStore.getName() || "Admin User"
+  const userRole = tokenStore.getRole() || "RO"
+
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    try {
+      await authApi.logout()
+      router.push("/login")
+    } catch (err) {
+      tokenStore.clear()
+      router.push("/login")
+    }
+  }
+
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border">
@@ -102,20 +119,21 @@ export function AdminSidebar() {
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 mb-1">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
-            AD
+            {userName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-sidebar-foreground truncate">Admin User</p>
-            <p className="text-xs text-muted-foreground truncate">admin@zidp.gov.zm</p>
+            <p className="text-xs font-medium text-sidebar-foreground truncate">{userName}</p>
+            <p className="text-[10px] text-muted-foreground truncate font-mono uppercase tracking-tighter">{userRole}</p>
           </div>
         </div>
-        <Link
-          href="/"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-left"
         >
           <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
-        </Link>
+        </button>
+
       </div>
     </aside>
   )

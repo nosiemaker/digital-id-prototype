@@ -1,25 +1,34 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Shield, Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react"
-import { authApi, APIError } from "@/lib/axios"
+import { authApi, APIError, tokenStore } from "@/lib/axios"
 
 // Role → destination route mapping.
-// Extend this as new roles are added to the backend.
 const ROLE_ROUTES: Record<string, string> = {
-  REGISTRATION_OFFICER: "/dashboard/ro",
-  SUPERVISOR:           "/dashboard/supervisor",
-  REGISTRAR:            "/dashboard/registrar",
-  HEALTH_WORKER:        "/dashboard/health",
-  CITIZEN:              "/wallet",
+  RO: "/admin",
+  SUPERVISOR: "/admin",
+  REGISTRAR: "/admin",
+  HEALTH_WORKER: "/admin",
+  CITIZEN: "/wallet",
+  THIRD_PARTY: "/institutions/dashboard",
 }
 
 const DEFAULT_ROUTE = "/dashboard"
 
 export default function LoginPage() {
   const router = useRouter()
+
+  useEffect(() => {
+    const token = tokenStore.getAccess()
+    const role = tokenStore.getRole()
+    if (token && role) {
+      const destination = ROLE_ROUTES[role] ?? DEFAULT_ROUTE
+      router.push(destination)
+    }
+  }, [router])
 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -169,11 +178,17 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-border text-center">
+          <div className="mt-6 pt-6 border-t border-border text-center space-y-3">
             <p className="text-xs text-muted-foreground">
               Are you a citizen?{" "}
               <Link href="/register" className="text-primary hover:underline font-medium">
                 Register your Digital ID
+              </Link>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Institutional partner?{" "}
+              <Link href="/institutions" className="text-primary hover:underline font-medium">
+                Sign in as a Third Party
               </Link>
             </p>
           </div>
