@@ -1,5 +1,7 @@
-from django.conf import settings
 from django.db import models
+
+from zdid_core import settings
+
 
 # Create your models here.
 class CitizenStatus(models.TextChoices):
@@ -18,10 +20,11 @@ class Language(models.TextChoices):
     TONGA = "toi", "Tonga"
     LOZI = "loz", "Lozi"
 
+
 class Gender(models.TextChoices):
     MALE = "MALE", "Male"
     FEMALE = "FEMALE", "Female"
-    OTHER = "OTHER", "Other"
+
 
 class Province(models.TextChoices):
     CENTRAL = "CENTRAL", "Central"
@@ -35,6 +38,7 @@ class Province(models.TextChoices):
     SOUTHERN = "SOUTHERN", "Southern"
     WESTERN = "WESTERN", "Western"
 
+
 class RelationshipType(models.TextChoices):
     PARENT = "PARENT", "Parent"
     CHILD = "CHILD", "Child"
@@ -42,23 +46,69 @@ class RelationshipType(models.TextChoices):
     SPOUSE = "SPOUSE", "Spouse"
     GUARDIAN = "GUARDIAN", "Guardian"
 
+
+class UserType(models.TextChoices):
+    CHILD_ABOVE_16 = "CHILD_ABOVE_16", "Child above 16"
+    CHILD_UNDER_16 = "CHILD_UNDER_16", "Child under 16"
+    ADULT = "ADULT", "Adult"
+    SENIOR = "SENIOR", "Senior"
+
+
+class Province(models.Model):
+    """Province model - represents a province/region"""
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=10, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "province"
+        verbose_name_plural = "provinces"
+
+    def __str__(self):
+        return self.name
+
+
+class District(models.Model):
+    """District model - belongs to a province, can have multiple staff stationed"""
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=10)
+    province = models.ForeignKey(Province, on_delete=models.CASCADE, related_name="districts")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "district"
+        unique_together = ("name", "province")
+
+    def __str__(self):
+        return f"{self.name} ({self.province.name})"
+
+
 class Citizen(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="profile")
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name="profile")
     din = models.CharField(max_length=20, unique=True, null=True, blank=True)
-    nrc = models.CharField(max_length=15, unique=True,null=True)
+    nrc = models.CharField(max_length=15, unique=True, null=True)
     full_name = models.CharField(max_length=255)
+    residential_address = models.CharField(max_length=255, null=True)
+    maiden_name = models.CharField(max_length=255, null=True)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)
     nrc_front_url = models.URLField(max_length=500, null=True, blank=True)
     nrc_back_url = models.URLField(max_length=500, null=True, blank=True)
     face_image_url = models.URLField(max_length=500, null=True, blank=True)
-    province = models.CharField(max_length=20, choices=Province.choices, null=True, blank=True)
-    public_key = models.TextField(null= True)
+    district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="supervisors")
+    public_key = models.TextField(null=True)
     activation_nonce = models.CharField(max_length=64, null=True, blank=True)
     status = models.CharField(max_length=20, choices=CitizenStatus.choices, default=CitizenStatus.PENDING)
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.ENGLISH)
     challenge_expires_at = models.DateTimeField(null=True, blank=True)
+    citizen_type = models.CharField(max_length=20, choices=UserType.choices)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -69,11 +119,11 @@ class Citizen(models.Model):
             models.Index(fields=["nrc"]),
             models.Index(fields=["status"]),
             models.Index(fields=["gender"]),
-            models.Index(fields=["province"]),
+            models.Index(fields=["district"]),
         ]
+
     def __str__(self):
-        return f"{self.full_name}({self.din or 'PENDING'})" 
-    
+        return f"{self.full_name}({self.din or 'PENDING'})"
 
 
 class BiometricRecord(models.Model):
@@ -133,32 +183,105 @@ class BiometricRecord(models.Model):
     """
     Citizen = models.OneToOneField(Citizen, on_delete=models.CASCADE, related_name="biometric_record")
     embedding_vector = models.JSONField(null=True, blank=True, help_text="512-float InsightFace embedding.")
-    embedding_quantized = models.BinaryField(null=True, blank=True, help_text="64-bytes quantized embedding. Stable across caputers. Input to DIN derivation.")
-    din_commitment = models.CharField(max_length=64, null=True, blank=True, 
-                help_text="SHA-256(quantized_embedding + salt). Used to very face-to-DIN binding.")
-    face_image_path = models.CharField(max_length=500, null=True, blank=True, 
-                help_text="secure storage path to the original face photo"
-                )
+    embedding_quantized = models.BinaryField(null=True, blank=True,
+                                             help_text="64-bytes quantized embedding. Stable across caputers. Input to DIN derivation.")
+    din_commitment = models.CharField(max_length=64, null=True, blank=True,
+                                      help_text="SHA-256(quantized_embedding + salt). Used to very face-to-DIN binding.")
+    face_image_path = models.CharField(max_length=500, null=True, blank=True,
+                                       help_text="secure storage path to the original face photo"
+                                       )
     facial_template = models.TextField(null=True, blank=True)
     captured_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "biometric_record"
-    
+
     def __str__(self):
         return f"Biometric for {self.Citizen}"
 
-class FamilyLink(models.Model):
 
+class FamilyLink(models.Model):
     citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="family_link_from")
     related_citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="family_link_to")
     relationship_type = models.CharField(max_length=20, choices=RelationshipType.choices)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         db_table = "family_link"
         unique_together = ("citizen", "related_citizen", "relationship_type")
 
     def __str__(self):
+        return f"{self.citizen} '{self.relationship_type}' {self.related_citizen}"
+
+
+class Registrar(models.Model):
+    """Registrar - responsible for overseeing registration operations"""
+    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="registrar_profile")
+    employee_id = models.CharField(max_length=50, unique=True)
+    department = models.CharField(max_length=100, null=True, blank=True)
+    district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="registrars")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "registrar"
+
+    def __str__(self):
+        return f"Registrar {self.employee_id} - {self.citizen}"
+
+
+class Supervisor(models.Model):
+    """Supervisor - oversees registration officers and registration processes"""
+    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="supervisor_profile")
+    employee_id = models.CharField(max_length=50, unique=True)
+    department = models.CharField(max_length=100, null=True, blank=True)
+    district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="supervisors")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "supervisor"
+
+    def __str__(self):
+        return f"Supervisor {self.employee_id} - {self.citizen}"
+
+
+class HealthWorker(models.Model):
+    """Health Worker - handles health-related citizen services"""
+    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="health_worker_profile")
+    employee_id = models.CharField(max_length=50, unique=True)
+    facility_name = models.CharField(max_length=200, null=True, blank=True)
+    department = models.CharField(max_length=100, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_worker"
+
+    def __str__(self):
+        return f"Health Worker {self.employee_id} - {self.citizen}"
+
+
+class RegistrationOfficer(models.Model):
+    """Registration Officer - handles citizen registration and enrollment"""
+    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="registration_officer_profile")
+    employee_id = models.CharField(max_length=50, unique=True)
+    station_name = models.CharField(max_length=200, null=True, blank=True)
+    district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="registration_officers")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "registration_officer"
+
+    def __str__(self):
+        return f"Registration Officer {self.employee_id} - {self.citizen}"
         return f"{self.citizen} 'n {self.relationship_type} 'n {self.related_citizen}"

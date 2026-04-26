@@ -44,11 +44,21 @@ class RecordRejection(BaseModel):
 class BirthRecordBase(BaseModel):
     mother_din: str = Field(..., max_length=12, description="DIN of the registered mother")
     facility: str = Field(..., max_length=255, description="Name of hospital or clinic")
-    location: str = Field(..., max_length=255, description="District or exact location of birth")
-    child_full_name: str = Field(..., max_length=255)
-    child_dob: date = Field(..., description="Date of birth (calendar day)")
-    child_sex: Sex
-    born_at: datetime = Field(..., description="Exact date and time of birth")
+    district: str = Field(max_length=255, description="Name of district")
+    child_first_name: str  = Field(max_length=255)
+    child_surname: str = Field(max_length=255)
+    child_other_names: str = Field(max_length=255)
+    father_occupation: str = Field(max_length=255)
+    father_ssn: int
+    mother_ssn: int
+    father_nationality:int = Field(max_length=255, default="ZAMBIAN")
+    mother_nationality:str = Field(max_length=255, default="ZAMBIAN")
+    informant_name: str = Field(max_length=255)
+    informant_address: str = Field(max_length=255)
+    postal_address: str = Field(max_length=255)
+    date_of_registration : datetime
+    child_dob: datetime
+    child_sex: str
 
 class BirthRecordCreate(BirthRecordBase):
     """

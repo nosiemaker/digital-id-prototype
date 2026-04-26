@@ -3,9 +3,12 @@
 # of birth and death records within the civil registration system.
 
 import datetime
+from pathlib import Path
 from django.db import transaction
 from fastapi import HTTPException
 from Utils.audit_logger import audit
+from Utils.certificate_generator import generate_certificate
+from admin_ops.models import SystemUser
 from citizens.models import Citizen, CitizenStatus
 from citizens.serializer import CitizenSerializer
 from citizens.utilities.id_generation import generate_id, child_seed_generation
@@ -301,9 +304,10 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
 
     record = submission_request.record
 
+    rem = BirthRecord.objects.select_related("mother","father").get(id =record.id)
     # Verify the mother exists in the citizens registry before proceeding
     try:
-        mother = Citizen.objects.get(din = record.mother_din)
+        mother = Citizen.objects.get(din = rem.mother.din)
     except Citizen.DoesNotExist:
         # Auto-reject and clean up if the mother's DIN cannot be resolved
         details = birth_record_rejection(request_id, ro_id, "Mother ID Not Found")
@@ -314,6 +318,20 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
         )
 
     # Generate a deterministic child DIN derived from child details and mother's DIN
+    try:
+        ro_sys=(SystemUser.objects.select_related("citizen").get(id =ro_id))
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registration Officer Not Found",
+        )
+
+    ro_citizen = ro_sys.citizen
+
+    ro_serializer = CitizenSerializer(ro_citizen)
+
+    father = Citizen.objects.get(din= record.father)
+
     child_id = generate_id(
         child_seed_generation(record.child_full_name, record.child_dob, record.born_at, record.mother_din), "CITIZEN")
 
@@ -355,13 +373,52 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
 
         # Update the birth record with the generated child DIN, resolved mother DIN,
         # approved status, and creation timestamp
+        temp_record = BirthRecordSerializer(record)
+
+        cert_info = {
+
+            "reg_no": child_id,
+            "district": temp_record.data.get("district"),
+            "date_of_birth": temp_record.data.get("child_dob"),
+            "sex": temp_record.data.get("child_sex"),
+            "place_of_birth": temp_record.data.get("facility"),
+            "surname": temp_record.data.get("child_surname"),
+            "other_names": temp_record.data.get("child_first_name"),
+            "father_name": rem.father.full_name,
+            "father_occupation": temp_record.data.get("father_occupation"),
+            "father_nssf": temp_record.data.get("father_ssn"),
+            "father_nationality": temp_record.data.get("father_nationality"),
+            "father_nid": rem.father.nrc ,
+            "mother_name": rem.mother.full_name,
+            "mother_maiden": record.mother.maiden_name,
+            "mother_nssf": temp_record.data.get("mother_ssn"),
+            "mother_nationality": temp_record.data.get("mother_nationality"),
+            "mother_nid": rem.mother.nrc ,
+            "informant_name": temp_record.data.get("informant_name"),
+            "informant_address": temp_record.data.get("informant_address"),
+            "postal_address": temp_record.data.get("postal_address"),
+            "date_of_registration": temp_record.data.get("date_of_registration"),
+            "registrar_name": ro_serializer.data.get("full_name"),
+
+        }
+
+        BASE_DIR = Path(__file__).resolve().parent.parent
+        MEDIA_ROOT = BASE_DIR / "media"
+        MEDIA_ROOT.mkdir(parents=True,exist_ok=True)
+        filename = f"{child_id}_Birth_Certificate"
+        file_path = MEDIA_ROOT/filename
+        cert_hash, cert_url = generate_certificate(cert_info, str(file_path))
+
+
         record_serializer = BirthRecordSerializer(
             instance=record,
             data={
                 "child_din": child_id,
                 "mother": mother.din,
                 "status": RecordStatus.APPROVED,
-                "created_at": datetime.datetime.now()
+                "created_at": datetime.datetime.now(),
+                "certificate_url": cert_url,
+                "certificate_verification_hash":cert_hash
             },
             partial=True
         )
@@ -392,7 +449,7 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
             )
         citizen_serializer.save()
         # Log the approval for audit trail
-        audit.birth_record_approved(ro_id,record_serializer.data.id)
+        audit.birth_record_approved(ro_id,record_serializer.data.get("id"))
         return {"details": "Approval Successful","request": record_serializer.data ,"status": status.HTTP_200_OK}
 
 # Rejects a pending birth record submission.

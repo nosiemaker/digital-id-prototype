@@ -6,9 +6,19 @@
 from asgiref.sync import sync_to_async
 from fastapi import APIRouter, Request, Depends
 from dependencies.auth import require_groups, UserRole
-from admin_ops.schema import SystemUserCreatePassword, SystemUserUpdate, UpdateUserPermissions
+from admin_ops.schema import SystemUserCreatePassword, SystemUserUpdate, HealthWorkerRemove, SupervisorRemove, \
+    RegistrarRemove, RegistrationOfficerRemove
+from admin_ops.schema import (
+    RegistrationOfficerCreate, RegistrarCreate, SupervisorCreate, HealthWorkerCreate,
+    RegistrationOfficerRemove, RegistrarRemove, SupervisorRemove, HealthWorkerRemove
+)
 from admin_ops.services.user_management import (
-    get_user_by_din,set_system_user_password,activate_system_user,get_user_by_email,add_user_permissions,approve_third_party_registration,remove_user_permissions,third_party_registration_request,reject_third_party_registration,get_all_pending,get_single_pending
+    get_user_by_din, set_system_user_password, activate_system_user, get_user_by_email,
+    approve_third_party_registration,
+    third_party_registration_request, reject_third_party_registration, get_all_pending,
+    get_single_pending, create_registration_officer, create_registrar, create_supervisor,
+    create_health_worker, remove_registration_officer, remove_registrar, remove_supervisor,
+    remove_health_worker
 )
 from kyc.schema import ThirdPartyInstitutionBase, ThirdPartyApprovalRequest, RejectionRequest
 
@@ -43,20 +53,6 @@ async def activate_user(din: str,request: Request):
 @user_router.post("/set-password")
 async def set_password(body: SystemUserCreatePassword,request: Request):
     result = await sync_to_async(set_system_user_password)(body.model_dump())
-    return result
-
-# Adds a role to a system user's permission set.
-# Only accessible to users with the SUPERVISOR role.
-@user_router.patch("/permissions/add")
-async def add_permissions(body: UpdateUserPermissions,request: Request,user=Depends(require_groups([UserRole.SUPERVISOR]))):
-    result = await sync_to_async(add_user_permissions)(user["id"], body.model_dump())
-    return result
-
-# Removes a role from a system user's permission set.
-# Only accessible to users with the SUPERVISOR role.
-@user_router.patch("/permissions/remove")
-async def remove_permissions(body: UpdateUserPermissions,request: Request,user=Depends(require_groups([UserRole.SUPERVISOR]))):
-    result = await sync_to_async(remove_user_permissions)(user["id"], body.model_dump())
     return result
 
 # Submits a new third-party institution enrollment request.
@@ -96,4 +92,71 @@ async def reject_third_party(request_id: int,body: RejectionRequest,request: Req
     result = await sync_to_async(reject_third_party_registration)(
         request_id, user["id"], body.rejection_reason
     )
+    return result
+
+
+# -------------------------------------------------------------------
+# Staff Role Management Endpoints
+# -------------------------------------------------------------------
+
+# Creates a new RegistrationOfficer linked to a Citizen.
+# Only accessible to users with the REGISTRAR or SUPERVISOR role.
+@user_router.put("add_permission/registration-officer")
+async def create_registration_officer_endpoint(body: RegistrationOfficerCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(create_registration_officer)(body.model_dump())
+    return result
+
+
+# Creates a new Registrar linked to a Citizen.
+# Only accessible to users with the REGISTRAR or SUPERVISOR role.
+@user_router.put("add_permission/registrar")
+async def create_registrar_endpoint(body: RegistrarCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(create_registrar)(body.model_dump())
+    return result
+
+
+# Creates a new Supervisor linked to a Citizen.
+# Only accessible to users with the REGISTRAR or SUPERVISOR role.
+@user_router.put("add_permission/supervisor")
+async def create_supervisor_endpoint(body: SupervisorCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(create_supervisor)(body.model_dump())
+    return result
+
+
+# Creates a new HealthWorker linked to a Citizen.
+# Only accessible to users with the REGISTRAR or SUPERVISOR role.
+@user_router.put("add_permission/health-worker")
+async def create_health_worker_endpoint(body: HealthWorkerCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(create_health_worker)(body.model_dump())
+    return result
+
+# Deactivates a RegistrationOfficer role instance linked to a system user.
+# Only accessible to users with the SUPERVISOR role.
+@user_router.put("remove_permission/registration-officer")
+async def remove_registration_officer_endpoint(body: RegistrationOfficerRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(remove_registration_officer)(body.model_dump())
+    return result
+
+
+# Deactivates a Registrar role instance linked to a system user.
+# Only accessible to users with the SUPERVISOR role.
+@user_router.put("remove_permission/registrar")
+async def remove_registrar_endpoint(body: RegistrarRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(remove_registrar)(body.model_dump())
+    return result
+
+
+# Deactivates a Supervisor role instance linked to a system user.
+# Only accessible to users with the SUPERVISOR role.
+@user_router.put("remove_permission/supervisor")
+async def remove_supervisor_endpoint(body: SupervisorRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(remove_supervisor)(body.model_dump())
+    return result
+
+
+# Deactivates a HealthWorker role instance linked to a system user.
+# Only accessible to users with the SUPERVISOR role.
+@user_router.put("remove_permission/health-worker")
+async def remove_health_worker_endpoint(body: HealthWorkerRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+    result = await sync_to_async(remove_health_worker)(body.model_dump())
     return result

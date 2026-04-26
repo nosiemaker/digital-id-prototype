@@ -22,8 +22,9 @@ class BirthRecord(models.Model):
     mother_din: must exist as an active Citizen.
     On approval: child Citizen record created, DIN issued, FamilyLink(CHILD/PARENT) written.
     """
-    child_din = models.CharField(max_length=20, null=True, blank=True)
-    mother_din = models.CharField(max_length=20)
+
+    mother_din = models.CharField(max_length=20, null=True, blank=True)
+    birth_certificate_number = models.CharField(max_length=20, null=True, blank=True)
     mother = models.ForeignKey(
         Citizen,
         on_delete=models.SET_NULL,
@@ -32,14 +33,34 @@ class BirthRecord(models.Model):
         related_name="births_as_mother",
         to_field="din",
     )
+    father = models.ForeignKey(
+        Citizen,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="father_of_new_born",
+        to_field="din",
+    )
     facility = models.CharField(max_length=255)
-    location = models.CharField(max_length=255) 
-    child_full_name = models.CharField(max_length=255)
+    district = models.CharField(max_length=255)
+    child_first_name = models.CharField(max_length=255)
+    child_surname = models.CharField(max_length=255)
+    child_other_names = models.CharField(max_length=255, null=True , blank=True)
+    father_occupation = models.CharField(max_length=255, null=True , blank=True)
+    father_ssn = models.IntegerField()
+    mother_ssn = models.IntegerField()
+    father_nationality= models.CharField(max_length=255, default="ZAMBIAN")
+    mother_nationality = models.CharField(max_length=255,default="ZAMBIAN")
+    informant_name = models.CharField(max_length=255)
+    informant_address = models.CharField(max_length=255)
+    postal_address = models.CharField(max_length=255,null= True)
+    date_of_registration = models.DateField()
     child_dob = models.DateField()
     child_sex = models.CharField(
         max_length=10,
         choices=[("MALE", "Male"), ("FEMALE", "Female")],
     )
+
     born_at = models.DateTimeField()
     status = models.CharField(
         max_length=20,
@@ -89,7 +110,8 @@ class DeathRecord(models.Model):
         choices=RecordStatus.choices,
         default=RecordStatus.PENDING,
     )
-    certificate_url = models.URLField(null=True, blank=True)
+    certificate_url = models.CharField(max_length=255,null=True, blank=True)
+    certificate_verification_hash = models.CharField(max_length=255,null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

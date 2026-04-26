@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+
+from citizens.models import Citizen
 from kyc.models import ThirdPartyInstitution
 from registration.models import EnrollmentStatus
 
@@ -66,6 +68,14 @@ class SystemUser(AbstractUser):
     """
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=100, choices=UserRole.choices, default=UserRole.CITIZEN)
+    citizen = models.ForeignKey(
+        Citizen,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="System_user_to_citizen",
+        to_field="din",
+    )
     institution_din = models.CharField(max_length=20, blank=True, unique=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     otp_code = models.CharField(max_length=6, null=True, blank=True)
@@ -90,7 +100,7 @@ class SystemUser(AbstractUser):
         ]
 
     def __str__(self):
-        return f"{self.email} ({self.role})"
+        return f"{self.email}({self.id}) ({self.role})"
 
 
 class Transaction(models.Model):

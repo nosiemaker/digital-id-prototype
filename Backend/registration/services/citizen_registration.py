@@ -140,6 +140,14 @@ def identity_submission(body: IdentitySubmitRequest, system_user_id) -> dict:
             detail="An enrollment record with that NRC already exists.",
         )
 
+    age = (datetime.date.today() - body.dob).days // 365
+    if age < 18:
+        citizen_type = "CHILD_UNDER_16" if age < 16 else "CHILD_ABOVE_16"
+    elif age >= 60:
+        citizen_type = "SENIOR"
+    elif age >= 18:
+        citizen_type = "ADULT"
+
     citizen_data = {
         "user": system_user.id,
         "nrc": body.nrc,
@@ -154,6 +162,7 @@ def identity_submission(body: IdentitySubmitRequest, system_user_id) -> dict:
         "public_key": body.public_key,
         "language": body.language,
         "status": CitizenStatus.PENDING,
+        "citizen_type": citizen_type,
     }
 
     with transaction.atomic():
@@ -198,6 +207,33 @@ def identity_submission(body: IdentitySubmitRequest, system_user_id) -> dict:
         "citizen_id":            citizen.id,
         "message": "Identity submitted. An officer will review your request.",
         }
+
+# Creates a new citizen record and a linked enrollment request.
+# Validates the incoming citizen data first; if valid, persists the citizen
+# and then creates the associated EnrollmentRequest in PENDING status.
+def create_citizen_request (request_body: dict):
+    serializer = CitizenSerializer(data=request_body)
+    if serializer.is_valid():
+        if "password" in serializer.validated_data:
+            plain_password = serializer.validated_data["password"]
+            serializer.validated_data["password"] = hash_password(plain_password)
+        citizen = serializer.save()
+        # Link the newly created citizen to the enrollment request
+        new_request = {"citizen":citizen.id}
+        request_serializer = CitizenRegistrationRequestSerializer(data=new_request)
+        if request_serializer.is_valid():
+            request_serializer.save()
+            return {"details": "Request Submitted","request":request_serializer.data ,"status": status.HTTP_201_CREATED }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=request_serializer.errors,
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
 
 # Retrieves all enrollment requests currently in PENDING status.
 def get_all_pending():

@@ -329,89 +329,350 @@ def get_all_pending():
     serializer = ThirdPartyEnrollmentRequestSerializer(pending_enrollments, many=True)
     return serializer.data
 
-# Adds a new role to an existing system user's permission set.
-# Fetches the current roles, appends the new role, and persists the updated
-# comma-separated role string via the serializer.
-def add_user_permissions(user_id: int,request_body:dict):
+# -------------------------------------------------------------------
+# Staff Role Addition Functions
+# -------------------------------------------------------------------
 
+def create_registration_officer(request_body: dict) -> dict:
+    """Creates a new RegistrationOfficer linked to a Citizen."""
+    from citizens.models import RegistrationOfficer, Citizen, District
+    from admin_ops.serializers import SystemUserSerializer
+    from dependencies.auth import UserRole
+    
+    citizen_din = request_body.get("citizen_din")
+    
     try:
-        system_user = SystemUser.objects.get(citizen_din= request_body['citizen_din'])
-        # Fetch the current serialized user data to read existing roles
-        temp_serializer =SystemUserSerializer(system_user)
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+    
+    # First, update the system user's role
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
     except SystemUser.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Citizen Not Found",
+            detail="System user not found for this citizen",
         )
-
-    # Convert the current role string to a list so the new role can be appended
-    old_perms= list(temp_serializer.data.role)
-
-    old_perms.append(request_body["role"])
-
-    # Rejoin the updated roles into a comma-separated string for storage
+    
+    # Add the role to the system user
+    old_perms = list(temp_serializer.data.get("role", ""))
+    old_perms.append(UserRole.REGISTRATION_OFFICER)
     updated_perms = ','.join(old_perms)
-
+    
     serializer = SystemUserSerializer(
         instance=system_user,
-        data= {
-            "role": updated_perms
-        },
+        data={"role": updated_perms},
         partial=True
     )
-
+    
     if not serializer.is_valid():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=serializer.errors,
         )
     serializer.save()
-
-    return {"details": "Roles Successfully Updated"}
-
-# Removes a specific role from an existing system user's permission set.
-# Fetches current roles, filters out the role to be removed, checks it
-# actually existed, then persists the updated role string.
-# NOTE: The existence check occurs after the filtered list is already built,
-# meaning the role is removed before the guard runs — consider reordering.
-def remove_user_permissions(user_id:int,request_body:dict):
-
-    try:
-        # NOTE: "citize_din" appears to be a typo — should likely be "citizen_din"
-        system_user = SystemUser.objects.get(citizen_din= request_body['citizen_din'])
-        # Fetch the current serialized user data to read existing roles
-        temp_serializer =SystemUserSerializer(system_user)
-    except SystemUser.DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Citizen Not Found",
-        )
-
-    # Convert the current role string to a list for filtering
-    old_perms= list(temp_serializer.data.role)
-    updated_perms = []
-
-    # Build a new list excluding the role to be removed
-    for perm in old_perms:
-        if perm != request_body.role:
-            updated_perms.append(perm)
-
-    # Rejoin the updated roles into a comma-separated string for storage
-    perms = ','.join(updated_perms)
-
-    # Guard: raise an error if the role being removed was never assigned
-    # NOTE: This check runs after the list has already been filtered above
-    if request_body.get("role") not in old_perms:
+    
+    # Check if RegistrationOfficer already exists for this citizen
+    if RegistrationOfficer.objects.filter(citizen=citizen).exists():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Citizen Already Does Not Have That Permission",
+            detail="RegistrationOfficer already exists for this citizen",
         )
+    
+    district = None
+    district_id = request_body.get("district_id")
+    if district_id:
+        try:
+            district = District.objects.get(id=district_id)
+        except District.DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="District not found",
+            )
+    
+    officer = RegistrationOfficer.objects.create(
+        citizen_id=citizen.id,
+        employee_id=request_body.get("employee_id"),
+        station_name=request_body.get("station_name"),
+        district=district,
+        is_active=True
+    )
+    
+    return {
+        "details": "RegistrationOfficer created successfully",
+        "officer_id": officer.id,
+        "employee_id": officer.employee_id
+    }
+
+
+def create_registrar(request_body: dict) -> dict:
+    """Creates a new Registrar linked to a Citizen."""
+    from citizens.models import Registrar, Citizen, District
+    from admin_ops.serializers import SystemUserSerializer
+    from dependencies.auth import UserRole
+    
+    citizen_din = request_body.get("citizen_din")
+    
+    try:
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+    
+    # First, update the system user's role
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="System user not found for this citizen",
+        )
+    
+    # Add the role to the system user
+    old_perms = list(temp_serializer.data.get("role", ""))
+    old_perms.append(UserRole.REGISTRAR)
+    updated_perms = ','.join(old_perms)
+    
+    serializer = SystemUserSerializer(
+        instance=system_user,
+        data={"role": updated_perms},
+        partial=True
+    )
+    
+    if not serializer.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+    serializer.save()
+    
+    # Check if Registrar already exists for this citizen
+    if Registrar.objects.filter(citizen=citizen).exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Registrar already exists for this citizen",
+        )
+    
+    district = None
+    district_id = request_body.get("district_id")
+    if district_id:
+        try:
+            district = District.objects.get(id=district_id)
+        except District.DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="District not found",
+            )
+    
+    registrar = Registrar.objects.create(
+        citizen_id=citizen.id,
+        employee_id=request_body.get("employee_id"),
+        department=request_body.get("department"),
+        district=district,
+        is_active=True
+    )
+    
+    return {
+        "details": "Registrar created successfully",
+        "registrar_id": registrar.id,
+        "employee_id": registrar.employee_id
+    }
+
+
+def create_supervisor(request_body: dict) -> dict:
+    """Creates a new Supervisor linked to a Citizen."""
+    from citizens.models import Supervisor, Citizen, District
+    from admin_ops.serializers import SystemUserSerializer
+    from dependencies.auth import UserRole
+    
+    citizen_din = request_body.get("citizen_din")
+    
+    try:
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+    
+    # First, update the system user's role
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="System user not found for this citizen",
+        )
+    
+    # Add the role to the system user
+    old_perms = list(temp_serializer.data.get("role", ""))
+    old_perms.append(UserRole.SUPERVISOR)
+    updated_perms = ','.join(old_perms)
+    
+    serializer = SystemUserSerializer(
+        instance=system_user,
+        data={"role": updated_perms},
+        partial=True
+    )
+    
+    if not serializer.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+    serializer.save()
+    
+    # Check if Supervisor already exists for this citizen
+    if Supervisor.objects.filter(citizen=citizen).exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Supervisor already exists for this citizen",
+        )
+    
+    district = None
+    district_id = request_body.get("district_id")
+    if district_id:
+        try:
+            district = District.objects.get(id=district_id)
+        except District.DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="District not found",
+            )
+    
+    supervisor = Supervisor.objects.create(
+        citizen_id=citizen.id,
+        employee_id=request_body.get("employee_id"),
+        department=request_body.get("department"),
+        district=district,
+        is_active=True
+    )
+    
+    return {
+        "details": "Supervisor created successfully",
+        "supervisor_id": supervisor.id,
+        "employee_id": supervisor.employee_id
+    }
+
+
+def create_health_worker(request_body: dict) -> dict:
+    """Creates a new HealthWorker linked to a Citizen."""
+    from citizens.models import HealthWorker, Citizen
+    from admin_ops.serializers import SystemUserSerializer
+    from dependencies.auth import UserRole
+    
+    citizen_din = request_body.get("citizen_din")
+    
+    try:
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+    
+    # First, update the system user's role
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="System user not found for this citizen",
+        )
+    
+    # Add the role to the system user
+    old_perms = list(temp_serializer.data.get("role", ""))
+    old_perms.append(UserRole.HEALTH_WORKER)
+    updated_perms = ','.join(old_perms)
+    
+    serializer = SystemUserSerializer(
+        instance=system_user,
+        data={"role": updated_perms},
+        partial=True
+    )
+    
+    if not serializer.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+    serializer.save()
+    
+    # Check if HealthWorker already exists for this citizen
+    if HealthWorker.objects.filter(citizen=citizen).exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="HealthWorker already exists for this citizen",
+        )
+    
+    health_worker = HealthWorker.objects.create(
+        citizen_id=citizen.id,
+        employee_id=request_body.get("employee_id"),
+        facility_name=request_body.get("facility_name"),
+        department=request_body.get("department"),
+        is_active=True
+    )
+    
+    return {
+        "details": "HealthWorker created successfully",
+        "health_worker_id": health_worker.id,
+        "employee_id": health_worker.employee_id
+    }
+
+# -------------------------------------------------------------------
+# Staff Role Removal Functions
+# -------------------------------------------------------------------
+
+# Removes the RegistrationOfficer role from a system user and deactivates
+# the linked RegistrationOfficer instance. Mirrors create_registration_officer
+# in reverse — strips the role from the system user then sets is_active=False
+# on the role record.
+def remove_registration_officer(request_body: dict) -> dict:
+    from citizens.models import RegistrationOfficer, Citizen
+
+    citizen_din = request_body.get("citizen_din")
+
+    try:
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="System user not found for this citizen",
+        )
+
+    # Guard: confirm the role is actually assigned before attempting removal
+    old_perms = list(temp_serializer.data.get("role", ""))
+    if UserRole.REGISTRATION_OFFICER not in old_perms:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Citizen does not have the RegistrationOfficer role",
+        )
+
+    # Strip the role from the system user's role set
+    updated_perms = ','.join([p for p in old_perms if p != UserRole.REGISTRATION_OFFICER])
 
     serializer = SystemUserSerializer(
         instance=system_user,
-        data= {
-            "role": perms
-        },
+        data={"role": updated_perms},
         partial=True
     )
 
@@ -420,7 +681,223 @@ def remove_user_permissions(user_id:int,request_body:dict):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=serializer.errors,
         )
-
     serializer.save()
 
-    return {"details": "Roles Successfully Updated"}
+    # Deactivate the linked RegistrationOfficer instance
+    try:
+        officer = RegistrationOfficer.objects.get(citizen=citizen)
+    except RegistrationOfficer.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RegistrationOfficer record not found for this citizen",
+        )
+
+    officer.is_active = False
+    officer.save()
+
+    return {
+        "details": "RegistrationOfficer role removed successfully",
+        "officer_id": officer.id,
+        "employee_id": officer.employee_id
+    }
+
+
+# Removes the Registrar role from a system user and deactivates
+# the linked Registrar instance.
+def remove_registrar(request_body: dict) -> dict:
+    from citizens.models import Registrar, Citizen
+
+    citizen_din = request_body.get("citizen_din")
+
+    try:
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="System user not found for this citizen",
+        )
+
+    # Guard: confirm the role is actually assigned before attempting removal
+    old_perms = list(temp_serializer.data.get("role", ""))
+    if UserRole.REGISTRAR not in old_perms:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Citizen does not have the Registrar role",
+        )
+
+    # Strip the role from the system user's role set
+    updated_perms = ','.join([p for p in old_perms if p != UserRole.REGISTRAR])
+
+    serializer = SystemUserSerializer(
+        instance=system_user,
+        data={"role": updated_perms},
+        partial=True
+    )
+
+    if not serializer.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+    serializer.save()
+
+    # Deactivate the linked Registrar instance
+    try:
+        registrar = Registrar.objects.get(citizen=citizen)
+    except Registrar.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registrar record not found for this citizen",
+        )
+
+    registrar.is_active = False
+    registrar.save()
+
+    return {
+        "details": "Registrar role removed successfully",
+        "registrar_id": registrar.id,
+        "employee_id": registrar.employee_id
+    }
+
+
+# Removes the Supervisor role from a system user and deactivates
+# the linked Supervisor instance.
+def remove_supervisor(request_body: dict) -> dict:
+    from citizens.models import Supervisor, Citizen
+
+    citizen_din = request_body.get("citizen_din")
+
+    try:
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="System user not found for this citizen",
+        )
+
+    # Guard: confirm the role is actually assigned before attempting removal
+    old_perms = list(temp_serializer.data.get("role", ""))
+    if UserRole.SUPERVISOR not in old_perms:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Citizen does not have the Supervisor role",
+        )
+
+    # Strip the role from the system user's role set
+    updated_perms = ','.join([p for p in old_perms if p != UserRole.SUPERVISOR])
+
+    serializer = SystemUserSerializer(
+        instance=system_user,
+        data={"role": updated_perms},
+        partial=True
+    )
+
+    if not serializer.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+    serializer.save()
+
+    # Deactivate the linked Supervisor instance
+    try:
+        supervisor = Supervisor.objects.get(citizen=citizen)
+    except Supervisor.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Supervisor record not found for this citizen",
+        )
+
+    supervisor.is_active = False
+    supervisor.save()
+
+    return {
+        "details": "Supervisor role removed successfully",
+        "supervisor_id": supervisor.id,
+        "employee_id": supervisor.employee_id
+    }
+
+
+# Removes the HealthWorker role from a system user and deactivates
+# the linked HealthWorker instance.
+def remove_health_worker(request_body: dict) -> dict:
+    from citizens.models import HealthWorker, Citizen
+
+    citizen_din = request_body.get("citizen_din")
+
+    try:
+        citizen = Citizen.objects.get(din=citizen_din)
+    except Citizen.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen not found",
+        )
+
+    try:
+        system_user = SystemUser.objects.get(citizen__din=citizen_din)
+        temp_serializer = SystemUserSerializer(system_user)
+    except SystemUser.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="System user not found for this citizen",
+        )
+
+    # Guard: confirm the role is actually assigned before attempting removal
+    old_perms = list(temp_serializer.data.get("role", ""))
+    if UserRole.HEALTH_WORKER not in old_perms:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Citizen does not have the HealthWorker role",
+        )
+
+    # Strip the role from the system user's role set
+    updated_perms = ','.join([p for p in old_perms if p != UserRole.HEALTH_WORKER])
+
+    serializer = SystemUserSerializer(
+        instance=system_user,
+        data={"role": updated_perms},
+        partial=True
+    )
+
+    if not serializer.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=serializer.errors,
+        )
+    serializer.save()
+
+    # Deactivate the linked HealthWorker instance
+    try:
+        health_worker = HealthWorker.objects.get(citizen=citizen)
+    except HealthWorker.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="HealthWorker record not found for this citizen",
+        )
+
+    health_worker.is_active = False
+    health_worker.save()
+
+    return {
+        "details": "HealthWorker role removed successfully",
+        "health_worker_id": health_worker.id,
+        "employee_id": health_worker.employee_id
+    }

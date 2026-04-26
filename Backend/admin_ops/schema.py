@@ -39,6 +39,8 @@ class AccountCreateRequest(BaseModel):
     email:    EmailStr
     password: str      = Field(..., min_length=8,  description="Plaintext — hashed server-side")
 
+
+
 class AccountCreateResponse(BaseModel):
     """
     Returned after POST /auth/register.
@@ -102,9 +104,7 @@ class SystemUserBase(BaseModel):
     din:str = Field(..., max_length=20, description="Only populated for CITIZEN role")
     is_active: bool = True
 
-class UpdateUserPermissions(BaseModel):
-    role: str
-    citizen_din: str = Field(..., max_length=20, description="Only populated for CITIZEN role")
+
 
 class SystemUserCreatePassword(BaseModel):
 
@@ -219,3 +219,54 @@ class PaginatedTransactionList(BaseModel):
     page: int
     page_size: int
     items: list[TransactionResponse]
+
+
+# -------------------------------------------------------------------
+# Staff Role Creation Schemas
+# -------------------------------------------------------------------
+class RegistrationOfficerRemove(BaseModel):
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen whose RO role to deactivate")
+
+
+class RegistrarRemove(BaseModel):
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen whose Registrar role to deactivate")
+
+
+class SupervisorRemove(BaseModel):
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen whose Supervisor role to deactivate")
+
+
+class HealthWorkerRemove(BaseModel):
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen whose HealthWorker role to deactivate")
+
+
+class RegistrationOfficerCreate(BaseModel):
+
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
+    employee_id: str = Field(..., max_length=50, description="Unique employee ID")
+    station_name: Optional[str] = Field(None, max_length=200, description="Registration station name")
+    district_id: Optional[int] = Field(None, description="District ID where stationed")
+
+
+class RegistrarCreate(BaseModel):
+
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
+    employee_id: str = Field(..., max_length=50, description="Unique employee ID")
+    department: Optional[str] = Field(None, max_length=100, description="Department name")
+    district_id: Optional[int] = Field(None, description="District ID where stationed")
+
+
+class SupervisorCreate(BaseModel):
+
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
+    employee_id: str = Field(..., max_length=50, description="Unique employee ID")
+    department: Optional[str] = Field(None, max_length=100, description="Department name")
+    district_id: Optional[int] = Field(None, description="District ID where stationed")
+
+
+class HealthWorkerCreate(BaseModel):
+
+    citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
+    employee_id: str = Field(..., max_length=50, description="Unique employee ID")
+    facility_name: Optional[str] = Field(None, max_length=200, description="Health facility name")
+    department: Optional[str] = Field(None, max_length=100, description="Department name")
