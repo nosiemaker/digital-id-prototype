@@ -13,7 +13,7 @@ const ROLE_ROUTES: Record<string, string> = {
   SUPERVISOR:           "/dashboard/supervisor",
   REGISTRAR:            "/dashboard/registrar",
   HEALTH_WORKER:        "/dashboard/health",
-  CITIZEN:              "/dashboard/citizen",
+  CITIZEN:              "/wallet",
 }
 
 const DEFAULT_ROUTE = "/dashboard"
