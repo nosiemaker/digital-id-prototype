@@ -169,11 +169,17 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-border text-center">
+          <div className="mt-6 pt-6 border-t border-border text-center space-y-3">
             <p className="text-xs text-muted-foreground">
               Are you a citizen?{" "}
               <Link href="/register" className="text-primary hover:underline font-medium">
                 Register your Digital ID
+              </Link>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Institutional partner?{" "}
+              <Link href="/institutions" className="text-primary hover:underline font-medium">
+                Sign in as a Third Party
               </Link>
             </p>
           </div>
