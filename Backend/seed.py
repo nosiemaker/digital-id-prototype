@@ -37,7 +37,7 @@ SEED_EMAILS = [
     "mary@zdid.zm",
 ]
 
-print("🌱 Seeding ZDID database...")
+print("Seeding ZDID database...")
 
 # ── Clean existing seed users ──────────────────────────────────────────────────
 deleted, _ = SystemUser.objects.filter(email__in=SEED_EMAILS).delete()
@@ -50,50 +50,60 @@ print(f"  Removed {deleted_citizens} existing seed citizen(s)")
 pw = hash_password("zdid1234")  # All dev accounts use the same password
 
 ro = SystemUser.objects.create(
+    username="ro",
     role=UserRole.REGISTRATION_OFFICER,
     email="ro@zdid.zm",
-    password_hash=pw,
-    name="Moses Banda",
+    first_name="Moses Banda",
     is_active=True,
 )
-print(f"  ✅ RO created: {ro.email}")
+ro.set_password("zdid1234")
+ro.save()
+print(f"  RO created: {ro.email}")
 
 registrar = SystemUser.objects.create(
+    username="registrar",
     role=UserRole.REGISTRAR,
     email="registrar@zdid.zm",
-    password_hash=pw,
-    name="Grace Mwale",
+    first_name="Grace Mwale",
     is_active=True,
 )
-print(f"  ✅ Registrar created: {registrar.email}")
+registrar.set_password("zdid1234")
+registrar.save()
+print(f"  Registrar created: {registrar.email}")
 
 supervisor = SystemUser.objects.create(
+    username="supervisor",
     role=UserRole.SUPERVISOR,
     email="supervisor@zdid.zm",
-    password_hash=pw,
-    name="James Phiri",
+    first_name="James Phiri",
     is_active=True,
 )
-print(f"  ✅ Supervisor created: {supervisor.email}")
+supervisor.set_password("zdid1234")
+supervisor.save()
+print(f"  Supervisor created: {supervisor.email}")
 
 hw = SystemUser.objects.create(
+    username="healthworker",
     role=UserRole.HEALTH_WORKER,
     email="healthworker@zdid.zm",
-    password_hash=pw,
-    name="Charity Tembo",
+    first_name="Charity Tembo",
     is_active=True,
 )
-print(f"  ✅ Health Worker created: {hw.email}")
+hw.set_password("zdid1234")
+hw.save()
+print(f"  Health Worker created: {hw.email}")
 
 # ── Create a test citizen ──────────────────────────────────────────────────────
 # Simulates a citizen who has submitted their enrollment
 citizen_user = SystemUser.objects.create(
+    username="citizen",
     role=UserRole.CITIZEN,
     email="citizen@zdid.zm",
-    password_hash=pw,
-    name="John Mulenga",
+    first_name="John Mulenga",
     is_active=True,
 )
+citizen_user.set_password("zdid1234")
+citizen_user.save()
 
 citizen = Citizen.objects.create(
     nrc="123456/78/1",
@@ -113,7 +123,7 @@ EnrollmentRequest.objects.create(
 citizen_user.citizen_din = None  # Will be set after RO approves
 citizen_user.save()
 
-print(f"  ✅ Citizen created: {citizen_user.email} (enrollment PENDING)")
+print(f"  Citizen created: {citizen_user.email} (enrollment PENDING)")
 
 # ── Create an approved citizen for demo ───────────────────────────────────────
 # In real enrollment, the DIN comes from process_enrollment_biometrics(image_bytes).
@@ -134,17 +144,19 @@ approved_citizen = Citizen.objects.create(
 )
 
 approved_user = SystemUser.objects.create(
+    username="mary",
     role=UserRole.CITIZEN,
     email="mary@zdid.zm",
-    password_hash=pw,
-    name="Mary Zulu",
+    first_name="Mary Zulu",
     citizen_din=approved_din,
     is_active=True,
 )
-print(f"  ✅ Approved citizen created: {approved_user.email} DIN={approved_din}")
+approved_user.set_password("zdid1234")
+approved_user.save()
+print(f"  Approved citizen created: {approved_user.email} DIN={approved_din}")
 
 # ── Summary ────────────────────────────────────────────────────────────────────
-print("\n🎉 Seed complete. All accounts use password: zdid1234\n")
+print("\nSeed complete. All accounts use password: zdid1234\n")
 print("  ro@zdid.zm             → Registration Officer")
 print("  registrar@zdid.zm      → Registrar")
 print("  supervisor@zdid.zm     → Supervisor")

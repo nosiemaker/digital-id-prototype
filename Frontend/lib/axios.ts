@@ -255,19 +255,27 @@ export interface APIError {
 
 const TOKEN_KEY = "zdid_access_token";
 const REFRESH_KEY = "zdid_refresh_token";
+const ROLE_KEY = "zdid_role";
+const NAME_KEY = "zdid_user_name";
 
 export const tokenStore = {
-    getAccess: (): string | null => localStorage.getItem(TOKEN_KEY),
-    getRefresh: (): string | null => localStorage.getItem(REFRESH_KEY),
+    getAccess: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null,
+    getRefresh: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null,
+    getRole: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(ROLE_KEY) : null,
+    getName: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(NAME_KEY) : null,
 
-    set: (access: string, refresh: string): void => {
+    set: (access: string, refresh: string, role?: string, name?: string): void => {
         localStorage.setItem(TOKEN_KEY, access);
         localStorage.setItem(REFRESH_KEY, refresh);
+        if (role) localStorage.setItem(ROLE_KEY, role);
+        if (name) localStorage.setItem(NAME_KEY, name);
     },
 
     clear: (): void => {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(REFRESH_KEY);
+        localStorage.removeItem(ROLE_KEY);
+        localStorage.removeItem(NAME_KEY);
     },
 }
 
@@ -403,7 +411,7 @@ function normaliseError(error: AxiosError): APIError {
 export const authApi = {
   login: async (body: LoginRequest): Promise<LoginResponse> => {
     const { data } = await axiosInstance.post<LoginResponse>("/auth/login", body);
-    tokenStore.set(data.access_token, data.refresh_token);
+    tokenStore.set(data.access_token, data.refresh_token, data.role, data.name);
     return data;
   },
  

@@ -14,7 +14,10 @@ import {
   Menu,
   X,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { tokenStore } from "@/lib/axios"
+
 
 const features = [
   { icon: Shield, title: "Secure Identity", description: "Military-grade encryption protecting every citizen's personal data and biometric records." },
@@ -40,8 +43,30 @@ const navLinks = [
   { label: "Login", href: "/login" },
 ]
 
+const ROLE_ROUTES: Record<string, string> = {
+  RO: "/admin",
+  SUPERVISOR: "/admin",
+  REGISTRAR: "/admin",
+  HEALTH_WORKER: "/admin",
+  CITIZEN: "/wallet",
+  THIRD_PARTY: "/institutions/dashboard",
+}
+
+const DEFAULT_ROUTE = "/dashboard"
+
 export default function LandingPage() {
+  const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    const token = tokenStore.getAccess()
+    const role = tokenStore.getRole()
+    if (token && role) {
+      const destination = ROLE_ROUTES[role] ?? DEFAULT_ROUTE
+      router.push(destination)
+    }
+  }, [router])
+
 
   return (
     <div className="min-h-screen bg-background font-sans">

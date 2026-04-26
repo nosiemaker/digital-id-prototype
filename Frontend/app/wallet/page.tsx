@@ -1,7 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { authApi, tokenStore } from "@/lib/axios"
+
 import {
   Shield,
   CheckCircle2,
@@ -23,12 +26,18 @@ import {
   Smartphone,
   CreditCard,
   Mail,
+  FileText,
+  Baby,
+  Plus,
   Smartphone as Phone,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 const sidebarLinks = [
   { id: "wallet", label: "My ID Wallet", icon: LayoutDashboard },
   { id: "profile", label: "Profile", icon: User },
+  { id: "documents", label: "My Documents", icon: FileText },
   { id: "family", label: "Family Tree", icon: Users },
   { id: "activity", label: "Activity Log", icon: History },
   { id: "notifications", label: "Notifications", icon: Bell },
@@ -63,11 +72,27 @@ export default function WalletPage() {
   const [activeTab, setActiveTab] = useState("wallet")
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [qrVisible, setQrVisible] = useState(false)
+  const router = useRouter()
+  const userName = tokenStore.getName() || "Mwamba Kalinda"
+  const userRole = tokenStore.getRole() || "CITIZEN"
+
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    try {
+      await authApi.logout()
+      router.push("/login")
+    } catch (err) {
+      tokenStore.clear()
+      router.push("/login")
+    }
+  }
+
 
   const getPageTitle = () => {
     switch (activeTab) {
       case "wallet": return "My Digital ID Wallet"
       case "profile": return "My Profile"
+      case "documents": return "My Documents"
       case "family": return "My Family Tree"
       case "activity": return "Activity Log"
       case "notifications": return "Notifications"
@@ -80,6 +105,7 @@ export default function WalletPage() {
     switch (activeTab) {
       case "wallet": return "Manage and share your identity"
       case "profile": return "View and manage your personal details"
+      case "documents": return "View your official birth and health records"
       case "family": return "View your verified family connections"
       case "activity": return "A history of your identity usage"
       case "notifications": return "Stay updated on your ID status"
@@ -120,16 +146,23 @@ export default function WalletPage() {
         </nav>
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">MK</div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
+              {userName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">Mwamba Kalinda</p>
-              <p className="text-xs text-muted-foreground truncate">ZM-2024-001-8872</p>
+              <p className="text-xs font-medium text-foreground truncate">{userName}</p>
+              <p className="text-[10px] text-muted-foreground truncate font-mono uppercase tracking-tighter">{userRole}</p>
             </div>
           </div>
-          <Link href="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
-            <LogOut className="h-4 w-4" /><span>Sign Out</span>
-          </Link>
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors text-left"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign Out</span>
+          </button>
         </div>
+
       </aside>
 
       {/* Main */}
@@ -383,6 +416,52 @@ export default function WalletPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "documents" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="rounded-2xl border border-border bg-card p-6">
+                <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" /> Official Certificates
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { title: "Birth Certificate", id: "BC-2024-8872", issued: "23 Mar 2024", icon: Baby },
+                    { title: "Digital ID Card", id: "ZM-2024-001-8872", issued: "23 Mar 2024", icon: Shield },
+                  ].map((doc) => {
+                    const Icon = doc.icon
+                    return (
+                      <div key={doc.id} className="flex flex-col p-4 rounded-xl border border-border bg-secondary/30 hover:border-primary/40 transition-all group">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center text-primary">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">Certified</Badge>
+                        </div>
+                        <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">{doc.title}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">ID: {doc.id}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Issued: {doc.issued}</p>
+                        <div className="flex gap-2 mt-4">
+                          <Button variant="outline" size="sm" className="flex-1 text-[10px] h-8">View</Button>
+                          <Button size="sm" className="flex-1 text-[10px] h-8">Download</Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-dashed border-border p-8 flex flex-col items-center text-center">
+                <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center mb-4">
+                  <Plus className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="font-bold text-foreground">Request Document</h3>
+                <p className="text-xs text-muted-foreground mt-1 max-w-[250px]">
+                  Apply for replacement certificates or request new government documents.
+                </p>
+                <Button variant="outline" className="mt-4 border-border h-9 text-xs">Browse Document Catalog</Button>
               </div>
             </div>
           )}

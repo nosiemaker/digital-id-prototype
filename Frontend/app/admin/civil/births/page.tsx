@@ -17,8 +17,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -44,17 +42,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-const birthRecords = [
-  { id: "BR-2024-001", childName: "Mwamba Banda Jr.", sex: "Male", dob: "2024-03-15", placeOfBirth: "UTH Lusaka", birthType: "hospital", motherName: "Grace Banda", fatherName: "John Banda", status: "certified", registrationDate: "2024-03-18", province: "Lusaka" },
-  { id: "BR-2024-002", childName: "Chanda Mulenga", sex: "Female", dob: "2024-03-14", placeOfBirth: "Kitwe Central Hospital", birthType: "hospital", motherName: "Mary Mulenga", fatherName: "Peter Mulenga", status: "pending", registrationDate: "2024-03-16", province: "Copperbelt" },
-  { id: "BR-2024-003", childName: "Tembo Chilufya", sex: "Male", dob: "2024-03-12", placeOfBirth: "Mansa Village", birthType: "home", motherName: "Ruth Chilufya", fatherName: "Emmanuel Chilufya", status: "certified", registrationDate: "2024-03-20", province: "Luapula" },
-  { id: "BR-2024-004", childName: "Mutale Phiri", sex: "Female", dob: "2024-03-10", placeOfBirth: "Ndola Teaching Hospital", birthType: "hospital", motherName: "Esther Phiri", fatherName: "David Phiri", status: "pending", registrationDate: "2024-03-12", province: "Copperbelt" },
-  { id: "BR-2024-005", childName: "Bwalya Zimba", sex: "Male", dob: "2024-03-08", placeOfBirth: "Chipata General Hospital", birthType: "hospital", motherName: "Agnes Zimba", fatherName: "Joseph Zimba", status: "certified", registrationDate: "2024-03-10", province: "Eastern" },
-  { id: "BR-2024-006", childName: "Namukolo Sakala", sex: "Female", dob: "2024-03-05", placeOfBirth: "Mongu District Hospital", birthType: "hospital", motherName: "Sarah Sakala", fatherName: "Moses Sakala", status: "rejected", registrationDate: "2024-03-08", province: "Western" },
-  { id: "BR-2024-007", childName: "Kalumba Ng'andu", sex: "Male", dob: "2024-03-01", placeOfBirth: "Kasama Village", birthType: "home", motherName: "Joyce Ng'andu", fatherName: "Charles Ng'andu", status: "pending", registrationDate: "2024-03-05", province: "Northern" },
-  { id: "BR-2024-008", childName: "Mwila Tembo", sex: "Female", dob: "2024-02-28", placeOfBirth: "Levy Mwanawasa Hospital", birthType: "hospital", motherName: "Catherine Tembo", fatherName: "Michael Tembo", status: "certified", registrationDate: "2024-03-02", province: "Lusaka" },
-]
-
 const stats = [
   { label: "Total Births", value: "1,247", change: "+12%", icon: Baby },
   { label: "Hospital Births", value: "892", change: "+8%", icon: Building2 },
@@ -71,23 +58,86 @@ const languages = [
   { code: "kqn", label: "Kaonde" },
   { code: "lun", label: "Lunda" },
 ]
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { birthRecordApi, type BirthRecordBase } from "@/lib/axios"
+import { useEffect } from "react"
+import { toast } from "sonner"
 
 export default function BirthRecordsPage() {
+  const [records, setRecords] = useState<any[]>([])
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [birthTypeFilter, setBirthTypeFilter] = useState("all")
   const [registerOpen, setRegisterOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState<typeof birthRecords[0] | null>(null)
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null)
   const [language, setLanguage] = useState("en")
+  const [activeTab, setActiveTab] = useState<"certified" | "pending">("certified")
 
-  const filteredRecords = birthRecords.filter((record) => {
+  const [form, setForm] = useState<BirthRecordBase>({
+    citizen_din: "",
+    hospital_name: "",
+    birth_date: new Date().toISOString().split('T')[0],
+    child_first_name: "",
+    child_last_name: "",
+    sex: "male",
+    mother_name: "",
+    mother_nrc: "",
+  })
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  async function fetchData() {
+    setLoading(true)
+    try {
+      const response: any = await birthRecordApi.getPendingSubmissions()
+      setPendingSubmissions(response.pending_submissions || [])
+      
+      setRecords([
+        { id: "BR-2024-001", childName: "Mwamba Banda Jr.", sex: "Male", dob: "2024-03-15", placeOfBirth: "UTH Lusaka", birthType: "hospital", motherName: "Grace Banda", fatherName: "John Banda", status: "certified", registrationDate: "2024-03-18", province: "Lusaka" },
+        { id: "BR-2024-005", childName: "Bwalya Zimba", sex: "Male", dob: "2024-03-08", placeOfBirth: "Chipata General Hospital", birthType: "hospital", motherName: "Agnes Zimba", fatherName: "Joseph Zimba", status: "certified", registrationDate: "2024-03-10", province: "Eastern" },
+      ])
+    } catch (err) {
+      console.error("Failed to fetch birth records", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await birthRecordApi.submit(form)
+      toast.success("Birth record submitted for review")
+      setRegisterOpen(false)
+      fetchData()
+    } catch (err) {
+      toast.error("Failed to submit record")
+    }
+  }
+
+  async function handleApprove(id: number) {
+    try {
+      await birthRecordApi.approve(id)
+      toast.success("Record approved and certified")
+      fetchData()
+    } catch (err) {
+      toast.error("Approval failed")
+    }
+  }
+
+  const currentList = activeTab === "certified" ? records : pendingSubmissions
+
+  const filteredRecords = currentList.filter((record) => {
+    const name = record.childName || record.child_first_name || ""
     const matchesSearch =
-      record.childName.toLowerCase().includes(search.toLowerCase()) ||
-      record.id.toLowerCase().includes(search.toLowerCase()) ||
-      record.motherName.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = statusFilter === "all" || record.status === statusFilter
-    const matchesBirthType = birthTypeFilter === "all" || record.birthType === birthTypeFilter
-    return matchesSearch && matchesStatus && matchesBirthType
+      name.toLowerCase().includes(search.toLowerCase()) ||
+      (record.id || "").toString().toLowerCase().includes(search.toLowerCase())
+    return matchesSearch
   })
 
   return (
@@ -142,6 +192,33 @@ export default function BirthRecordsPage() {
             </div>
           )
         })}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab("certified")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+            activeTab === "certified" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Certified Records
+        </button>
+        <button
+          onClick={() => setActiveTab("pending")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+            activeTab === "pending" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Pending Submissions
+          {pendingSubmissions.length > 0 && (
+            <Badge className="ml-2 bg-primary/20 text-primary border-none text-[10px] h-4 px-1.5">
+              {pendingSubmissions.length}
+            </Badge>
+          )}
+        </button>
       </div>
 
       {/* Filters */}
@@ -206,9 +283,11 @@ export default function BirthRecordsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {record.childName.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        {(record.childName || `${record.child_first_name || ""} ${record.child_last_name || ""}` || "U").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                       </div>
-                      <span className="font-medium text-foreground">{record.childName}</span>
+                      <span className="font-medium text-foreground">
+                        {record.childName || `${record.child_first_name || ""} ${record.child_last_name || ""}`}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{record.sex}</td>
@@ -270,7 +349,7 @@ export default function BirthRecordsPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between border-t border-border px-4 py-3">
           <p className="text-xs text-muted-foreground">
-            Showing {filteredRecords.length} of {birthRecords.length} records
+            Showing {filteredRecords.length} of {currentList.length} records
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled className="h-8">
@@ -320,17 +399,27 @@ export default function BirthRecordsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>First Name *</Label>
-                  <Input placeholder="Enter first name" className="bg-card border-border" />
+                  <Input 
+                    placeholder="Enter first name" 
+                    className="bg-card border-border" 
+                    value={form.child_first_name}
+                    onChange={(e) => setForm({ ...form, child_first_name: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Last Name *</Label>
-                  <Input placeholder="Enter last name" className="bg-card border-border" />
+                  <Input 
+                    placeholder="Enter last name" 
+                    className="bg-card border-border" 
+                    value={form.child_last_name}
+                    onChange={(e) => setForm({ ...form, child_last_name: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Sex *</Label>
-                  <Select>
+                  <Select value={form.sex} onValueChange={(val) => setForm({ ...form, sex: val })}>
                     <SelectTrigger className="bg-card border-border">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
@@ -342,7 +431,12 @@ export default function BirthRecordsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Date of Birth *</Label>
-                  <Input type="date" className="bg-card border-border" />
+                  <Input 
+                    type="date" 
+                    className="bg-card border-border" 
+                    value={form.birth_date}
+                    onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Time of Birth</Label>
@@ -352,7 +446,12 @@ export default function BirthRecordsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Place of Birth *</Label>
-                  <Input placeholder="Hospital name or village" className="bg-card border-border" />
+                  <Input 
+                    placeholder="Hospital name or village" 
+                    className="bg-card border-border" 
+                    value={form.hospital_name}
+                    onChange={(e) => setForm({ ...form, hospital_name: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Province *</Label>
@@ -382,21 +481,31 @@ export default function BirthRecordsPage() {
               <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2">Mother Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Mother&apos;s Full Name *</Label>
-                  <Input placeholder="Enter full name" className="bg-card border-border" />
+                  <Label>Mother's Full Name *</Label>
+                  <Input 
+                    placeholder="Enter full name" 
+                    className="bg-card border-border" 
+                    value={form.mother_name}
+                    onChange={(e) => setForm({ ...form, mother_name: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Mother&apos;s NRC</Label>
-                  <Input placeholder="e.g., 123456/78/9" className="bg-card border-border" />
+                  <Label>Mother's NRC</Label>
+                  <Input 
+                    placeholder="e.g., 123456/78/9" 
+                    className="bg-card border-border" 
+                    value={form.mother_nrc}
+                    onChange={(e) => setForm({ ...form, mother_nrc: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Mother&apos;s Age *</Label>
+                  <Label>Mother's Age *</Label>
                   <Input type="number" placeholder="Age at birth" className="bg-card border-border" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Mother&apos;s Nationality</Label>
+                  <Label>Mother's Nationality</Label>
                   <Input placeholder="Zambian" defaultValue="Zambian" className="bg-card border-border" />
                 </div>
               </div>
@@ -447,7 +556,7 @@ export default function BirthRecordsPage() {
             <Button variant="outline" onClick={() => setRegisterOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button className="bg-primary hover:bg-primary/90" onClick={handleRegister}>
               <Baby className="h-4 w-4 mr-2" />
               Register Birth
             </Button>
