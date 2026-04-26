@@ -41,6 +41,13 @@ app.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
 app.include_router(qr.router, prefix="/qr", tags=["qr"])
 #app.include_router(digital_id.router)
 
+
+# Add authentication middleware
+app.add_middleware(AuthMiddleware)
+
+# Add audit logging middleware
+app.add_middleware(AuditMiddleware)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -49,12 +56,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Add authentication middleware
-app.add_middleware(AuthMiddleware)
-
-# Add audit logging middleware
-app.add_middleware(AuditMiddleware)
 
 
 @app.get("/")

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 # Create your models here.
@@ -42,12 +43,10 @@ class RelationshipType(models.TextChoices):
     GUARDIAN = "GUARDIAN", "Guardian"
 
 class Citizen(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="profile")
     din = models.CharField(max_length=20, unique=True, null=True, blank=True)
-    email = models.EmailField(unique=True, null=True, blank=True)
-    password = models.CharField(max_length=20, null=True, blank=True)
     nrc = models.CharField(max_length=15, unique=True,null=True)
     full_name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True,null=True)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)
@@ -162,4 +161,4 @@ class FamilyLink(models.Model):
         unique_together = ("citizen", "related_citizen", "relationship_type")
 
     def __str__(self):
-        return f"{self.Citizen} 'n {self.relationship_type} 'n {self.related_citizen}"
+        return f"{self.citizen} 'n {self.relationship_type} 'n {self.related_citizen}"

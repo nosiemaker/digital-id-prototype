@@ -19,17 +19,14 @@ class Language(str, Enum):
 class RelationshipType(str, Enum):
     PARENT = 'PARENT'
     CHILD = 'CHILD'
-    SIBLING = 'SINLING'
+    SIBLING = 'SIBLING'
     SPOUSE = 'SPOUSE'
     GUARDIAN = 'GUARDIAN'
 
 ##Shared fields
 
 class CitizenBase(BaseModel):
-    email:str = Field(..., description="Email Address ")
     nrc: str = Field(..., max_length=20, description="National Registration Card Number")
-    email: str = Field(..., max_length=255, description="Email address")
-    password: str = Field(..., max_length=20, description="Password")
     full_name: str = Field(..., max_length=255)
     dob: date = Field(..., description="Date of birth")
     phone: Optional[str] = Field(None, max_length=20)

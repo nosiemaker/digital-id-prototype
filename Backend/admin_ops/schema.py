@@ -36,7 +36,6 @@ class AccountCreateRequest(BaseModel):
     Creates a SystemUser and sends an email OTP.
     No citizen data yet — just identity credentials.
     """
-    name:     str      = Field(..., max_length=255, description="Full display name")
     email:    EmailStr
     password: str      = Field(..., min_length=8,  description="Plaintext — hashed server-side")
 
@@ -100,7 +99,7 @@ class SystemUserBase(BaseModel):
     role: str
     email: EmailStr
     name: str = Field(..., max_length=255)
-    citizen_din:str = Field(..., max_length=20, description="Only populated for CITIZEN role")
+    din:str = Field(..., max_length=20, description="Only populated for CITIZEN role")
     is_active: bool = True
 
 class UpdateUserPermissions(BaseModel):

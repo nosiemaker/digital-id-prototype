@@ -1,31 +1,98 @@
-
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { useRouter } from 'next/router';
 
 export interface LoginRequest {
-    email: string;
-    password: string;
+  email: string;
+  password: string;
 }
 
 export interface LoginResponse {
-    access_token: string;
-    refresh_token: string;
-    token_type: string;
-    user_id: string;
-    role: string;
-    name: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user_id: string;
+  email: string;
+  role: string;
+  name: string;
 }
 
 export interface RefreshResponse {
-    access_token: string;
-    refresh_token: string;
-    token_type: "bearer";
+  access_token: string;
+  refresh_token: string;
+  token_type: "bearer";
+}
+
+// ── Session / Me ──────────────────────────────────────────────────────────────
+// Extended shape returned by GET /auth/me.
+// Includes citizen fields that are absent from the login response so the
+// wallet can gate UI on enrollment state without an extra citizen API call.
+
+export interface MeResponse extends LoginResponse {
+  /** Assigned after a Registration Officer approves enrollment. Null until then. */
+  citizen_din: string | null;
+  /** Current lifecycle state of the citizen record. Null if not yet enrolled. */
+  citizen_status: CitizenStatus | null;
+  is_email_verified: boolean;
+}
+
+// ── Account creation / OTP (Phase 1 registration) ────────────────────────────
+
+export interface AccountCreateRequest {
+  /** Caller supplies the full display name; backend stores as first_name. */
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface AccountCreateResponse {
+  user_id: number;
+  email: string;
+  message: string;
+}
+
+export interface OTPVerifyRequest {
+  email: string;
+  otp: string;
+}
+
+export interface OTPVerifyResponse {
+  message: string;
+  is_email_verified: boolean;
+}
+
+export interface ResendOTPRequest {
+  email: string;
+}
+
+export interface ResendOTPResponse {
+  message: string;
+}
+
+// ── Identity submission (Phase 2 registration) ────────────────────────────────
+
+export interface IdentitySubmitRequest {
+  nrc: string;
+  full_name: string;
+  dob: string;           // ISO date string: "YYYY-MM-DD"
+  phone?: string;
+  gender: Gender;
+  province: PROVINCE;
+  language: Language;
+  public_key: string;    // PEM-encoded RSA public key
+  nrc_front_url: string;
+  nrc_back_url: string;
+  face_image_url: string;
+}
+
+export interface IdentitySubmitResponse {
+  enrollment_request_id: number;
+  citizen_id: number;
+  message: string;
 }
 
 export type CitizenStatus = "PENDING" | "ACTIVE" | "SUSPENDED" | "DECEASED"
 export type Gender = "MALE" | "FEMALE" | "OTHER";
 export type Language = "en" | "bem" | "nya" | "toi" | "loz";
-export type PROVINCE = 
+export type PROVINCE =
   | "CENTRAL"
   | "COPPERBELT"
   | "EASTERN"
@@ -37,7 +104,7 @@ export type PROVINCE =
   | "SOUTHERN"
   | "WESTERN";
 
-export type RelationshipType = 
+export type RelationshipType =
   | "PARENT"
   | "CHILD"
   | "SIBLING"
@@ -47,38 +114,38 @@ export type RelationshipType =
 // ===== Citizens ======
 
 export interface CitizenBase {
-    nrc: string;
-    full_name: string;
-    dob: string;
-    phone?: string;
-    language: Language;
-    public_key: string;
-    nrc_front_url?: string;
-    nrc_back_url?: string;
-    face_url?: string;
-    email?: string;
-    password?: string;
+  nrc: string;
+  full_name: string;
+  dob: string;
+  phone?: string;
+  language: Language;
+  public_key: string;
+  nrc_front_url?: string;
+  nrc_back_url?: string;
+  face_url?: string;
+  email?: string;
+  password?: string;
 }
 
 export interface CitizenSummary {
-    din: string;
-    full_name: string;
-    nrc: string;
-    status: CitizenStatus;
+  din: string;
+  full_name: string;
+  nrc: string;
+  status: CitizenStatus;
 }
 
 export interface CitizenResponse extends CitizenBase {
-    din: string;
-    status: CitizenStatus;
-    created_at: string;
-    updated_at: string;   
+  din: string;
+  status: CitizenStatus;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CitizenUpdate {
-    full_name?: string;
-    phone?: string;
-    language?: string;
-    status?: CitizenStatus;
+  full_name?: string;
+  phone?: string;
+  language?: string;
+  status?: CitizenStatus;
 }
 
 export interface FamilyLinkBase {
@@ -87,10 +154,10 @@ export interface FamilyLinkBase {
 }
 
 export interface BiometricRecordResponse {
-    citizen_din: string;
-    facial_template?: string | null;
-    captured_at: string;
-    updated_at: string;
+  citizen_din: string;
+  facial_template?: string | null;
+  captured_at: string;
+  updated_at: string;
 }
 
 export interface FamilyLinkResponse {
@@ -100,7 +167,7 @@ export interface FamilyLinkResponse {
   relationship_type: RelationshipType;
   created_at: string;
 }
- 
+
 export interface FamilyTreeResponse {
   citizen: CitizenSummary;
   parents: CitizenSummary[];
@@ -122,7 +189,7 @@ export interface EnrollmentRequestResponse {
 }
 
 export interface EnrollmentRejection {
-    rejection_reason: string;
+  rejection_reason: string;
 }
 
 // ====== Digital ID =====
@@ -143,7 +210,7 @@ export interface DigitalIDResponse {
   issued_at: string;
   valid_for_seconds: number;
 }
- 
+
 export interface ServerPublicKeyResponse {
   public_key_pem: string;
   algorithm: string;
@@ -153,11 +220,11 @@ export interface ServerPublicKeyResponse {
 // ===== QR =====
 
 export interface QRPayload {
-    din: string;
-    name: string;
-    nonce: string;
-    exp: number;
-    sig: string;
+  din: string;
+  name: string;
+  nonce: string;
+  exp: number;
+  sig: string;
 }
 
 export interface QRVerifyRequest {
@@ -176,10 +243,10 @@ export interface QRVerifyResponse {
 // ===== Hospital (birth / death records) ======
 
 export interface BirthRecordBase {
-    citizen_din: string;
-    hospital_name: string;
-    birth_date: string;
-    [key: string]: unknown;
+  citizen_din: string;
+  hospital_name: string;
+  birth_date: string;
+  [key: string]: unknown;
 }
 
 export interface DeathRecordBase {
@@ -189,7 +256,7 @@ export interface DeathRecordBase {
   cause_of_death?: string;
   [key: string]: unknown;
 }
- 
+
 export interface RecordRejection {
   rejection_reason: string;
 }
@@ -200,7 +267,7 @@ export interface KYCRequestCreate {
   citizen_din: string;
   fields_requested: string[];
 }
- 
+
 export interface KYCRequestResponse {
   id: number;
   institution_name: string;
@@ -212,19 +279,19 @@ export interface KYCRequestResponse {
   responded_at?: string | null;
   expires_at?: string | null;
 }
- 
+
 export interface KYCCitizenResponse {
   decision: "APPROVED" | "DENIED";
   fields_granted?: string[];
 }
- 
+
 export interface ConsentRecordResponse {
   id: number;
   decision: string;
   fields_shared: string[];
   timestamp: string;
 }
- 
+
 export interface ApprovedCitizenDataResponse {
   kyc_request_id: number;
   citizen_din: string;
@@ -232,7 +299,7 @@ export interface ApprovedCitizenDataResponse {
   decision: string;
   timestamp: string;
 }
- 
+
 export interface StatisticsResponse {
   total_registered_citizens: number;
   live_births_vs_deaths: Record<string, number>;
@@ -244,8 +311,10 @@ export interface StatisticsResponse {
 // ===== Generic API error shape ====
 
 export interface APIError {
-    detail: string;
-    status: number;
+  detail: string;
+  status: number;
+  code?: string;
+  validationErrors?: Record<string, string[]>;
 }
 
 /**
@@ -257,156 +326,223 @@ const TOKEN_KEY = "zdid_access_token";
 const REFRESH_KEY = "zdid_refresh_token";
 
 export const tokenStore = {
-    getAccess: (): string | null => localStorage.getItem(TOKEN_KEY),
-    getRefresh: (): string | null => localStorage.getItem(REFRESH_KEY),
+  getAccess: (): string | null => localStorage.getItem(TOKEN_KEY),
+  getRefresh: (): string | null => localStorage.getItem(REFRESH_KEY),
 
-    set: (access: string, refresh: string): void => {
-        localStorage.setItem(TOKEN_KEY, access);
-        localStorage.setItem(REFRESH_KEY, refresh);
-    },
+  set: (access: string, refresh: string): void => {
+    localStorage.setItem(TOKEN_KEY, access);
+    localStorage.setItem(REFRESH_KEY, refresh);
+  },
 
-    clear: (): void => {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(REFRESH_KEY);
-    },
+  clear: (): void => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    // Reset refresh state on logout
+    if (typeof refreshState !== 'undefined' && refreshState.reset) {
+      refreshState.reset();
+    }
+  },
 }
 
 // 3. Base Axios instance
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ??
- "http://localhost:8000";
+  "http://localhost:8000";
 
- export const axiosInstance: AxiosInstance = axios.create({
-    baseURL: API_BASE_URL,
-    headers: { "Content-Type": "application/json" },
-    timeout: 15_000,
- })
+export const axiosInstance: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { "Content-Type": "application/json" },
+  timeout: 15_000,
+})
 
- // === Request intercepter = attach Bearer token ===
+// === Request intercepter = attach Bearer token ===
 
- axiosInstance.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-        const token = tokenStore.getAccess();
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error: any) => Promise.reject(error)
- );
+axiosInstance.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = tokenStore.getAccess();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error: any) => Promise.reject(error)
+);
 
- export const AUTH_EXPIRED_EVENT = "zdid:authenticated" as const;
+export const AUTH_EXPIRED_EVENT = "zdid:authenticated" as const;
 
- function signalSessionExpired() {
-    tokenStore.clear()
-    window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
- }
+function signalSessionExpired() {
+  tokenStore.clear()
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+}
 
 // === Response interceptor - handle 401 with token refresh ===
 // Pattern: if a request returns 401, attempt one silent refresh, retry the
 // original request, then give up and redirect to /login if refresh also fails.
 
-let isRefreshing = false;
-let refreshQueue: Array<{
+// Use a singleton pattern to avoid state issues in SSR or multiple executions
+const refreshState = (() => {
+  let isRefreshing = false;
+  let refreshQueue: Array<{
     resolve: (token: string) => void;
-    reject: (err: unknown ) => void;
-}> = [];
+    reject: (err: unknown) => void;
+  }> = [];
 
-function drainQueue(token: string | null, error: unknown = null) {
-    refreshQueue.forEach(({ resolve, reject }) => {
+  return {
+    get isRefreshing() {
+      return isRefreshing;
+    },
+    set isRefreshing(value: boolean) {
+      isRefreshing = value;
+    },
+    get refreshQueue() {
+      return refreshQueue;
+    },
+    addToQueue: (item: { resolve: (token: string) => void; reject: (err: unknown) => void }) => {
+      refreshQueue.push(item);
+    },
+    drainQueue: (token: string | null, error: unknown = null) => {
+      refreshQueue.forEach(({ resolve, reject }) => {
         if (token) resolve(token);
         else reject(error);
-    });
-    refreshQueue = [];
-}
+      });
+      refreshQueue = [];
+    },
+    reset: () => {
+      isRefreshing = false;
+      refreshQueue = [];
+    }
+  };
+})();
 
 axiosInstance.interceptors.response.use(
-    (response: AxiosResponse) => response,
-    async (error: AxiosError) => {
-        const original = error.config as InternalAxiosRequestConfig & {
-            _retry?: boolean;
-        };
+  (response: AxiosResponse) => response,
+  async (error: AxiosError) => {
+    const original = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
     if (error.response?.status !== 401 || original._retry) {
-        return Promise.reject(normaliseError(error))
-        }
-    
-    if (original.url?.includes("/auth/refresh")) {
-        signalSessionExpired();
-        return Promise.reject(normaliseError(error));
-        }
-
-        // Queue concurrent requests while a refresh is already in flight
-
-        if (isRefreshing) {
-            return new Promise<AxiosResponse>((resolve, reject) => {
-                refreshQueue.push({
-                    resolve: (token) => {
-                        original.headers.Authorization = `Bearer ${token}`;
-
-                        resolve(axiosInstance(original));
-                    },
-                    reject,
-                });
-            });
-        }
-
-        original._retry = true;
-        isRefreshing = true;
-
-        const refreshToken = tokenStore.getRefresh();
-
-        if (!refreshToken) {
-            isRefreshing = false;
-            signalSessionExpired();
-            return Promise.reject(normaliseError(error));
-        }
-
-        try {
-            const { data } = await axios.post<RefreshResponse>(
-              `${API_BASE_URL}/auth/refresh`,
-                { refresh_token: refreshToken }  
-            );
-
-            tokenStore.set(data.access_token, data.refresh_token);
-            axiosInstance.defaults.headers.common.Authorization = `
-            Bearer ${data.access_token}`;
-            drainQueue(data.access_token);
-            original.headers.Authorization = `Bearer ${data.access_token}`;
-            return axiosInstance(original);
-        } catch (refreshError) {
-            drainQueue(null, refreshError);
-            signalSessionExpired();
-            return Promise.reject(normaliseError(error));
-        } finally {
-            isRefreshing = false;
-        }
+      return Promise.reject(normaliseError(error))
     }
+
+    if (original.url?.includes("/auth/refresh")) {
+      signalSessionExpired();
+      return Promise.reject(normaliseError(error));
+    }
+
+    // Queue concurrent requests while a refresh is already in flight
+
+    if (refreshState.isRefreshing) {
+      return new Promise<AxiosResponse>((resolve, reject) => {
+        refreshState.addToQueue({
+          resolve: (token) => {
+            original.headers.Authorization = `Bearer ${token}`;
+
+            resolve(axiosInstance(original));
+          },
+          reject,
+        });
+      });
+    }
+
+    original._retry = true;
+    refreshState.isRefreshing = true;
+
+    const refreshToken = tokenStore.getRefresh();
+
+    if (!refreshToken) {
+      refreshState.isRefreshing = false;
+      signalSessionExpired();
+      return Promise.reject(normaliseError(error));
+    }
+
+    try {
+      const { data } = await axios.post<RefreshResponse>(
+        `${API_BASE_URL}/auth/refresh`,
+        { refresh_token: refreshToken }
+      );
+
+      tokenStore.set(data.access_token, data.refresh_token);
+      axiosInstance.defaults.headers.common.Authorization = `Bearer ${data.access_token}`;
+      refreshState.drainQueue(data.access_token);
+      original.headers.Authorization = `Bearer ${data.access_token}`;
+      return axiosInstance(original);
+    } catch (refreshError) {
+      refreshState.drainQueue(null, refreshError);
+      signalSessionExpired();
+      return Promise.reject(normaliseError(error));
+    } finally {
+      refreshState.isRefreshing = false;
+    }
+  }
 );
 
 function normaliseError(error: AxiosError): APIError {
-  const detail =
-    (error.response?.data as { detail?: string })?.detail ??
-    error.message ??
-    "An unexpected error occurred";
-  return { detail, status: error.response?.status ?? 0 };
+  const responseData = error.response?.data as any;
+  
+  let detail = "An unexpected error occurred";
+  let validationErrors: Record<string, string[]> | undefined;
+  let code: string | undefined;
+
+  if (responseData) {
+    // Try to extract detail message
+    if (typeof responseData.detail === 'string') {
+      detail = responseData.detail;
+    } else if (Array.isArray(responseData.detail)) {
+      // Handle array of validation errors
+      detail = "Validation failed";
+      validationErrors = {};
+      responseData.detail.forEach((err: any) => {
+        if (err.loc && err.msg) {
+          const field = err.loc[err.loc.length - 1];
+          if (!validationErrors![field]) {
+            validationErrors![field] = [];
+          }
+          validationErrors![field].push(err.msg);
+        }
+      });
+    } else if (responseData.message) {
+      detail = responseData.message;
+    }
+    
+    // Extract error code if present
+    if (responseData.code) {
+      code = responseData.code;
+    }
+  } else if (error.message) {
+    detail = error.message;
+  }
+
+  // Handle network errors
+  if (error.code === 'ECONNABORTED') {
+    detail = "Request timeout. Please check your connection and try again.";
+  } else if (error.code === 'ERR_NETWORK') {
+    detail = "Network error. Please check your internet connection.";
+  }
+
+  return { 
+    detail, 
+    status: error.response?.status ?? 0,
+    ...(code && { code }),
+    ...(validationErrors && { validationErrors })
+  };
 }
 
 // 4. Domain API clients
 // ---------------------------------------------------------------------------
- 
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 // POST /auth/login
 // POST /auth/refresh
 // GET  /auth/me
 // POST /auth/logout
- 
+
 export const authApi = {
   login: async (body: LoginRequest): Promise<LoginResponse> => {
     const { data } = await axiosInstance.post<LoginResponse>("/auth/login", body);
     tokenStore.set(data.access_token, data.refresh_token);
     return data;
   },
- 
+
   refresh: async (refresh_token: string): Promise<RefreshResponse> => {
     const { data } = await axiosInstance.post<RefreshResponse>("/auth/refresh", {
       refresh_token,
@@ -414,27 +550,92 @@ export const authApi = {
     tokenStore.set(data.access_token, data.refresh_token);
     return data;
   },
- 
-  me: async (): Promise<LoginResponse> => {
-    const { data } = await axiosInstance.get<LoginResponse>("/auth/me");
+
+  /**
+   * Returns the full session shape including citizen_din, citizen_status, and
+   * is_email_verified — used by the wallet to gate enrollment UI without an
+   * extra citizen API call.
+   */
+  me: async (): Promise<MeResponse> => {
+    const { data } = await axiosInstance.get<MeResponse>("/auth/me");
     return data;
   },
- 
+
   logout: async (): Promise<void> => {
     await axiosInstance.post("/auth/logout");
     tokenStore.clear();
   },
+
+  /**
+   * Step 1a — Create a new citizen account.
+   * The backend creates an inactive SystemUser and emails a 6-digit OTP.
+   * No token required; this is the public entry point.
+   * POST /enrollments/register
+   */
+  createAccount: async (body: AccountCreateRequest): Promise<AccountCreateResponse> => {
+    const { data } = await axiosInstance.post<AccountCreateResponse>(
+      "/enrollments/register",
+      body,
+    );
+    return data;
+  },
+
+  /**
+   * Step 1b — Submit the emailed OTP to activate the account.
+   * On success the backend sets is_email_verified=true and is_active=true.
+   * No token required.
+   * POST /enrollments/verify-otp
+   */
+  verifyOtp: async (body: OTPVerifyRequest): Promise<OTPVerifyResponse> => {
+    const { data } = await axiosInstance.post<OTPVerifyResponse>(
+      "/enrollments/verify-otp",
+      body,
+    );
+    return data;
+  },
+
+  /**
+   * Step 1b (retry) — Re-issue a fresh OTP for an unverified account.
+   * Only valid for accounts where is_email_verified is still false.
+   * No token required.
+   * POST /enrollments/resend-otp
+   */
+  resendOtp: async (body: ResendOTPRequest): Promise<ResendOTPResponse> => {
+    const { data } = await axiosInstance.post<ResendOTPResponse>(
+      "/enrollments/resend-otp",
+      body,
+    );
+    return data;
+  },
 };
- 
+
 // ── Enrollment ───────────────────────────────────────────────────────────────
-// POST /enrollments/submit
+// POST /enrollments/register                       → authApi.createAccount
+// POST /enrollments/verify-otp                     → authApi.verifyOtp
+// POST /enrollments/resend-otp                     → authApi.resendOtp
+// POST /enrollments/submit-identity                (below)
+// POST /enrollments/submit                         (legacy — kept for RO tooling)
 // GET  /enrollments/pending_requests
 // GET  /enrollments/pending_request/{request_id}
 // PUT  /enrollments/{request_id}/request_approve
 // PUT  /enrollments/{request_id}/request_reject
- 
+
 export const enrollmentApi = {
-  /** Open endpoint. Citizen submits enrollment + device public key. */
+  /**
+   * Step 2 — Authenticated citizen submits NRC docs, biometric photos, and
+   * device public key to begin the RO review workflow.
+   * Requires JWT with role=CITIZEN and is_email_verified=true.
+   * POST /enrollments/submit-identity
+   */
+  submitIdentity: async (body: IdentitySubmitRequest): Promise<IdentitySubmitResponse> => {
+    const { data } = await axiosInstance.post<IdentitySubmitResponse>(
+      "/enrollments/submit-identity",
+      body,
+    );
+    return data;
+  },
+
+  /** Legacy open endpoint — kept for Registration Officer tooling. */
   submit: async (body: CitizenBase): Promise<EnrollmentRequestResponse> => {
     const { data } = await axiosInstance.post<EnrollmentRequestResponse>(
       "/enrollments/submit",
@@ -442,28 +643,28 @@ export const enrollmentApi = {
     );
     return data;
   },
- 
+
   getPendingRequests: async (): Promise<EnrollmentRequestResponse[]> => {
     const { data } = await axiosInstance.get<EnrollmentRequestResponse[]>(
       "/enrollments/pending_requests"
     );
     return data;
   },
- 
+
   getPendingRequest: async (requestId: number): Promise<EnrollmentRequestResponse> => {
     const { data } = await axiosInstance.get<EnrollmentRequestResponse>(
       `/enrollments/pending_request/${requestId}`
     );
     return data;
   },
- 
+
   approve: async (requestId: number): Promise<EnrollmentRequestResponse> => {
     const { data } = await axiosInstance.put<EnrollmentRequestResponse>(
       `/enrollments/${requestId}/request_approve`
     );
     return data;
   },
- 
+
   reject: async (
     requestId: number,
     body: EnrollmentRejection
@@ -475,7 +676,7 @@ export const enrollmentApi = {
     return data;
   },
 };
- 
+
 // ── Citizens ─────────────────────────────────────────────────────────────────
 // GET    /citizens/
 // GET    /citizens/{din}
@@ -486,7 +687,7 @@ export const enrollmentApi = {
 // PATCH  /citizens/{din}/biometrics
 // POST   /citizens/{din}/family-links
 // GET    /citizens/{din}/family-tree
- 
+
 export const citizenApi = {
   list: async (params?: {
     status?: CitizenStatus;
@@ -500,12 +701,12 @@ export const citizenApi = {
     });
     return data;
   },
- 
+
   get: async (din: string): Promise<CitizenResponse> => {
     const { data } = await axiosInstance.get<CitizenResponse>(`/citizens/${din}`);
     return data;
   },
- 
+
   update: async (din: string, body: CitizenUpdate): Promise<CitizenResponse> => {
     const { data } = await axiosInstance.patch<CitizenResponse>(
       `/citizens/${din}`,
@@ -513,18 +714,18 @@ export const citizenApi = {
     );
     return data;
   },
- 
+
   delete: async (din: string): Promise<void> => {
     await axiosInstance.delete(`/citizens/${din}`);
   },
- 
+
   getBiometrics: async (din: string): Promise<BiometricRecordResponse> => {
     const { data } = await axiosInstance.get<BiometricRecordResponse>(
       `/citizens/${din}/biometrics`
     );
     return data;
   },
- 
+
   createBiometrics: async (
     din: string,
     body: { facial_template?: string }
@@ -535,7 +736,7 @@ export const citizenApi = {
     );
     return data;
   },
- 
+
   updateBiometrics: async (
     din: string,
     body: { facial_template?: string }
@@ -546,7 +747,7 @@ export const citizenApi = {
     );
     return data;
   },
- 
+
   createFamilyLink: async (
     din: string,
     body: FamilyLinkBase
@@ -557,7 +758,7 @@ export const citizenApi = {
     );
     return data;
   },
- 
+
   getFamilyTree: async (din: string): Promise<FamilyTreeResponse> => {
     const { data } = await axiosInstance.get<FamilyTreeResponse>(
       `/citizens/${din}/family-tree`
@@ -565,11 +766,11 @@ export const citizenApi = {
     return data;
   },
 };
- 
+
 // ── Digital ID ───────────────────────────────────────────────────────────────
 // GET /digital-id/server-public-key   (public — no auth)
 // GET /digital-id/{din}
- 
+
 export const digitalIdApi = {
   /** Public endpoint — no token required. Used to verify DigitalIDPayload signatures. */
   getServerPublicKey: async (): Promise<ServerPublicKeyResponse> => {
@@ -578,7 +779,7 @@ export const digitalIdApi = {
     );
     return data;
   },
- 
+
   get: async (din: string): Promise<DigitalIDResponse> => {
     const { data } = await axiosInstance.get<DigitalIDResponse>(
       `/digital-id/${din}`
@@ -586,11 +787,11 @@ export const digitalIdApi = {
     return data;
   },
 };
- 
+
 // ── QR ───────────────────────────────────────────────────────────────────────
 // POST /qr/{din}/generate
 // POST /qr/verify            (public — no auth)
- 
+
 export const qrApi = {
   generate: async (din: string): Promise<QRPayload> => {
     const { data } = await axiosInstance.post<QRPayload>(
@@ -598,7 +799,7 @@ export const qrApi = {
     );
     return data;
   },
- 
+
   /** Public endpoint — used by third-party verifiers and testing tools. */
   verify: async (body: QRVerifyRequest): Promise<QRVerifyResponse> => {
     const { data } = await axiosInstance.post<QRVerifyResponse>(
@@ -608,7 +809,7 @@ export const qrApi = {
     return data;
   },
 };
- 
+
 // ── Birth Records ─────────────────────────────────────────────────────────────
 // POST /birth_record/submit
 // GET  /birth_record/pending_submissions
@@ -616,37 +817,37 @@ export const qrApi = {
 // GET  /birth_record/submission/{record_id}
 // PUT  /birth_record/{submission_id}/approve_submission
 // PUT  /birth_record/{submission_id}/reject_submission
- 
+
 export const birthRecordApi = {
   submit: async (body: BirthRecordBase): Promise<unknown> => {
     const { data } = await axiosInstance.post("/birth_record/submit", body);
     return data;
   },
- 
+
   getPendingSubmissions: async (): Promise<unknown[]> => {
     const { data } = await axiosInstance.get("/birth_record/pending_submissions");
     return data;
   },
- 
+
   getRecord: async (recordId: number): Promise<unknown> => {
     const { data } = await axiosInstance.get(`/birth_record/record/${recordId}`);
     return data;
   },
- 
+
   getSubmission: async (recordId: number): Promise<unknown> => {
     const { data } = await axiosInstance.get(
       `/birth_record/submission/${recordId}`
     );
     return data;
   },
- 
+
   approve: async (submissionId: number): Promise<unknown> => {
     const { data } = await axiosInstance.put(
       `/birth_record/${submissionId}/approve_submission`
     );
     return data;
   },
- 
+
   reject: async (
     submissionId: number,
     body: RecordRejection
@@ -658,7 +859,7 @@ export const birthRecordApi = {
     return data;
   },
 };
- 
+
 // ── Death Records ─────────────────────────────────────────────────────────────
 // POST /death_record/submit
 // GET  /death_record/pending_submissions
@@ -666,37 +867,37 @@ export const birthRecordApi = {
 // GET  /death_record/submission/{record_id}
 // PUT  /death_record/{submission_id}/approve_submission
 // PUT  /death_record/{submission_id}/reject_submission
- 
+
 export const deathRecordApi = {
   submit: async (body: DeathRecordBase): Promise<unknown> => {
     const { data } = await axiosInstance.post("/death_record/submit", body);
     return data;
   },
- 
+
   getPendingSubmissions: async (): Promise<unknown[]> => {
     const { data } = await axiosInstance.get("/death_record/pending_submissions");
     return data;
   },
- 
+
   getRecord: async (recordId: number): Promise<unknown> => {
     const { data } = await axiosInstance.get(`/death_record/record/${recordId}`);
     return data;
   },
- 
+
   getSubmission: async (recordId: number): Promise<unknown> => {
     const { data } = await axiosInstance.get(
       `/death_record/submission/${recordId}`
     );
     return data;
   },
- 
+
   approve: async (submissionId: number): Promise<unknown> => {
     const { data } = await axiosInstance.put(
       `/death_record/${submissionId}/approve_submission`
     );
     return data;
   },
- 
+
   reject: async (
     submissionId: number,
     body: RecordRejection
@@ -708,13 +909,13 @@ export const deathRecordApi = {
     return data;
   },
 };
- 
+
 // ── KYC ──────────────────────────────────────────────────────────────────────
 // POST /kyc/request
 // POST /kyc/{kyc_request_id}/respond
 // GET  /kyc/{kyc_request_id}/data
 // GET  /kyc/statistics
- 
+
 export const kycApi = {
   /** Institution initiates a KYC request for a citizen. */
   initiateRequest: async (
@@ -726,7 +927,7 @@ export const kycApi = {
     );
     return data;
   },
- 
+
   /** Citizen approves or denies a KYC request. */
   respond: async (
     kycRequestId: number,
@@ -738,7 +939,7 @@ export const kycApi = {
     );
     return data;
   },
- 
+
   /** Institution retrieves only the fields the citizen approved. */
   getApprovedData: async (
     kycRequestId: number
@@ -748,7 +949,7 @@ export const kycApi = {
     );
     return data;
   },
- 
+
   /** Supervisor/admin statistics dashboard. */
   getStatistics: async (): Promise<StatisticsResponse> => {
     const { data } = await axiosInstance.get<StatisticsResponse>(

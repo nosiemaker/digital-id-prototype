@@ -3,8 +3,12 @@
 import { useRef, useCallback } from "react"
 import { Loader2, Upload, Check, X } from "lucide-react"
 
-const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!
-const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+
+if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+  console.error('Cloudinary environment variables are not set. Please check your .env file.')
+}
 
 export type UploadState = {
   uploading: boolean
@@ -21,6 +25,10 @@ export const emptyUpload = (): UploadState => ({
 })
 
 export async function handleImageUpload(file: File, folder = "zdid/nrc"): Promise<string> {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error('Cloudinary configuration is missing. Please check environment variables.')
+  }
+
   const body = new FormData()
   body.append("file", file)
   body.append("upload_preset", CLOUDINARY_UPLOAD_PRESET)
@@ -32,11 +40,21 @@ export async function handleImageUpload(file: File, folder = "zdid/nrc"): Promis
   )
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.error?.message ?? "Cloudinary upload failed")
+    let errorMessage = "Cloudinary upload failed"
+    try {
+      const err = await res.json()
+      errorMessage = err?.error?.message || errorMessage
+    } catch {
+      // If response is not JSON, use status text
+      errorMessage = `Upload failed with status: ${res.status} ${res.statusText}`
+    }
+    throw new Error(errorMessage)
   }
 
   const data = await res.json()
+  if (!data.secure_url) {
+    throw new Error('Invalid response from Cloudinary: missing secure_url')
+  }
   return data.secure_url as string
 }
 

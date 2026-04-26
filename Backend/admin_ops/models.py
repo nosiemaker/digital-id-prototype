@@ -1,13 +1,12 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
 from kyc.models import ThirdPartyInstitution
 from registration.models import EnrollmentStatus
 
 
 class UserRole(models.TextChoices):
     CITIZEN = "CITIZEN", "Citizen"
-    REGISTRATION_OFFICER = "RO", "Registration Officer"
+    REGISTRATION_OFFICER = "REGISTRATION_OFFICER", "Registration Officer"
     REGISTRAR = "REGISTRAR", "Registrar"
     SUPERVISOR = "SUPERVISOR", "Supervisor"
     HEALTH_WORKER = "HEALTH_WORKER", "Health Worker"
@@ -35,8 +34,6 @@ class ThirdPartyEnrollmentRequest(models.Model):
         related_name="enrollment_request",
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
-
-
     registrar = models.ForeignKey(
         "admin_ops.SystemUser",
         on_delete=models.SET_NULL,
@@ -69,10 +66,8 @@ class SystemUser(AbstractUser):
     """
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=100, choices=UserRole.choices, default=UserRole.CITIZEN)
-    citizen_din = models.CharField(max_length=20,blank=True, unique=True,null=True)
     institution_din = models.CharField(max_length=20, blank=True, unique=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
-
     otp_code = models.CharField(max_length=6, null=True, blank=True)
     otp_expires_at = models.DateTimeField(null=True, blank=True)
     is_email_verified = models.BooleanField(default=False)
@@ -80,12 +75,18 @@ class SystemUser(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
+    @property
+    def din(self):
+        """DIN for CITIZEN role — resolved through the OneToOne Citizen profile."""
+        if self.role == UserRole.CITIZEN:
+            return self.profile.din if hasattr(self, 'profile') else None
+        return self.institution_din
     class Meta:
         db_table = "system_users"
         indexes = [
             models.Index(fields=["email"]),
             models.Index(fields=["role"]),
-            models.Index(fields=["citizen_din"]),
+            models.Index(fields=["institution_din"]),
         ]
 
     def __str__(self):

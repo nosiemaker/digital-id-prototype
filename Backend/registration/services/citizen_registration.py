@@ -6,21 +6,14 @@
 
 import datetime
 import logging
-
 from django.db import transaction
 from fastapi import HTTPException, status
-
 from admin_ops.models import SystemUser, UserRole
 from admin_ops.services.otp_service import issue_otp, verify_otp
-from admin_ops.schema import (
-    AccountCreateRequest,
-    IdentitySubmitRequest,
-)
-
+from admin_ops.schema import ( AccountCreateRequest, IdentitySubmitRequest)
 from citizens.models import Citizen, CitizenStatus
 from registration.models import EnrollmentRequest,EnrollmentStatus
 from registration.serializers import CitizenRegistrationRequestSerializer
-
 from citizens.serializer import CitizenSerializer
 from uuid import uuid4
 from citizens.utilities.id_generation import generate_id
@@ -50,7 +43,6 @@ def create_account(body: AccountCreateRequest) -> dict:
     user = SystemUser.objects.create(
         username=username,
         email= body.email,
-        first_name= body.name,
         password= hash_password(body.password),
         role = UserRole.CITIZEN,
         is_active= False,
@@ -104,17 +96,12 @@ def resend_otp(email: str) -> dict:
             detail="No account found with that email address.",
         )
 
-    if user.is_email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This account is already verified.",
-        )
     issue_otp(user)
     return {"message": f"A new OTP has been sent to {email}."}
 
 # Phase 2 - Identity Submission
 
-def submit_identity(body: IdentitySubmitRequest, system_user_id) -> dict:
+def identity_submission(body: IdentitySubmitRequest, system_user_id) -> dict:
     """
     Called from the dashboard once the user is logged in and email-verified.
 
@@ -129,12 +116,11 @@ def submit_identity(body: IdentitySubmitRequest, system_user_id) -> dict:
     """
 
     try:
-        system_user: SystemUser.objects.get(id=system_user_id)
+        system_user = SystemUser.objects.get(id=system_user_id)
     except SystemUser.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="System user not found.",
-        )
+            detail="System user not found.")
 
     if not system_user.is_email_verified:
         raise HTTPException(
@@ -142,7 +128,7 @@ def submit_identity(body: IdentitySubmitRequest, system_user_id) -> dict:
             detail="Email address must be verified before submitting identity documents.",
         )
 
-    if system_user.citizen_din:
+    if Citizen.objects.filter(user=system_user, din__isnull=False).exists():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A DIN is already assigned to this account. Identity already enrolled.",
@@ -155,9 +141,9 @@ def submit_identity(body: IdentitySubmitRequest, system_user_id) -> dict:
         )
 
     citizen_data = {
+        "user": system_user.id,
         "nrc": body.nrc,
         "full_name": body.full_name,
-        "email": system_user.email,
         "dob": body.dob.isoformat(),
         "phone": body.phone,
         "gender": body.gender,
@@ -173,22 +159,21 @@ def submit_identity(body: IdentitySubmitRequest, system_user_id) -> dict:
     with transaction.atomic():
         #1. Create Citizen record
         citizen_serializer = CitizenSerializer(data=citizen_data)
-
         if not citizen_serializer.is_valid():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=citizen_serializer.errors,
-            )
+                detail=citizen_serializer.errors)
         citizen = citizen_serializer.save()
+
+        system_user.first_name = citizen.full_name
+        system_user.save(update_fields=["first_name"])
 
         # 2. Create Linked EnrollmentRequest
         er_serializer = CitizenRegistrationRequestSerializer(data={"citizen": citizen.id})
-
         if not er_serializer.is_valid():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=er_serializer.errors,
-            )
+                detail=er_serializer.errors)
         enrollment_request = er_serializer.save()
 
         audit.log(
@@ -196,6 +181,7 @@ def submit_identity(body: IdentitySubmitRequest, system_user_id) -> dict:
         actor_role = system_user.role,
         action     = "NRC_SUBMITTED",
         target_id  = citizen.id,
+        target_type=UserRole.CITIZEN,
         details    = {
             "nrc":                body.nrc,
             "enrollment_request": enrollment_request.id,
@@ -212,34 +198,6 @@ def submit_identity(body: IdentitySubmitRequest, system_user_id) -> dict:
         "citizen_id":            citizen.id,
         "message": "Identity submitted. An officer will review your request.",
         }
-
-# Creates a new citizen record and a linked enrollment request.
-# Validates the incoming citizen data first; if valid, persists the citizen
-# and then creates the associated EnrollmentRequest in PENDING status.
-def create_citizen_request (request_body: dict):
-    serializer = CitizenSerializer(data=request_body)
-    if serializer.is_valid():
-
-        if "password" in serializer.validated_data:
-            plain_password = serializer.validated_data["password"]
-            serializer.validated_data["password"] = hash_password(plain_password)
-        citizen = serializer.save()
-        # Link the newly created citizen to the enrollment request
-        new_request = {"citizen":citizen.id}
-        request_serializer = CitizenRegistrationRequestSerializer(data=new_request)
-        if request_serializer.is_valid():
-            request_serializer.save()
-            return {"details": "Request Submitted","request":request_serializer.data ,"status": status.HTTP_201_CREATED }
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=request_serializer.errors,
-            )
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=serializer.errors,
-        )
 
 # Retrieves all enrollment requests currently in PENDING status.
 def get_all_pending():
@@ -318,19 +276,12 @@ def approve_citizen_registration(request_id: int, ro_id:int) -> dict:
             )
 
         citizen_serializer.save()
-
-        try:
-            system_user = SystemUser.objects.get(email=citizen.email)
-            system_user.citizen_din = din
-            system_user.save(update_fields=["citizen_din"])
-        except SystemUser.DoesNotExist:
-            logging.warning(
-                f"No SystemUser found with email={citizen.email} when "
-                f"back-linking DIN={din}. Approval still committed."
-            )
+        if citizen.user:
+            citizen.user.first_name = citizen.full_name
+            citizen.user.save(update_fields=["first_name"])
 
         # == Audit ==
-        audit.alog(
+        audit.log(
             actor_id=ro_id,
             actor_role=UserRole.REGISTRATION_OFFICER,
             action="ENROLLMENT_APPROVED",
@@ -338,15 +289,13 @@ def approve_citizen_registration(request_id: int, ro_id:int) -> dict:
             details={"enrollment_request_id": enrollment.id},
         )
 
-        audit.alog(
+        audit.log(
             actor_id=ro_id,
             actor_role=UserRole.REGISTRATION_OFFICER,
             action="DIN_ISSUED",
             target_id=citizen.id,
             details={"din": din, "citizen_id": citizen.id, "nrc": citizen.nrc},
         )
-
-        logging.info(f"Enrollment approved: request={request_id}, DIN={din}")
 
         return {
             "details": "Approval successful.",
@@ -419,7 +368,7 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason:st
 
         citizen_serializer.save()
 
-        audit.alog(
+        audit.log(
             actor_id=ro_id,
             actor_role=UserRole.REGISTRATION_OFFICER,
             action="ENROLLMENT_REJECTED",

@@ -1,22 +1,20 @@
 
 from asgiref.sync import sync_to_async
-from django.db.models.expressions import result
+
+from citizens.models import Citizen
+from dependencies.auth import require_groups, UserRole
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 from jose import JWTError
 
 from Utils.auth import (
     create_access_token,
     create_refresh_token,
-    decode_access_token,
     verify_password, decode_refresh_token,
 )
 from admin_ops.models import SystemUser
-from Utils.rbac import (
-    get_permission_dependency,
-    Permission,
-)
 from Utils.audit_logger import audit
 
 router = APIRouter()
@@ -44,11 +42,16 @@ class LoginResponse(BaseModel):
     user_id: int
     role: str
     name: str
-
+    is_email_verified: bool
+    citizen_din: Optional[str] = None
+    citizen_status: Optional[str] = None
 
 class LogoutResponse(BaseModel):
     detail: str = "Logged out successfully"
 
+
+async def _get_citizen_by_user_id(user_id: int):
+    return await sync_to_async(lambda: Citizen.objects.filter(user_id=user_id).first())()
 
 async def _get_user_by_email(email: str):
     """Fetch SystemUser by email. Wrapped for async context."""
@@ -87,6 +90,10 @@ async def login(body: LoginRequest, request: Request):
         email=user.email,
     )
     refresh_token = create_refresh_token(user_id=user.id)
+
+    citizen_record = await _get_citizen_by_user_id(user.id)
+    c_din = citizen_record.din if citizen_record else None
+    c_status = citizen_record.status if citizen_record else None
     
     # Log successful login
     await audit.user_login(user.id, user.role, ip=ip)
@@ -96,13 +103,15 @@ async def login(body: LoginRequest, request: Request):
         refresh_token=refresh_token,
         user_id=user.id,
         role=user.role,
-        name=user.username,
+        name=user.get_full_name() or user.username,
+        is_email_verified=user.is_email_verified,
+        citizen_din=c_din,
+        citizen_status=c_status,
     )
 
 
 @router.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
 async def refresh_token(body: RefreshRequest):
-
     try:
         payload = decode_refresh_token(body.refresh_token)
     except JWTError:
@@ -133,31 +142,49 @@ async def refresh_token(body: RefreshRequest):
 @router.get("/me", response_model=LoginResponse)
 async def get_current_user_info(
     request: Request,
-    current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
+    current_user: dict = Depends(require_groups([UserRole.CITIZEN])),
 ):
     """
     Get current user's information.
     Accessible by any authenticated user (CITIZEN_READ_OWN_PROFILE permission).
     """
+    user_id = int(current_user.get("id", 0))
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload: missing user ID",
+        )
+
+    user = await _get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User no longer exists in the system",
+        )
+
+    citizen_record = await _get_citizen_by_user_id(user_id)
+    c_din = citizen_record.din if citizen_record else None
+    c_status = citizen_record.status if citizen_record else None
+
     return LoginResponse(
-        access_token="",  # Not returning token in this endpoint
+        access_token="",
         refresh_token="",
-        user_id=int(current_user.get("id", 0)),
-        role=str(current_user.get("role", "unknown")),
-        name=str(current_user.get("email", "unknown")),
+        user_id=user.id,
+        role=user.role,
+        name=user.get_full_name() or user.username,
+        is_email_verified=user.is_email_verified,
+        citizen_din=c_din,
+        citizen_status=c_status,
     )
 
 
 @router.post("/logout", response_model=LogoutResponse, status_code=status.HTTP_200_OK)
 async def logout(
     request: Request,
-    current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
+    current_user: dict = Depends(require_groups([UserRole.CITIZEN])),
 ):
-    user = current_user  # From dependency
-
-    # Placeholder for future blocklist call:
-    # jti = request.state.token_jti
-    # await redis.setex(f"blocklist:{jti}", ttl_seconds, "1")
+    user = current_user
 
     return LogoutResponse(detail=f"User {user['id']} logged out successfully")
 

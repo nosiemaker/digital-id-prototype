@@ -189,7 +189,7 @@ export default function LandingPage() {
           <h2 className="text-2xl font-bold text-foreground text-balance">Ready to register your Digital ID?</h2>
           <p className="mt-4 text-muted-foreground">The process takes less than 10 minutes. Have your NRC and contact details ready.</p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/register" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+            <Link href="/authentication/register" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
               Register Now <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/login" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-border px-8 py-3 text-sm font-semibold text-foreground hover:bg-secondary transition-colors">

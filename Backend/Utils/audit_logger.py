@@ -46,6 +46,7 @@ from asgiref.sync import sync_to_async
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp
+from audit.models import AuditLog
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +81,6 @@ def _write(
     being fully initialised (e.g. during testing).
     """
     try:
-        from audit.models import AuditLog
-
         payload = {
             "actor_id": actor_id,
             "actor_role": actor_role,
@@ -103,7 +102,7 @@ def _write(
             metastamp=metastamp,
             log_signature=_build_signature(payload),
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         # Never let an audit failure crash the caller.
         logger.error("AuditLog write failed:\n%s", traceback.format_exc())
 
@@ -159,6 +158,7 @@ class AuditLogger:
         outcome: str = "SUCCESS",
         ip_address: Optional[str] = None,
         meta: Optional[dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None
     ) -> None:
         """Synchronous — call from service-layer functions."""
         _write(
@@ -169,7 +169,7 @@ class AuditLogger:
             target_id=str(target_id),
             outcome=outcome,
             ip_address=ip_address,
-            metastamp=meta,
+            metastamp=meta or details,
         )
 
     async def alog(
@@ -183,6 +183,7 @@ class AuditLogger:
         outcome: str = "SUCCESS",
         ip_address: Optional[str] = None,
         meta: Optional[dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None
     ) -> None:
         """Async — call from FastAPI route handlers."""
         await _awrite(
@@ -193,7 +194,7 @@ class AuditLogger:
             target_id=str(target_id),
             outcome=outcome,
             ip_address=ip_address,
-            metastamp=meta,
+            metastamp=meta or details,
         )
 
     # ---- Auth ----

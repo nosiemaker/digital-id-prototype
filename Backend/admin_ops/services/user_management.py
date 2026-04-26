@@ -22,9 +22,9 @@ from registration.models import EnrollmentStatus
 # Creates a new system user record after checking for duplicate DINs.
 # Validates the request body through SystemUserSerializer before persisting.
 def create_system_user(request_body: dict) -> dict:
-    citizen_din = request_body.get("din")
+    citizen_din = request_body.get("citizen_din") or request_body.get("din")
     # Guard: prevent duplicate system users tied to the same citizen DIN
-    if SystemUser.objects.filter(citizen_din=citizen_din).exists():
+    if citizen_din and SystemUser.objects.filter(citizen_din=citizen_din).exists():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User with this Digital ID already exists",

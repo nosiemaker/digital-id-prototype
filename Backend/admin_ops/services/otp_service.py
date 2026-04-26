@@ -2,10 +2,8 @@
 import secrets
 import logging
 from datetime import datetime, timedelta, timezone
-
 from django.contrib.auth.hashers import make_password, check_password
 from fastapi import HTTPException, status
-
 from admin_ops.models import SystemUser
 from Utils.audit_logger import audit
 
@@ -78,7 +76,7 @@ def issue_otp(user: SystemUser) -> None:
         action="OTP_ISSUED",
         target_type="SYSTEM_USER",
         target_id=user.id,
-        meta={"email": user.email}  # Correct keyword
+        meta={"email": user.email}
     )
 
 
@@ -131,7 +129,7 @@ def verify_otp(email: str, raw_otp: str) -> SystemUser:
     user.is_email_verified = True
     user.otp_code = None
     user.otp_expires_at = None
-    user.is_active = True  # activate the Django account
+    user.is_active = True
     user.save(update_fields=["is_email_verified", "otp_code", "otp_expires_at", "is_active"])
 
     audit.alog(

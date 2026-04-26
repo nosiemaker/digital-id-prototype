@@ -24,7 +24,7 @@ from registration.services.citizen_registration import (
  create_account,
  verify_email_otp,
  resend_otp as resend_otp_service,
- submit_identity,
+ identity_submission,
 )
 
 router = APIRouter()
@@ -93,8 +93,7 @@ async def resend_otp(body: ResendOTPRequest):
 )
 async def submit_identity(
         body: IdentitySubmitRequest,
-        request: Request,
-        user=Depends(require_groups([UserRole.REGISTRATION_OFFICER]))
+        user=Depends(require_groups([UserRole.CITIZEN]))
 ):
     """
     Requires a valid JWT with `role=CITIZEN` and `is_email_verified=True`.
@@ -110,24 +109,10 @@ async def submit_identity(
       • Rejected if a DIN is already assigned to this account.
       • Rejected if the NRC number already exists in the system.
     """
-    if not user.get("is_email_verified", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email address must be verified before submitting identity documents.",
-        )
-
-    result = await sync_to_async(submit_identity)(body, system_user_id=user["id"])
+    user_id = int(user["id"])
+    result = await sync_to_async(identity_submission)(body, user_id)
     return result
 
-# Submits a new citizen enrollment request.
-# Open endpoint — no authentication required for initial enrollment submission.
-# NOTE: The response currently includes generated JWT tokens for testing purposes;
-# these should be removed before deploying to production.
-"""@router.post("/submit")
-async def new_citizen_enrollment_request(body: CitizenBase, request: Request):
-    result = await sync_to_async(create_citizen_request)(body.model_dump())
-    return result
-"""
 # Returns all enrollment requests that are currently in PENDING status.
 # Only accessible to users with the REGISTRATION_OFFICER role.
 @router.get("/pending_requests")
