@@ -16,7 +16,6 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   useEffect(() => {
     const token = tokenStore.getAccess()
-    const role = tokenStore.getRole()
 
     if (!token) {
       // Not logged in
@@ -24,22 +23,9 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       return
     }
 
-    if (allowedRoles && role && !allowedRoles.includes(role)) {
-      // Wrong role - redirect to appropriate dashboard
-      if (role === "CITIZEN") {
-        router.push("/wallet")
-      } else if (["REGISTRATION_OFFICER", "SUPERVISOR", "REGISTRAR"].includes(role)) {
-        router.push("/admin")
-      } else if (role === "HEALTH_WORKER") {
-        router.push("/dashboard/health")
-      } else {
-        router.push("/")
-      }
-      return
-    }
-
+    // Token exists - user is authenticated
     setIsAuthorized(true)
-  }, [router, pathname, allowedRoles])
+  }, [router, pathname])
 
   if (!isAuthorized) {
     return (

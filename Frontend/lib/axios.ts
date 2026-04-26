@@ -37,8 +37,6 @@ export interface MeResponse extends LoginResponse {
 // ── Account creation / OTP (Phase 1 registration) ────────────────────────────
 
 export interface AccountCreateRequest {
-  /** Caller supplies the full display name; backend stores as first_name. */
-  name: string;
   email: string;
   password: string;
 }
@@ -324,47 +322,28 @@ export interface APIError {
 
 const TOKEN_KEY = "zdid_access_token";
 const REFRESH_KEY = "zdid_refresh_token";
-const ROLE_KEY = "zdid_role";
-const NAME_KEY = "zdid_user_name";
+const ROLE_KEY = 'zdid_user_role';
 
 export const tokenStore = {
-<<<<<<< HEAD
   getAccess: (): string | null => localStorage.getItem(TOKEN_KEY),
   getRefresh: (): string | null => localStorage.getItem(REFRESH_KEY),
+  getRole: (): string | null => localStorage.getItem(ROLE_KEY),
 
-  set: (access: string, refresh: string): void => {
+  set: (access: string, refresh: string, role: string): void => {
     localStorage.setItem(TOKEN_KEY, access);
     localStorage.setItem(REFRESH_KEY, refresh);
+    localStorage.setItem(ROLE_KEY, role);
   },
 
   clear: (): void => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(ROLE_KEY);
     // Reset refresh state on logout
     if (typeof refreshState !== 'undefined' && refreshState.reset) {
       refreshState.reset();
     }
   },
-=======
-    getAccess: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null,
-    getRefresh: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null,
-    getRole: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(ROLE_KEY) : null,
-    getName: (): string | null => typeof window !== 'undefined' ? localStorage.getItem(NAME_KEY) : null,
-
-    set: (access: string, refresh: string, role?: string, name?: string): void => {
-        localStorage.setItem(TOKEN_KEY, access);
-        localStorage.setItem(REFRESH_KEY, refresh);
-        if (role) localStorage.setItem(ROLE_KEY, role);
-        if (name) localStorage.setItem(NAME_KEY, name);
-    },
-
-    clear: (): void => {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(REFRESH_KEY);
-        localStorage.removeItem(ROLE_KEY);
-        localStorage.removeItem(NAME_KEY);
-    },
->>>>>>> 2f986eb732bc34f7faa24aff109bfa5fbec48203
 }
 
 // 3. Base Axios instance
@@ -484,7 +463,8 @@ axiosInstance.interceptors.response.use(
         { refresh_token: refreshToken }
       );
 
-      tokenStore.set(data.access_token, data.refresh_token);
+      const currentRole = tokenStore.getRole() || '';
+      tokenStore.set(data.access_token, data.refresh_token, currentRole);
       axiosInstance.defaults.headers.common.Authorization = `Bearer ${data.access_token}`;
       refreshState.drainQueue(data.access_token);
       original.headers.Authorization = `Bearer ${data.access_token}`;
@@ -562,7 +542,7 @@ function normaliseError(error: AxiosError): APIError {
 export const authApi = {
   login: async (body: LoginRequest): Promise<LoginResponse> => {
     const { data } = await axiosInstance.post<LoginResponse>("/auth/login", body);
-    tokenStore.set(data.access_token, data.refresh_token, data.role, data.name);
+    tokenStore.set(data.access_token, data.refresh_token, data.role);
     return data;
   },
 
@@ -570,7 +550,8 @@ export const authApi = {
     const { data } = await axiosInstance.post<RefreshResponse>("/auth/refresh", {
       refresh_token,
     });
-    tokenStore.set(data.access_token, data.refresh_token);
+    const currentRole = tokenStore.getRole() || '';
+    tokenStore.set(data.access_token, data.refresh_token, currentRole);
     return data;
   },
 

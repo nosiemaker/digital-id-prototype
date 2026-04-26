@@ -23,10 +23,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     const token = tokenStore.getAccess()
-    const role = tokenStore.getRole()
-    if (token && role) {
-      const destination = ROLE_ROUTES[role] ?? DEFAULT_ROUTE
-      router.push(destination)
+    if (token) {
+      router.push("/wallet")
     }
   }, [router])
 
