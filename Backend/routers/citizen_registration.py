@@ -116,7 +116,7 @@ async def submit_identity(
 # Returns all enrollment requests that are currently in PENDING status.
 # Only accessible to users with the REGISTRATION_OFFICER role.
 @router.get("/pending_requests")
-async def get_all_pending_requests(request: Request, user=Depends(require_groups([UserRole.REGISTRATION_OFFICER]))):
+async def get_all_pending_requests(request: Request, user=Depends(require_groups([UserRole.REGISTRATION_OFFICER, UserRole.SUPERVISOR]))):
     result = await sync_to_async(get_all_pending)()
     return result
 

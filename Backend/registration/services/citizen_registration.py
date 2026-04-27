@@ -4,6 +4,7 @@
 # All database mutations that touch multiple models are wrapped in
 # atomic transactions to guarantee consistency.
 
+import secrets
 import datetime
 import logging
 from django.db import transaction
@@ -11,7 +12,7 @@ from fastapi import HTTPException, status
 from admin_ops.models import SystemUser, UserRole
 from admin_ops.services.otp_service import issue_otp, verify_otp
 from admin_ops.schema import AccountCreateRequest, IdentitySubmitRequest
-from citizens.models import Citizen, CitizenStatus, District
+from citizens.models import Citizen, CitizenStatus, District, RegistrationOfficer
 from registration.models import EnrollmentRequest, EnrollmentStatus
 from registration.serializers import CitizenRegistrationRequestSerializer
 from citizens.serializer import CitizenSerializer
@@ -21,6 +22,126 @@ from Utils.audit_logger import audit
 from Utils.auth import hash_password
 
 logger = logging.getLogger(__name__)
+
+def _province_summary(province) -> dict | None:
+    """Build ProvinceSummary dict from Province model instance."""
+    if not province:
+        return None
+    return {
+        "id": province.id,
+        "name": province.name,
+        "code": province.code,
+    }
+
+
+def _district_summary(district) -> dict | None:
+    """Build DistrictSummary dict with nested province."""
+    if not district:
+        return None
+    return {
+        "id": district.id,
+        "name": district.name,
+        "code": district.code,
+        "province": _province_summary(district.province),
+    }
+
+
+def _citizen_summary(citizen: Citizen) -> dict:
+    """Build CitizenSummary — lightweight, used in lists and RO nesting."""
+    return {
+        "din": citizen.din or "",
+        "full_name": citizen.full_name,
+        "nrc": citizen.nrc or "",
+        "status": citizen.status,
+    }
+
+
+def _citizen_response(citizen: Citizen) -> dict:
+    """
+    Build CitizenResponse — EVERY field the frontend review page needs.
+    Called by all enrollment response builders so the citizen payload
+    is always complete (district, gender, docs, crypto, etc.).
+    """
+    return {
+        # Base fields
+        "nrc": citizen.nrc or "",
+        "full_name": citizen.full_name,
+        "dob": citizen.dob,
+        "phone": citizen.phone,
+        "public_key": citizen.public_key,
+        "language": citizen.language or "en",
+        "nrc_front_url": citizen.nrc_front_url,
+        "nrc_back_url": citizen.nrc_back_url,
+        "face_image_url": citizen.face_image_url,
+        # Status & IDs
+        "din": citizen.din,
+        "status": citizen.status,
+        # Extended profile
+        "gender": citizen.gender,
+        "residential_address": citizen.residential_address,
+        "district": _district_summary(citizen.district),
+        "citizen_type": citizen.citizen_type or "ADULT",
+        # Activation
+        "activation_nonce": citizen.activation_nonce,
+        "challenge_expires_at": citizen.challenge_expires_at,
+        # Metadata
+        "created_at": citizen.created_at,
+        "updated_at": citizen.updated_at,
+    }
+
+
+def _ro_summary(ro_id: int | None) -> dict | None:
+    """
+    Resolve a SystemUser ID into RO profile details.
+    Looks up RegistrationOfficer via citizen__user linkage.
+    Falls back to SystemUser first_name if RO profile missing.
+    """
+    if not ro_id:
+        return None
+    try:
+        ro = RegistrationOfficer.objects.select_related("citizen").get(
+            citizen__user_id=ro_id
+        )
+        return {
+            "id": ro_id,
+            "employee_id": ro.employee_id,
+            "citizen": _citizen_summary(ro.citizen),
+        }
+    except RegistrationOfficer.DoesNotExist:
+        # Fallback — RO may exist as SystemUser without officer profile
+        try:
+            user = SystemUser.objects.get(id=ro_id)
+            return {
+                "id": ro_id,
+                "employee_id": f"USER-{ro_id}",
+                "citizen": {
+                    "din": "",
+                    "full_name": getattr(user, "first_name", "Unknown") or "Unknown",
+                    "nrc": "",
+                    "status": "ACTIVE",
+                },
+            }
+        except SystemUser.DoesNotExist:
+            return None
+
+
+def _enrollment_response(enrollment: EnrollmentRequest) -> dict:
+    """
+    Build EnrollmentRequestResponse — the single shape returned by
+    get, list, approve, and reject operations.
+    """
+    return {
+        "id": enrollment.id,
+        "citizen": _citizen_response(enrollment.citizen),
+        "submitted_at": enrollment.submitted_at,
+        "reviewed_at": enrollment.reviewed_at,
+        "status": enrollment.status,
+        "rejection_reason": enrollment.rejection_reason,
+        "ro_id": enrollment.ro_id,
+        "ro": _ro_summary(enrollment.ro_id),
+        "activation_challenge": enrollment.activation_challenge,
+        "activation_challenge_expires_at": enrollment.activation_challenge_expires_at,
+    }
 
 # ─── Phase 1: Account Creation ────────────────────────────────────────────────
 
@@ -160,45 +281,33 @@ def identity_submission(body: IdentitySubmitRequest, system_user_id: int) -> dic
     else:
         citizen_type = "ADULT"
 
-    # ── Build citizen payload ──
-    citizen_data = {
-        "user": system_user.id,
-        "nrc": body.nrc,
-        "full_name": body.full_name,
-        "dob": body.dob.isoformat(),
-        "phone": body.phone,
-        "gender": body.gender,
-        "district": district.id if district else None,
-        "nrc_front_url": body.nrc_front_url,
-        "nrc_back_url": body.nrc_back_url,
-        "face_image_url": body.face_image_url,
-        "public_key": body.public_key,
-        "language": body.language,
-        "status": CitizenStatus.PENDING,
-        "citizen_type": citizen_type,
-    }
-
     with transaction.atomic():
         # 1. Create Citizen record
-        citizen_serializer = CitizenSerializer(data=citizen_data)
-        if not citizen_serializer.is_valid():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=citizen_serializer.errors,
-            )
-        citizen = citizen_serializer.save()
+        citizen = Citizen.objects.create(
+            user=system_user,
+            nrc=body.nrc,
+            full_name=body.full_name,
+            dob=body.dob,
+            phone=body.phone,
+            gender=body.gender,
+            district=district,
+            nrc_front_url=body.nrc_front_url,
+            nrc_back_url=body.nrc_back_url,
+            face_image_url=body.face_image_url,
+            public_key=body.public_key,
+            language=body.language,
+            status=CitizenStatus.PENDING,
+            citizen_type=citizen_type,
+        )
 
         system_user.first_name = citizen.full_name
         system_user.save(update_fields=["first_name"])
 
         # 2. Create linked EnrollmentRequest
-        er_serializer = CitizenRegistrationRequestSerializer(data={"citizen": citizen.id})
-        if not er_serializer.is_valid():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=er_serializer.errors,
-            )
-        enrollment_request = er_serializer.save()
+        enrollment_request = EnrollmentRequest.objects.create(
+            citizen=citizen,
+            status=EnrollmentStatus.PENDING,
+        )
 
         audit.log(
             actor_id=system_user_id,
@@ -229,23 +338,25 @@ def identity_submission(body: IdentitySubmitRequest, system_user_id: int) -> dic
 
 def get_all_pending():
     """Retrieves all enrollment requests currently in PENDING status."""
-    pending_enrollments = EnrollmentRequest.objects.filter(status=EnrollmentStatus.PENDING)
-    serializer = CitizenRegistrationRequestSerializer(pending_enrollments, many=True)
-    return serializer.data
+    enrollments = (
+        EnrollmentRequest.objects.select_related("citizen")
+        .order_by("-submitted_at")
+    )
+    return [_enrollment_response(e) for e in enrollments]
 
 
 def get_single_pending(request_id: int):
     """Retrieves a single enrollment request by its primary key."""
     try:
-        pending_enrollment = EnrollmentRequest.objects.get(id=request_id)
+        enrollment = EnrollmentRequest.objects.select_related(
+            "citizen"
+        ).get(id=request_id)
     except EnrollmentRequest.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Enrollment request not found.",
         )
-    serializer = CitizenRegistrationRequestSerializer(pending_enrollment)
-    return serializer.data
-
+    return _enrollment_response(enrollment)
 
 # ─── Approve ──────────────────────────────────────────────────────────────────
 
@@ -272,37 +383,25 @@ def approve_citizen_registration(request_id: int, ro_id: int) -> dict:
     citizen = enrollment.citizen
     din = _generate_unique_din()
 
-    with transaction.atomic():
-        enrollment_serializer = CitizenRegistrationRequestSerializer(
-            instance=enrollment,
-            data={
-                "status": EnrollmentStatus.APPROVED,
-                "ro": ro_id,
-                "reviewed_at": datetime.datetime.now(datetime.timezone.utc),
-            },
-            partial=True,
-        )
-        if not enrollment_serializer.is_valid():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=enrollment_serializer.errors,
-            )
-        enrollment_serializer.save()
+    activation_challenge = secrets.token_hex(32)
+    challenge_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
 
-        citizen_serializer = CitizenSerializer(
-            instance=citizen,
-            data={
-                "din": din,
-                "status": CitizenStatus.ACTIVE,
-            },
-            partial=True,
-        )
-        if not citizen_serializer.is_valid():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=citizen_serializer.errors,
-            )
-        citizen_serializer.save()
+    with transaction.atomic():
+
+        # ── Update EnrollmentRequest ──
+        enrollment.status = EnrollmentStatus.APPROVED
+        enrollment.ro_id = ro_id
+        enrollment.reviewed_at = datetime.datetime.now(datetime.timezone.utc)
+        enrollment.activation_challenge = activation_challenge
+        enrollment.activation_challenge_expires_at = challenge_expires
+        enrollment.save()
+
+        # ── Update Citizen ──
+        citizen.din = din
+        citizen.status = CitizenStatus.ACTIVE
+        citizen.activation_nonce = activation_challenge
+        citizen.challenge_expires_at = challenge_expires
+        citizen.save()
 
         if citizen.user:
             citizen.user.first_name = citizen.full_name
@@ -313,6 +412,7 @@ def approve_citizen_registration(request_id: int, ro_id: int) -> dict:
             actor_role=UserRole.REGISTRATION_OFFICER,
             action="ENROLLMENT_APPROVED",
             target_id=enrollment.id,
+            target_type="ENROLLED",
             meta={"enrollment_request_id": enrollment.id},
         )
         audit.log(
@@ -320,16 +420,11 @@ def approve_citizen_registration(request_id: int, ro_id: int) -> dict:
             actor_role=UserRole.REGISTRATION_OFFICER,
             action="DIN_ISSUED",
             target_id=citizen.id,
+            target_type="DIN_ISSUED",
             meta={"din": din, "citizen_id": citizen.id, "nrc": citizen.nrc},
         )
 
-        return {
-            "details": "Approval successful.",
-            "din": din,
-            "request": enrollment_serializer.data,
-            "status": status.HTTP_200_OK,
-        }
-
+        return _enrollment_response(enrollment)
 
 # ─── Reject ───────────────────────────────────────────────────────────────────
 
@@ -338,6 +433,14 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason: s
     Rejects a citizen enrollment request.
     Atomically marks the request and citizen record as REJECTED.
     """
+    reason = (rejection_reason or "").strip()
+
+    if len(reason) < 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rejection reason must be at least 10 characters.",
+        )
+
     try:
         enrollment = EnrollmentRequest.objects.select_related("citizen").get(id=request_id)
     except EnrollmentRequest.DoesNotExist:
@@ -355,34 +458,15 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason: s
     citizen = enrollment.citizen
 
     with transaction.atomic():
-        serializer = CitizenRegistrationRequestSerializer(
-            instance=enrollment,
-            data={
-                "status": EnrollmentStatus.REJECTED,
-                "ro": ro_id,
-                "reviewed_at": datetime.datetime.now(datetime.timezone.utc),
-                "rejection_reason": rejection_reason,
-            },
-            partial=True,
-        )
-        if not serializer.is_valid():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=serializer.errors,
-            )
-        serializer.save()
 
-        citizen_serializer = CitizenSerializer(
-            instance=citizen,
-            data={"status": CitizenStatus.REJECTED},
-            partial=True,
-        )
-        if not citizen_serializer.is_valid():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=citizen_serializer.errors,
-            )
-        citizen_serializer.save()
+        enrollment.status = EnrollmentStatus.REJECTED
+        enrollment.ro_id = ro_id
+        enrollment.reviewed_at = datetime.datetime.now(datetime.timezone.utc)
+        enrollment.rejection_reason = reason
+        enrollment.save()
+
+        citizen.status = CitizenStatus.REJECTED
+        citizen.save()
 
         audit.log(
             actor_id=ro_id,
@@ -395,12 +479,7 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason: s
             },
         )
 
-        return {
-            "details": "Request successfully rejected.",
-            "request": serializer.data,
-            "status": status.HTTP_200_OK,
-        }
-
+        return _enrollment_response(enrollment)
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
