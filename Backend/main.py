@@ -12,7 +12,7 @@ django.setup()
 
 from routers.sysuser_registration import third_party_router, user_router
 from routers import auth, citizens, citizen_registration,hospital
-from routers import auth, citizens, kyc, digital_id, qr
+from routers import auth, citizens, kyc, digital_id, qr, districts
 from middleware.auth import AuthMiddleware
 from Utils.audit_logger import AuditMiddleware
 
@@ -39,6 +39,7 @@ app.include_router(user_router,prefix="/users", tags=["users"])
 app.include_router(third_party_router,prefix="/third_party", tags=["third_party"])
 app.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
 app.include_router(qr.router, prefix="/qr", tags=["qr"])
+app.include_router(districts.router, prefix="/districts", tags=["Locations"])
 #app.include_router(digital_id.router)
 
 

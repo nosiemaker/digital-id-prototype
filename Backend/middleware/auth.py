@@ -19,7 +19,9 @@ PUBLIC_ROUTES = [
     "/enrollments/resend-otp",
     "/third_party/register",
     "/users/activate/{din}",
-    "/users/set-password"
+    "/users/set-password",
+    "/districts/provinces",
+    "/districts/",
 ]
 
 class AuthMiddleware(BaseHTTPMiddleware):

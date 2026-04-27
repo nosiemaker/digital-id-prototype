@@ -37,8 +37,7 @@ class AccountCreateRequest(BaseModel):
     No citizen data yet — just identity credentials.
     """
     email:    EmailStr
-    password: str      = Field(..., min_length=8,  description="Plaintext — hashed server-side")
-
+    password: str = Field(..., min_length=8, description="Plaintext — hashed server-side")
 
 
 class AccountCreateResponse(BaseModel):
@@ -76,18 +75,21 @@ class IdentitySubmitRequest(BaseModel):
     POST /auth/submit-identity
     Submitted from the dashboard once the user is logged in.
     Creates a Citizen record + EnrollmentRequest.
+
+    Province is resolved on the frontend to a district_id.
+    Only district_id is sent — province is UI-only and never stored.
     """
-    nrc:           str  = Field(..., max_length=15,  description="National Registration Card number")
-    full_name:     str  = Field(..., max_length=255)
-    dob:           date = Field(..., description="Date of birth")
-    phone:         Optional[str] = Field(None, max_length=20)
-    gender:        Optional[str] = Field(None, description="MALE | FEMALE | OTHER")
-    province:      Optional[str] = Field(None, description="Zambian province code")
-    nrc_front_url: Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC front image")
-    nrc_back_url:  Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC back image")
-    face_image_url:Optional[str] = Field(None, max_length=500, description="URL to uploaded face photo")
-    public_key:    str  = Field(..., description="PEM-encoded ECDSA P-256 public key from WebCrypto")
-    language:      str  = Field(default="en", description="Preferred language code")
+    nrc:            str  = Field(..., max_length=15, description="National Registration Card number")
+    full_name:      str  = Field(..., max_length=255)
+    dob:            date = Field(..., description="Date of birth")
+    phone:          Optional[str] = Field(None, max_length=20)
+    gender:         Optional[str] = Field(None, description="MALE | FEMALE")
+    district_id:    Optional[int] = Field(None, description="District FK — resolved from province/district selection")
+    nrc_front_url:  Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC front image")
+    nrc_back_url:   Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC back image")
+    face_image_url: Optional[str] = Field(None, max_length=500, description="URL to uploaded face photo")
+    public_key:     str  = Field(..., description="PEM-encoded ECDSA P-256 public key from WebCrypto")
+    language:       str  = Field(default="en", description="Preferred language code")
 
 class IdentitySubmitResponse(BaseModel):
     enrollment_request_id: int
@@ -101,13 +103,11 @@ class SystemUserBase(BaseModel):
     role: str
     email: EmailStr
     name: str = Field(..., max_length=255)
-    din:str = Field(..., max_length=20, description="Only populated for CITIZEN role")
+    din: str = Field(..., max_length=20, description="Only populated for CITIZEN role")
     is_active: bool = True
 
 
-
 class SystemUserCreatePassword(BaseModel):
-
     citizen_din: str = Field(..., max_length=20, description="Only populated for CITIZEN role")
     password: str = Field(..., min_length=8, description="Plain text password to be hashed by backend")
 
@@ -119,7 +119,6 @@ class SystemUserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = Field(None, max_length=255)
     is_active: Optional[bool] = None
-    # If adding password reset, it should be a separate endpoint (e.g. POST /users/{id}/reset-password)
 
 class SystemUserResponse(SystemUserBase):
     """
@@ -154,7 +153,6 @@ class TransactionCreate(TransactionBase):
     """
     citizen_din: str = Field(..., max_length=12, description="DIN of the citizen being charged")
     reference: str = Field(..., max_length=64, description="External reference from the institution")
-    # institution_id is omitted here; it should be securely inferred from the Institution's Auth Token
 
 class TransactionBiometricChallenge(BaseModel):
     """
@@ -181,7 +179,7 @@ class TransactionResponse(TransactionBase):
 
     id: int
     citizen_din: str
-    institution_id: int  # Maps to Django's institution FK
+    institution_id: int
     status: TransactionStatus
     reference: str
     biometric_challenge: Optional[str] = None
@@ -241,7 +239,6 @@ class HealthWorkerRemove(BaseModel):
 
 
 class RegistrationOfficerCreate(BaseModel):
-
     citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
     employee_id: str = Field(..., max_length=50, description="Unique employee ID")
     station_name: Optional[str] = Field(None, max_length=200, description="Registration station name")
@@ -249,7 +246,6 @@ class RegistrationOfficerCreate(BaseModel):
 
 
 class RegistrarCreate(BaseModel):
-
     citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
     employee_id: str = Field(..., max_length=50, description="Unique employee ID")
     department: Optional[str] = Field(None, max_length=100, description="Department name")
@@ -257,7 +253,6 @@ class RegistrarCreate(BaseModel):
 
 
 class SupervisorCreate(BaseModel):
-
     citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
     employee_id: str = Field(..., max_length=50, description="Unique employee ID")
     department: Optional[str] = Field(None, max_length=100, description="Department name")
@@ -265,8 +260,28 @@ class SupervisorCreate(BaseModel):
 
 
 class HealthWorkerCreate(BaseModel):
-
     citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
     employee_id: str = Field(..., max_length=50, description="Unique employee ID")
     facility_name: Optional[str] = Field(None, max_length=200, description="Health facility name")
     department: Optional[str] = Field(None, max_length=100, description="Department name")
+
+
+# -------------------------------------------------------------------
+# District / Province listing (used by frontend dropdowns)
+# -------------------------------------------------------------------
+class DistrictResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    code: str
+    province_name: str
+    province_code: str
+
+class ProvinceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    code: str
+    districts: list[DistrictResponse] = []

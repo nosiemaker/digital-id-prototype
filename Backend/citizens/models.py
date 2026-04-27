@@ -26,19 +26,6 @@ class Gender(models.TextChoices):
     FEMALE = "FEMALE", "Female"
 
 
-class Province(models.TextChoices):
-    CENTRAL = "CENTRAL", "Central"
-    COPPERBELT = "COPPERBELT", "Copperbelt"
-    EASTERN = "EASTERN", "Eastern"
-    LUAPULA = "LUAPULA", "Luapula"
-    LUSAKA = "LUSAKA", "Lusaka"
-    MUCHINGA = "MUCHINGA", "Muchinga"
-    NORTHERN = "NORTHERN", "Northern"
-    NORTHWEST = "NORTHWEST", "North-Western"
-    SOUTHERN = "SOUTHERN", "Southern"
-    WESTERN = "WESTERN", "Western"
-
-
 class RelationshipType(models.TextChoices):
     PARENT = "PARENT", "Parent"
     CHILD = "CHILD", "Child"
@@ -94,7 +81,6 @@ class Citizen(models.Model):
     nrc = models.CharField(max_length=15, unique=True, null=True)
     full_name = models.CharField(max_length=255)
     residential_address = models.CharField(max_length=255, null=True)
-    maiden_name = models.CharField(max_length=255, null=True)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)
@@ -102,13 +88,13 @@ class Citizen(models.Model):
     nrc_back_url = models.URLField(max_length=500, null=True, blank=True)
     face_image_url = models.URLField(max_length=500, null=True, blank=True)
     district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,
-                                 related_name="supervisors")
+                                 related_name="citizens")
     public_key = models.TextField(null=True)
     activation_nonce = models.CharField(max_length=64, null=True, blank=True)
     status = models.CharField(max_length=20, choices=CitizenStatus.choices, default=CitizenStatus.PENDING)
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.ENGLISH)
     challenge_expires_at = models.DateTimeField(null=True, blank=True)
-    citizen_type = models.CharField(max_length=20, choices=UserType.choices)
+    citizen_type = models.CharField(max_length=20, choices=UserType.choices, default=UserType.ADULT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -181,7 +167,7 @@ class BiometricRecord(models.Model):
     for enrollment (supervised, in-person with RO) and device biometrics
     only for day-to-day app login convenience (Capacitor biometric-auth plugin).
     """
-    Citizen = models.OneToOneField(Citizen, on_delete=models.CASCADE, related_name="biometric_record")
+    citizen = models.OneToOneField(Citizen, on_delete=models.CASCADE, related_name="biometric_record")
     embedding_vector = models.JSONField(null=True, blank=True, help_text="512-float InsightFace embedding.")
     embedding_quantized = models.BinaryField(null=True, blank=True,
                                              help_text="64-bytes quantized embedding. Stable across caputers. Input to DIN derivation.")
@@ -198,7 +184,7 @@ class BiometricRecord(models.Model):
         db_table = "biometric_record"
 
     def __str__(self):
-        return f"Biometric for {self.Citizen}"
+        return f"Biometric for {self.citizen}"
 
 
 class FamilyLink(models.Model):
@@ -284,4 +270,3 @@ class RegistrationOfficer(models.Model):
 
     def __str__(self):
         return f"Registration Officer {self.employee_id} - {self.citizen}"
-        return f"{self.citizen} 'n {self.relationship_type} 'n {self.related_citizen}"

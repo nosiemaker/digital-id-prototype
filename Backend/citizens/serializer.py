@@ -6,4 +6,4 @@ from citizens.models import Citizen
 class CitizenSerializer(ModelSerializer):
     class Meta:
         model = Citizen
-        fields = "__all__"
+        exclude = ["public_key"]

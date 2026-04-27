@@ -41,34 +41,34 @@ class BirthRecord(models.Model):
         related_name="father_of_new_born",
         to_field="din",
     )
-    facility = models.CharField(max_length=255)
-    district = models.CharField(max_length=255)
-    child_first_name = models.CharField(max_length=255)
-    child_surname = models.CharField(max_length=255)
+    facility = models.CharField(max_length=255, null=True, blank=True)
+    district = models.CharField(max_length=255, null=True, blank=True)
+    child_first_name = models.CharField(max_length=255, null=True, blank=True)
+    child_surname = models.CharField(max_length=255, null=True, blank=True)
     child_other_names = models.CharField(max_length=255, null=True , blank=True)
     father_occupation = models.CharField(max_length=255, null=True , blank=True)
-    father_ssn = models.IntegerField()
-    mother_ssn = models.IntegerField()
+    father_ssn = models.IntegerField(null=True, blank=True)
+    mother_ssn = models.IntegerField(null=True, blank=True)
     father_nationality= models.CharField(max_length=255, default="ZAMBIAN")
     mother_nationality = models.CharField(max_length=255,default="ZAMBIAN")
-    informant_name = models.CharField(max_length=255)
-    informant_address = models.CharField(max_length=255)
+    informant_name = models.CharField(max_length=255, null=True, blank=True)
+    informant_address = models.CharField(max_length=255, null=True, blank=True)
     postal_address = models.CharField(max_length=255,null= True)
-    date_of_registration = models.DateField()
-    child_dob = models.DateField()
+    date_of_registration = models.DateField(auto_now_add=True, null=True)
+    child_dob = models.DateField(auto_now_add=True, null=True)
     child_sex = models.CharField(
         max_length=10,
         choices=[("MALE", "Male"), ("FEMALE", "Female")],
     )
 
-    born_at = models.DateTimeField()
+    born_at = models.DateTimeField(auto_created=True, null=True)
     status = models.CharField(
         max_length=20,
         choices=RecordStatus.choices,
         default=RecordStatus.PENDING,
     )
     certificate_url = models.URLField(null=True, blank=True)
-    created_at = models.DateTimeField(null=True)
+    created_at = models.DateTimeField(auto_created=True, null=True)
 
     class Meta:
         db_table = "birth_records"

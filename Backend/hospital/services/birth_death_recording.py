@@ -7,7 +7,7 @@ from pathlib import Path
 from django.db import transaction
 from fastapi import HTTPException
 from Utils.audit_logger import audit
-from Utils.certificate_generator import generate_certificate
+#from Utils.certificate_generator import generate_certificate
 from admin_ops.models import SystemUser
 from citizens.models import Citizen, CitizenStatus
 from citizens.serializer import CitizenSerializer
@@ -407,7 +407,7 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
         MEDIA_ROOT.mkdir(parents=True,exist_ok=True)
         filename = f"{child_id}_Birth_Certificate"
         file_path = MEDIA_ROOT/filename
-        cert_hash, cert_url = generate_certificate(cert_info, str(file_path))
+        #cert_hash, cert_url = generate_certificate(cert_info, str(file_path))
 
 
         record_serializer = BirthRecordSerializer(
@@ -417,8 +417,8 @@ def birth_record_approval(request_id:int, ro_id: int) -> dict:
                 "mother": mother.din,
                 "status": RecordStatus.APPROVED,
                 "created_at": datetime.datetime.now(),
-                "certificate_url": cert_url,
-                "certificate_verification_hash":cert_hash
+                "certificate_url": "",
+                "certificate_verification_hash":""
             },
             partial=True
         )

@@ -15,6 +15,17 @@ Usage:
 """
 
 from PIL import Image, ImageDraw, ImageFont
+from routers import auth, citizens, citizen_registration, hospital
+from hospital.services.birth_death_recording import record_submission, create_death_record, create_birth_record, \
+    death_record_approval, death_record_rejection, birth_record_rejection, birth_record_approval, get_all_death_records, \
+    get_single_death_record, get_single_birth_record, get_all_births_records, get_single_pending_birth, \
+    get_all_pending_births, get_all_pending_deaths, get_single_pending_death
+
+from Utils.certificate_generator import generate_certificate
+
+from reportlab.pdfgen import canvas as rl_canvas
+
+'reportlab'
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
