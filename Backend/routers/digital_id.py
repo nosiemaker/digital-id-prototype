@@ -13,15 +13,14 @@ Endpoints:
         Used by verifiers (third parties, offline scanners) to verify signatures.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
 from asgiref.sync import sync_to_async
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from Utils.audit_logger import audit
-from Utils.rbac import Permission, get_permission_dependency
-from citizens.schema import DigitalIDPayload
+from citizens.schema import DigitalIDResponse, ServerPublicKeyResponse
 
 from citizens.services.digital_id_service import (
     CitizenNotActiveError,
@@ -29,31 +28,9 @@ from citizens.services.digital_id_service import (
     build_digital_id,
     get_server_public_key,
 )
+from dependencies.auth import require_groups, UserRole
 
 router = APIRouter(prefix="/digital-id", tags=["digital-id"])
-
-
-# ---------------------------------------------------------------------------
-# Response schemas local to this router
-# ---------------------------------------------------------------------------
-
-class ServerPublicKeyResponse(BaseModel):
-    """
-    GET /digital-id/server-public-key
-    Public key verifiers use to check Digital ID signatures.
-    """
-    public_key_pem: str
-    algorithm: str = "ECDSA P-256"
-    usage: str = "Verify Digital ID payload signatures issued by ZDID"
-
-
-class DigitalIDResponse(BaseModel):
-    """
-    Wraps DigitalIDPayload with metadata the citizen app needs.
-    """
-    payload: DigitalIDPayload
-    issued_at: datetime
-    valid_for_seconds: int = 86400  # 24h — client should re-fetch daily
 
 
 # ---------------------------------------------------------------------------
@@ -88,9 +65,9 @@ async def get_public_key():
         "Citizen must be ACTIVE — PENDING/SUSPENDED/DECEASED returns 403."
     ),
 )
-async def get_digital_id(
+async def get_citizen_digital_id(
     din: str,
-    current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
+    current_user: dict = Depends(require_groups([UserRole.CITIZEN])),
 ):
     """
     GET /digital-id/{din}
@@ -99,18 +76,10 @@ async def get_digital_id(
     - CITIZEN role: can only fetch their own DIN (enforced below)
     - REGISTRATION_OFFICER, REGISTRAR, SUPERVISOR: can fetch any DIN
     """
-    user_role = current_user.get("role")
-    user_din = current_user.get("din")  # DIN stored on the JWT for citizens
-
-    # Citizens can only fetch their own Digital ID
-    if user_role == "CITIZEN" and user_din != din:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Citizens can only retrieve their own Digital ID.",
-        )
 
     try:
-        digital_id_payload = await sync_to_async(build_digital_id)(din)
+        payload = await sync_to_async(build_digital_id)(din)
+        public_key = get_server_public_key()
     except CitizenNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -135,9 +104,15 @@ async def get_digital_id(
     # Audit — who fetched whose Digital ID
     await audit.alog(
         actor_id=current_user.get("id"),
-        actor_role=user_role,
+        actor_role=current_user.get("role"),
         action="DIGITAL_ID_ISSUED",
         target_type="CITIZEN",
         target_id=din,
-        meta={"requested_by_role": user_role},
+        meta={"requested_by_role": current_user.get("role")},
+    )
+
+    return DigitalIDResponse(
+        payload=payload,
+        server_public_key=public_key,
+        valid_until=payload.issued_at + timedelta(days=1)
     )

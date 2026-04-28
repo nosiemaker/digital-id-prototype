@@ -114,7 +114,6 @@ class CitizenResponse(CitizenBase):
     Includes every field the frontend review page needs.
     """
     model_config = ConfigDict(from_attributes=True)
-
     din: Optional[str] = None
     status: CitizenStatus
     gender: Optional[Gender] = None
@@ -190,22 +189,26 @@ class DigitalIDPayload(BaseModel):
     full_name: str
     nrc: str
     dob: date
+    gender: Optional[Gender] = None
+    province: str
+    face_image_url: Optional[str]
+    citizen_type: Optional[UserType] = None
     status: CitizenStatus
-    public_key: str
+    public_key: Optional[str]
     issued_at: datetime
     signature: str = Field(..., description="ECDSA signature of this payload")
 
 
 class DigitalIDResponse(BaseModel):
     payload: DigitalIDPayload
-    issued_at: datetime
-    valid_for_seconds: int
+    server_public_key: str
+    valid_until: datetime
 
 
 class ServerPublicKeyResponse(BaseModel):
     public_key_pem: str
-    algorithm: str
-    usage: str
+    algorithm: str = "ECDSA P-256"
+    usage: str = "Verify Digital ID payload signatures issued by ZDID"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

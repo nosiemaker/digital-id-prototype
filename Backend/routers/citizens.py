@@ -33,7 +33,7 @@ async def get_citizen(
     Returns full citizen profile visible to self, RO, Supervisor.
     """
     # Citizens can only view their own profile
-    citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din)
+    citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din=din.upper().strip())
 
     if not citizen:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found")

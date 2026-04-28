@@ -11,7 +11,7 @@ def get_citizen_by_din(din: str) -> Optional[Citizen]:
     """
     Get citizen by DIN.
     """
-    return Citizen.objects.get(din=din)
+    return Citizen.objects.get(din=din).first()
 
 
 def get_citizen_by_nrc(nrc: str) -> Optional[Citizen]:

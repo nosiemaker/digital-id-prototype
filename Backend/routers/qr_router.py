@@ -39,6 +39,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from Utils.audit_logger import audit
 from Utils.rbac import Permission, get_permission_dependency
+from dependencies.auth import require_groups, UserRole
 from qr.schema import QRPayload, QRVerifyRequest, QRVerifyResponse
 from qr.service import (
     CitizenNotActiveError,
@@ -74,7 +75,7 @@ router = APIRouter(tags=["qr"])
 async def generate_qr(
     din: str,
     request: Request,
-    current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
+    current_user: dict = Depends(require_groups([UserRole.CITIZEN])),
 ):
     """
     Generate a signed QR payload.
@@ -93,14 +94,6 @@ async def generate_qr(
     Client app takes this JSON and encodes it into a QR image.
     """
     user_role = current_user.get("role")
-    user_din = current_user.get("din")
-
-    # Citizens can only generate their own QR
-    if user_role == "CITIZEN" and user_din != din:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Citizens can only generate their own QR code.",
-        )
 
     try:
         payload = await sync_to_async(generate_qr_payload)(din)
