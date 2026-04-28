@@ -340,6 +340,7 @@ export interface APIError {
  */
 const TOKEN_KEY   = "zdid_access_token";
 const REFRESH_KEY = "zdid_refresh_token";
+<<<<<<< Updated upstream
 const ROLE_KEY    = "zdid_user_role";
 const NAME_KEY    = "zdid_user_name";
 const PRIV_KEY    = "zdid_private_key";   // ECDSA P-256 private key (PKCS8 base64)
@@ -363,6 +364,9 @@ export const tokenStore = {
   setPrivKey: (pkcs8B64: string): void => {
     localStorage.setItem(PRIV_KEY, pkcs8B64);
   },
+
+  setName: (name: string): void => localStorage.setItem(NAME_KEY, name),
+  setRole: (role: string): void => localStorage.setItem(ROLE_KEY, role),
 
   clear: (): void => {
     localStorage.removeItem(TOKEN_KEY);
@@ -559,6 +563,8 @@ export const authApi = {
 
   me: async (): Promise<MeResponse> => {
     const { data } = await axiosInstance.get<MeResponse>("/auth/me");
+    if (data.name) tokenStore.setName(data.name);
+    if (data.role) tokenStore.setRole(data.role);
     return data;
   },
 
