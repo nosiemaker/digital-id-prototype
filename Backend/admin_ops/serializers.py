@@ -5,7 +5,7 @@ from kyc.models import ThirdPartyInstitution
 class SystemUserSerializer(ModelSerializer):
     class Meta:
         model = SystemUser
-        fields = "__all__"
+        exclude = ["password", "otp_code", "otp_expires_at"]
 
 class ThirdPartyInstitutionSerializer(ModelSerializer):
     class Meta:

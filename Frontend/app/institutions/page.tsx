@@ -13,10 +13,11 @@ import {
   FileText,
   Lock,
   Zap,
-  ChevronRight,
+  ArrowUpRight,
   AlertCircle,
   Clock,
   Briefcase,
+  ArrowUpRight,
 } from "lucide-react"
 
 export default function InstitutionsPage() {

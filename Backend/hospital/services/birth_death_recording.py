@@ -30,7 +30,7 @@ from pathlib import Path
 from django.db import models, transaction
 from fastapi import HTTPException
 from Utils.audit_logger import audit
-from Utils.certificate_generator import generate_certificate
+#from Utils.certificate_generator import generate_certificate
 from admin_ops.models import SystemUser
 from citizens.models import Citizen, CitizenStatus
 from citizens.serializer import CitizenSerializer

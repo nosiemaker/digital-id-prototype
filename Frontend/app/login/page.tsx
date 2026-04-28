@@ -8,7 +8,7 @@ import { authApi, APIError, tokenStore } from "@/lib/axios"
 
 // Role → destination route mapping.
 const ROLE_ROUTES: Record<string, string> = {
-  RO: "/admin",
+  REGISTRATION_OFFICER: "/admin/registrations",
   SUPERVISOR: "/admin",
   REGISTRAR: "/admin",
   HEALTH_WORKER: "/admin",
@@ -16,7 +16,7 @@ const ROLE_ROUTES: Record<string, string> = {
   THIRD_PARTY: "/institutions/dashboard",
 }
 
-const DEFAULT_ROUTE = "/dashboard"
+const DEFAULT_ROUTE = "/wallet"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -24,7 +24,7 @@ export default function LoginPage() {
   useEffect(() => {
     const token = tokenStore.getAccess()
     if (token) {
-      router.push("/wallet")
+      //router.push("/wallet")
     }
   }, [router])
 
@@ -46,6 +46,8 @@ export default function LoginPage() {
 
       // authApi.login already persisted the tokens via tokenStore.set —
       // navigate to the role-appropriate dashboard.
+      localStorage.setItem("user_name", user.name); 
+      localStorage.setItem("user_role", user.role);
       const destination = ROLE_ROUTES[user.role] ?? DEFAULT_ROUTE
       router.push(destination)
     } catch (err) {

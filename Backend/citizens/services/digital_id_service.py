@@ -24,7 +24,6 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import os
 from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -32,19 +31,18 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import (
     decode_dss_signature,
 )
-from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from citizens.models import Citizen, CitizenStatus
 from citizens.schema import DigitalIDPayload
-from Utils.signing import load_pem_public_key, load_private_key
+from Utils.signing import load_public_key_pem, load_private_key
 
 logger = logging.getLogger(__name__)
 
 # Module-level singletons — loaded once, reused for every request
 try:
     _SIGNING_KEY: ec.EllipticCurvePrivateKey = load_private_key()
-    _SERVER_PUBLIC_KEY_PEM = load_pem_public_key
+    _SERVER_PUBLIC_KEY_PEM = load_public_key_pem()
     logger.info("ZDID signing key loaded successfully.")
 except ImproperlyConfigured:
     # Re-raise so the app fails fast at startup, not silently mid-request
@@ -66,9 +64,13 @@ def _build_canonical_payload(citizen: Citizen, issued_at: datetime) -> dict:
       appears in both the signed bytes and the response body
     """
     return {
+        "citizen_type": citizen.citizen_type,
         "din": citizen.din,
-        "dob": citizen.dob.isoformat(),          # "YYYY-MM-DD"
+        "dob": citizen.dob.isoformat(),
+        "province": citizen.district.province.name if citizen.district else "Unknown",
+        "face_image_url": citizen.face_image_url,
         "full_name": citizen.full_name,
+        "gender": citizen.gender,
         "issued_at": issued_at.isoformat(),
         "nrc": citizen.nrc,
         "public_key": citizen.public_key,
@@ -160,13 +162,7 @@ def build_digital_id(din: str) -> DigitalIDPayload:
 
     # 5. Return schema
     return DigitalIDPayload(
-        din=citizen.din,
-        full_name=citizen.full_name,
-        nrc=citizen.nrc,
-        dob=citizen.dob,
-        status=citizen.status,
-        public_key=citizen.public_key,
-        issued_at=issued_at,
+        **payload,
         signature=signature,
     )
 

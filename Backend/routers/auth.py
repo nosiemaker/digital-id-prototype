@@ -142,7 +142,8 @@ async def refresh_token(body: RefreshRequest):
 @router.get("/me", response_model=LoginResponse)
 async def get_current_user_info(
     request: Request,
-    current_user: dict = Depends(require_groups([UserRole.CITIZEN])),
+    current_user: dict = Depends(require_groups([UserRole.CITIZEN, UserRole.REGISTRATION_OFFICER,
+                                                 UserRole.HEALTH_WORKER, UserRole.REGISTRAR, UserRole.SUPERVISOR])),
 ):
     """
     Get current user's information.
