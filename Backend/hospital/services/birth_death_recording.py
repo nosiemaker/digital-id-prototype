@@ -613,7 +613,7 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
         "date_of_registration":   datetime.date.today(),
         "register_kept_at":       f"{notice.district} District Registry",
         "issued_date":            datetime.date.today(),
-        "registrar_general_name": "Registrar",   # TODO: populate from the registrar's Citizen profile
+        "registrar_general_name": "Registrar",
     }
 
     death_cert_serializer = DeathCertificateSerializer(data=death_certificate_data)
