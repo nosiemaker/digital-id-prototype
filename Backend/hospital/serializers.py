@@ -1,23 +1,48 @@
 from rest_framework.serializers import ModelSerializer
-from hospital.models import DeathRecord, BirthRecord, DeathRecordSubmissions, BirthRecordSubmissions
+from hospital.models import MedicalCertificateCauseOfDeath, DeathRecords, BirthRecords, NoticeOfDeath, NoticeOfBirth, RecordOfBirth, BurialPermit, DeathCertificate, BirthCertificate
 
 
-class BirthRecordSerializer(ModelSerializer):
+class MedicalCertificateCauseOfDeathSerializer(ModelSerializer):
     class Meta:
-        model = BirthRecord
+        model = MedicalCertificateCauseOfDeath
         fields = "__all__"
 
-class DeathRecordSerializer(ModelSerializer):
+class NoticeOfDeathSerializer(ModelSerializer):
     class Meta:
-        model = DeathRecord
+        model = NoticeOfDeath
+        fields = "__all__"
+
+class BurialPermitSerializer(ModelSerializer):
+    class Meta:
+        model = BurialPermit
+        fields = "__all__"
+
+class DeathCertificateSerializer(ModelSerializer):
+    class Meta:
+        model = DeathCertificate
+        fields = "__all__"
+
+class BirthCertificateSerializer(ModelSerializer):
+    class Meta:
+        model = BirthCertificate
         fields = "__all__"
 
 class BirthRecordRequestSerializer(ModelSerializer):
     class Meta:
-        model = BirthRecordSubmissions
+        model = BirthRecords
         fields = "__all__"
 
 class DeathRecordRequestSerializer(ModelSerializer):
     class Meta:
-        model = DeathRecordSubmissions
+        model = DeathRecords
+        fields = "__all__"
+
+class NoticeOfBirthSerializer(ModelSerializer):
+    class Meta:
+        model = NoticeOfBirth
+        fields = "__all__"
+
+class RecordOfBirthSerializer(ModelSerializer):
+    class Meta:
+        model = RecordOfBirth
         fields = "__all__"

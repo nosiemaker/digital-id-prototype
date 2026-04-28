@@ -1,5 +1,6 @@
 from django.db import models
 
+from hospital.models import EducationChoices
 from zdid_core import settings
 
 
@@ -109,6 +110,11 @@ class Citizen(models.Model):
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.ENGLISH)
     challenge_expires_at = models.DateTimeField(null=True, blank=True)
     citizen_type = models.CharField(max_length=20, choices=UserType.choices)
+    nationality = models.CharField(max_length=100, blank=True, null=True)
+    occupation = models.CharField(max_length=100, blank=True, null=True)
+    education_level = models.CharField(max_length=20, choices=EducationChoices.choices,
+                                        blank=True, null=True)
+    social_id = models.CharField(max_length=30, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

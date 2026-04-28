@@ -7,7 +7,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
 sys.path.insert(0, os.path.dirname(__file__))
 django.setup()
 
-from hospital.models import BirthRecord, DeathRecord, BirthRecordSubmissions, DeathRecordSubmissions, RecordStatus
+from hospital.models import BirthRecord, DeathRecord, BirthRecords, DeathRecordSubmissions, RecordStatus
 from citizens.models import Citizen
 from admin_ops.models import SystemUser, UserRole
 
@@ -40,7 +40,7 @@ def seed_records():
         created_at=datetime.now()
     )
 
-    BirthRecordSubmissions.objects.create(
+    BirthRecords.objects.create(
         record=birth_record,
         health_worker=hw,
         status=RecordStatus.PENDING

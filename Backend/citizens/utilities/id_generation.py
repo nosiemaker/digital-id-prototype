@@ -55,6 +55,8 @@ def generate_id(seed: bytes,type: str):
         return f"ZM-{final_hmac_id}{check_sum_value}"
     elif type == "THIRD_PARTY":
         return f"TP-{final_hmac_id}{check_sum_value}"
+    else:
+        return f"ZMB-{final_hmac_id}{check_sum_value}"
 
 def child_seed_generation(name: str, dob, born, mothers_din):
     input_string = f"{name}{dob}{born}{mothers_din}"
