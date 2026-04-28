@@ -119,7 +119,7 @@ export function AdminSidebar() {
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 mb-1">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
-            {userName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+            {userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-sidebar-foreground truncate">{userName}</p>

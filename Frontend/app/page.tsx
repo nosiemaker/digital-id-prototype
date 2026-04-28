@@ -52,7 +52,7 @@ const ROLE_ROUTES: Record<string, string> = {
   THIRD_PARTY: "/institutions/dashboard",
 }
 
-const DEFAULT_ROUTE = "/dashboard"
+const DEFAULT_ROUTE = "/wallet"
 
 export default function LandingPage() {
   const router = useRouter()

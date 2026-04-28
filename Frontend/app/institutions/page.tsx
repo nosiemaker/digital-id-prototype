@@ -13,7 +13,7 @@ import {
   FileText,
   Lock,
   Zap,
-  ChevronRight,
+  ArrowUpRight,
   AlertCircle,
   Clock,
   Briefcase,
