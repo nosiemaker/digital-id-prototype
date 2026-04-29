@@ -41,12 +41,13 @@ import {
   ChevronUp,
 } from "lucide-react"
 import { enrollmentApi, citizenApi, type EnrollmentRequestResponse, type CitizenResponse, type FamilyTreeResponse } from "@/lib/axios"
+import { useRoleGuard } from "@/hooks/use-role-guard"
 
 // ── Types extending the base API types with full field coverage ─────────────
 
 interface FullCitizenResponse extends CitizenResponse {
-  gender?: "MALE" | "FEMALE" | null
-  residential_address?: string | null
+  gender?: "MALE" | "FEMALE"
+  residential_address?: string
   district?: {
     id: number
     name: string
@@ -56,10 +57,10 @@ interface FullCitizenResponse extends CitizenResponse {
       name: string
       code: string
     }
-  } | null
+  }
   citizen_type?: "CHILD_UNDER_16" | "CHILD_ABOVE_16" | "ADULT" | "SENIOR"
-  activation_nonce?: string | null
-  challenge_expires_at?: string | null
+  activation_nonce?: string
+  challenge_expires_at?: string
   created_at: string
   updated_at: string
 }
@@ -248,6 +249,8 @@ function DocumentPreview({
 // ── Main Page Component ──────────────────────────────────────────────────────
 
 export default function RegistrationReviewPage() {
+  useRoleGuard(["REGISTRATION_OFFICER"])
+
   const params = useParams()
   const router = useRouter()
   const requestId = parseInt(params.id as string, 10)

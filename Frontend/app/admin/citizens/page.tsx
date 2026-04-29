@@ -128,9 +128,7 @@ export default function CitizensPage() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          <Link href={`/admin/citizens/${citizen.din}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium">
-                            <Eye className="h-3.5 w-3.5" /> View
-                          </Link>
+                          <span className="text-xs text-muted-foreground font-mono">{citizen.din}</span>
                         </td>
                       </tr>
                     ))}

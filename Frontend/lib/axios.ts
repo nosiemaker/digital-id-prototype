@@ -325,6 +325,181 @@ export interface StatisticsResponse {
   kyc_metrics: Record<string, unknown>;
 }
 
+export interface BirthRecordSubmission {
+  mother_din: string;
+  father_din: string;
+  district: string;
+  date_and_time_of_birth_notification: string;
+  date_of_birth: string
+  place_of_birth: "HEALTH_FACILITY" | "HOME";
+  health_facility_name?: string;
+  other_place_specified?: string;
+  child_surname: string;
+  child_given_name: string;
+  child_other_names?: string;
+  sex: "MALE" | "FEMALE";
+  birth_weight_kg: number;
+  father_village_of_origin?: string;
+  father_chief?: string;
+  father_district?: string;
+  father_tribe?: string;
+  mother_village_of_origin?: string;
+  mother_chief?: string;
+  mother_district?: string;
+  mother_tribe?: string;
+  mother_usual_place_of_residence?: string;
+  attendant_at_birth: "MIDWIFE" | "TBA" | "OTHER";
+  attendant_other_specified?: string;
+  marital_status: "MARRIED" | "NOT_MARRIED";
+  father_acknowledgement_signature?: string;
+  father_acknowledgement_date?: string;
+  mother_consent_signature?: string;
+  mother_consent_date?: string;
+  file_number?: string;
+  place_of_birth_text?: string;
+  time_of_birth?: string;
+  officer_in_charge?: string;
+  official_stamp_ref?: string;
+  date_signed?: string;
+}
+
+export interface MedicalCertificateCuaseOfDeathCreate {
+  medical_no: string;
+  attended_name: string;
+  illness_start_date: string;
+  last_attended_alive_date: string;
+  last_attended_alive_day: number;
+  death_date: string;
+  death_day: number;
+  death_year: number;
+  death_time?: string;
+  body_identified_of: string;
+  age_stated: string;
+  postmortem_confirmed: boolean; 
+  cause_a: string;
+  cause_a_interval?: string;
+  cause_a_icd_code?: string;
+  cause_b?: string;
+  cause_b_interval?: string;
+  cause_b_icd_code?: string;
+  cause_c?: string;
+  cause_c_interval?: string;
+  cause_c_icd_code?: string;
+  other_condition_1?: string;
+  other_condition_1_interval?: string;
+  other_condition_2?: string;
+  other_condition_2_interval?: string;
+  witness_date: string;
+  certificate_handed_to: string;
+  medical_attendant_name: string;
+  medical_attendant_signature?: string;
+  medical_attendant_qualification: string;
+  medical_attendant_residence: string;
+  village?: string;
+  chief?: string;
+  district?: string;
+  informant_din: string;
+  informant_relationship: string;
+  informant_contact_no?: string;
+  informant_postal_address?: string;
+  informant_signature?: string;
+  informant_declaration_date?: string;
+}
+
+export interface NoticeOfDeathCreate {
+  serial_number: string;
+  application_no?: string;
+  date_and_time: string;
+  deceased_din?: string;
+  surname?: string;
+  other_names?: string;
+  occupation?: string;
+  residential_address?: string;
+  district: string;
+  date_of_death: string;
+  place_of_death: "HEALTH_FACILITY" | "HOME" | "OTHER";
+  place_of_death_name?: string;
+  place_of_death_other?: string;
+  date_of_birth?: string;
+  age_at_death?: number;
+  sex?: "MALE" | "FEMALE";
+  nationality?: string;
+  national_identity_no?: string;
+  social_security_no?: string;
+  education_level?: "NONE" | "PRIMARY" | "SECONDARY" | "TERTIARY";
+  death_type?: "NATURAL" | "SUDDEN" | "UNNATURAL";
+  immediate_cause?: string;
+  immediate_cause_icd?: string;
+  antecedent_cause?: string;
+  antecedent_cause_icd?: string;
+  underlying_cause?: string;
+  underlying_cause_icd?: string;
+  police_certifier_name?: string;
+  police_certifier_residence?: string;
+  police_certifier_relationship?: string;
+  deceased_surname_police?: string;
+  deceased_other_names_police?: string;
+  deceased_age_police?: number;
+  passed_away_date?: string;
+  passed_away_time?: string;
+  passed_away_place?: string;
+  suddenly_suffering_from?: string;
+  treatment_was_at?: string;
+  is_natural_death?: boolean;
+  is_sudden_death_postmortem_required?: boolean;
+  police_no_and_rank?: string;
+  police_formation?: string;
+  police_officer_name?: string;
+  police_officer_signed?: string;
+  police_officer_date?: string;
+  doctors_remarks?: string;
+  pupils_dilated_and_fixed?: boolean;
+  certifying_doctor_name?: string;
+  certifying_doctor_signature?: string;
+  certifying_doctor_date?: string;
+  informant_din: string;
+  informant_relationship: string;
+  informant_contact_no?: string;
+  informant_postal_address?: string;
+  date_of_registration?: string;
+  has_mccd: boolean;
+  has_informant_national_id: boolean;
+  has_coroner_report: boolean;
+  informant_declaration_name?: string;
+  informant_declaration_signature?: string;
+  informant_declaration_date?: string;
+}
+
+export interface RecordRejection {
+  rejection_reason: string;
+}
+
+export interface PendingBirthSubmission {
+    id: number;
+  mother_din: string;
+  father_din?: string;
+  notice_serial_number: string;
+  record_of_birth_serial_number: string;
+  child_surname: string;
+  child_given_name: string;
+  sex: string;
+  child_din?: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  created_at: string;
+  certificate_url?: string;
+}
+
+export interface PendingDeathSubmission {
+  id: number;
+  medical_no: string;
+  attended_name: string;
+  death_date: string;
+  cause_a: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  created_at: string;
+  certificate_url?: string;
+}
+
 // ===== Generic API error shape ====
 
 export interface APIError {
@@ -340,10 +515,9 @@ export interface APIError {
  */
 const TOKEN_KEY   = "zdid_access_token";
 const REFRESH_KEY = "zdid_refresh_token";
-<<<<<<< Updated upstream
 const ROLE_KEY    = "zdid_user_role";
 const NAME_KEY    = "zdid_user_name";
-const PRIV_KEY    = "zdid_private_key";   // ECDSA P-256 private key (PKCS8 base64)
+const PRIV_KEY    = "zdid_private_key";   // ECDSA P-256 private key
 
 export const tokenStore = {
   getAccess:   (): string | null => localStorage.getItem(TOKEN_KEY),
@@ -353,9 +527,10 @@ export const tokenStore = {
   getPrivKey:  (): string | null => localStorage.getItem(PRIV_KEY),
 
   set: (access: string, refresh: string, role: string, name?: string): void => {
+    const normalizedRole = role.replace(/\s+/g, "_").toUpperCase();
     localStorage.setItem(TOKEN_KEY, access);
     localStorage.setItem(REFRESH_KEY, refresh);
-    localStorage.setItem(ROLE_KEY, role);
+    localStorage.setItem(ROLE_KEY, normalizedRole);
     if (name) {
       localStorage.setItem(NAME_KEY, name);
     }
@@ -366,7 +541,10 @@ export const tokenStore = {
   },
 
   setName: (name: string): void => localStorage.setItem(NAME_KEY, name),
-  setRole: (role: string): void => localStorage.setItem(ROLE_KEY, role),
+  setRole: (role: string): void => {
+    const normalizedRole = role.replace(/\s+/g, "_").toUpperCase();
+    localStorage.setItem(ROLE_KEY, normalizedRole);
+  },
 
   clear: (): void => {
     localStorage.removeItem(TOKEN_KEY);
@@ -730,39 +908,56 @@ export const qrApi = {
 
 // ── Birth Records ─────────────────────────────────────────────────────────────
 export const birthRecordApi = {
-  submit: async (body: BirthRecordBase): Promise<unknown> => {
-    const { data } = await axiosInstance.post("/birth_record/submit", body);
+  submit: async (body: BirthRecordSubmission): Promise<{
+  details: string; birth_records_id: number; notice_of_birth_id: number;
+   record_of_birth_id: number; status: number}> => {
+    const { data } = await axiosInstance.post("/births/submit", body);
     return data;
   },
-  getPendingSubmissions: async (): Promise<unknown[]> => {
-    const { data } = await axiosInstance.get("/birth_record/pending_submissions");
+  getPendingSubmissions: async (): Promise<{ details: string; pending_submissions: PendingBirthSubmission[]
+  }> => {
+    const { data } = await axiosInstance.get("/births/pending_submissions");
     return data;
   },
-  getRecord: async (recordId: number): Promise<unknown> => {
+  getRecord: async (recordId: number): Promise<{ details: string;
+     record: PendingBirthSubmission 
+ }> => {
     const { data } = await axiosInstance.get(`/birth_record/record/${recordId}`);
     return data;
   },
-  getSubmission: async (recordId: number): Promise<unknown> => {
-    const { data } = await axiosInstance.get(`/birth_record/submission/${recordId}`);
+  getSubmission: async (submissionId: number): Promise<{ details: string;
+  pending_submission: PendingBirthSubmission }> => {
+    const { data } = await axiosInstance.get(`/births/submission/${submissionId}`);
     return data;
   },
-  approve: async (submissionId: number): Promise<unknown> => {
-    const { data } = await axiosInstance.put(`/birth_record/${submissionId}/approve_submission`);
+  getAll: async (): Promise<{ details: string; records: PendingBirthSubmission[] }> => {
+    const { data } = await axiosInstance.get("/births/all");
     return data;
   },
-  reject: async (submissionId: number, body: RecordRejection): Promise<unknown> => {
-    const { data } = await axiosInstance.put(`/birth_record/${submissionId}/reject_submission`, body);
+  approve: async (submissionId: number): Promise<{
+  details: string; certificate: number; status: number }> => {
+    const { data } = await axiosInstance.put(`/births/${submissionId}/approve`);
+    return data;
+  },
+  reject: async (submissionId: number, body: RecordRejection): Promise<{ 
+    details: string; request: unknown; status: number }> => {
+    const { data } = await axiosInstance.put(`/births/${submissionId}/reject`, body);
     return data;
   },
 };
 
 // ── Death Records ─────────────────────────────────────────────────────────────
+export interface DeathRecordApproveResponse {
+  death_certificate_id: string;
+  burial_permit_id: string;
+}
+
 export const deathRecordApi = {
   submit: async (body: DeathRecordBase): Promise<unknown> => {
     const { data } = await axiosInstance.post("/death_record/submit", body);
     return data;
   },
-  getPendingSubmissions: async (): Promise<unknown[]> => {
+  getPendingSubmissions: async (): Promise<{ pending_submissions: PendingDeathSubmission[] }> => {
     const { data } = await axiosInstance.get("/death_record/pending_submissions");
     return data;
   },
@@ -774,7 +969,11 @@ export const deathRecordApi = {
     const { data } = await axiosInstance.get(`/death_record/submission/${recordId}`);
     return data;
   },
-  approve: async (submissionId: number): Promise<unknown> => {
+    getAll: async (): Promise<{ details: string; records: PendingDeathSubmission[] }> => {
+    const { data } = await axiosInstance.get("/deaths/all");
+    return data;
+  },
+  approve: async (submissionId: number): Promise<DeathRecordApproveResponse> => {
     const { data } = await axiosInstance.put(`/death_record/${submissionId}/approve_submission`);
     return data;
   },

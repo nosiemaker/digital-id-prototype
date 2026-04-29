@@ -43,16 +43,7 @@ const navLinks = [
   { label: "Login", href: "/login" },
 ]
 
-const ROLE_ROUTES: Record<string, string> = {
-  RO: "/admin",
-  SUPERVISOR: "/admin",
-  REGISTRAR: "/admin",
-  HEALTH_WORKER: "/admin",
-  CITIZEN: "/wallet",
-  THIRD_PARTY: "/institutions/dashboard",
-}
-
-const DEFAULT_ROUTE = "/wallet"
+import { ROLE_ROUTES, DEFAULT_ROUTE } from "@/lib/config/routes"
 
 export default function LandingPage() {
   const router = useRouter()
