@@ -1002,3 +1002,17 @@ export const kycApi = {
     return data;
   },
 };
+
+// ── Third Party ──────────────────────────────────────────────────────────────
+export interface ThirdPartyRegistrationRequest {
+  name: string;
+  reg_number: string;
+  email: string;
+}
+
+export const thirdPartyApi = {
+  register: async (body: ThirdPartyRegistrationRequest): Promise<unknown> => {
+    const { data } = await axiosInstance.post("/third_party/register", body);
+    return data;
+  },
+};

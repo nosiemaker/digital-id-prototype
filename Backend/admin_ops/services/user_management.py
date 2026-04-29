@@ -22,6 +22,10 @@ from registration.models import EnrollmentStatus
 # Creates a new system user record after checking for duplicate DINs.
 # Validates the request body through SystemUserSerializer before persisting.
 def create_system_user(request_body: dict) -> dict:
+    # Auto-set username to email if not provided
+    if not request_body.get("username") and request_body.get("email"):
+        request_body["username"] = request_body.get("email")
+
     citizen_din = request_body.get("citizen_din") or request_body.get("din")
     # Guard: prevent duplicate system users tied to the same citizen DIN
     if citizen_din and SystemUser.objects.filter(citizen_din=citizen_din).exists():
@@ -36,7 +40,11 @@ def create_system_user(request_body: dict) -> dict:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=user_serializer.errors,
         )
-    user_serializer.save()
+    
+    user = user_serializer.save()
+    if request_body.get("password"):
+        user.set_password(request_body.get("password"))
+        user.save()
     return {
         "details": "User created successfully",
         "user": user_serializer.data,
@@ -240,9 +248,9 @@ def approve_third_party_registration(request_id: int, registrar_id:int, permitte
         create_system_user({
             "role": UserRole.THIRD_PARTY,
             "email": third_party.email,
-            "name": third_party.full_name,
-            "institution_id": third_party.institution_id
-
+            "name": third_party.name,
+            "institution_din": third_party.institution_id,
+            "password": "password123."
         })
         # Log the approval event for audit trail
         audit.third_party_enrollment_approved(registrar_id,enrollment_serializer.data['id'], enrollment_serializer.data)
