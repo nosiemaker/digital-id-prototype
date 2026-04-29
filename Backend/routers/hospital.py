@@ -18,13 +18,13 @@ from asgiref.sync import sync_to_async
 from fastapi import APIRouter, Request
 from fastapi.params import Depends
 from dependencies.auth import require_groups, UserRole
-from Backend.hospital.schema import (
+from hospital.schema import (
     BirthRecordSubmission,
     MedicalCertificateCauseOfDeathCreate,
     NoticeOfDeathCreate,
     RecordRejection,
 )
-from Backend.hospital.services.birth_death_recording import (
+from hospital.services.birth_death_recording import (
     record_submission,
     death_record_approval,
     death_record_rejection,

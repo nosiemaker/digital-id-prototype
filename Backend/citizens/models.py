@@ -1,7 +1,6 @@
 from django.db import models
-
-from hospital.models import EducationChoices
 from zdid_core import settings
+from zdid_core.constants import EducationChoices
 
 
 # Create your models here.
@@ -210,7 +209,13 @@ class FamilyLink(models.Model):
 
 class Registrar(models.Model):
     """Registrar - responsible for overseeing registration operations"""
-    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="registrar_profile")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="registrar_profile",
+        null=True,
+        blank=True
+    )
     employee_id = models.CharField(max_length=50, unique=True)
     department = models.CharField(max_length=100, null=True, blank=True)
     district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,
@@ -228,7 +233,13 @@ class Registrar(models.Model):
 
 class Supervisor(models.Model):
     """Supervisor - oversees registration officers and registration processes"""
-    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="supervisor_profile")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="supervisor_profile",
+        null=True,
+        blank=True
+    )
     employee_id = models.CharField(max_length=50, unique=True)
     department = models.CharField(max_length=100, null=True, blank=True)
     district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,
@@ -246,7 +257,13 @@ class Supervisor(models.Model):
 
 class HealthWorker(models.Model):
     """Health Worker - handles health-related citizen services"""
-    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="health_worker_profile")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="health_worker_profile",
+        null=True,
+        blank=True
+    )
     employee_id = models.CharField(max_length=50, unique=True)
     facility_name = models.CharField(max_length=200, null=True, blank=True)
     department = models.CharField(max_length=100, null=True, blank=True)
@@ -263,7 +280,13 @@ class HealthWorker(models.Model):
 
 class RegistrationOfficer(models.Model):
     """Registration Officer - handles citizen registration and enrollment"""
-    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name="registration_officer_profile")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="registration_officer_profile",
+        null=True,
+        blank=True
+    )
     employee_id = models.CharField(max_length=50, unique=True)
     station_name = models.CharField(max_length=200, null=True, blank=True)
     district = models.ForeignKey('District', on_delete=models.SET_NULL, null=True, blank=True,

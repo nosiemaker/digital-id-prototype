@@ -11,7 +11,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
 django.setup()
 
 from routers.sysuser_registration import third_party_router, user_router
-from routers import citizen_registration,hospital
+from routers import citizen_registration, hospital, audit_router
 from routers import auth, citizens, kyc, digital_id, qr_router, districts
 from middleware.auth import AuthMiddleware
 from Utils.audit_logger import AuditMiddleware
@@ -40,6 +40,7 @@ app.include_router(third_party_router,prefix="/third_party", tags=["third_party"
 app.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
 app.include_router(qr_router.router, prefix="/qr", tags=["qr"])
 app.include_router(districts.router, prefix="/districts", tags=["Locations"])
+app.include_router(audit_router.router, prefix="/audit_logs", tags=["Audit Logs"])
 app.include_router(digital_id.router)
 
 

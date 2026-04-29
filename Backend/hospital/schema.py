@@ -43,8 +43,8 @@ class SyncStatus(str, Enum):
 
 class Sex(str, Enum):
     """Biological sex of a person, as recorded on official Zambian vital-events forms."""
-    MALE = "MALE", "Male"
-    FEMALE = "FEMALE", "Female"
+    MALE = "MALE"
+    FEMALE = "FEMALE"
 
 class EventType(str, Enum):
     """Distinguishes whether an offline sync payload carries a birth or a death event."""
