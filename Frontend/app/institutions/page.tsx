@@ -17,7 +17,6 @@ import {
   AlertCircle,
   Clock,
   Briefcase,
-  ArrowUpRight,
 } from "lucide-react"
 
 export default function InstitutionsPage() {
