@@ -99,13 +99,18 @@ def _ro_summary(ro_id: int | None) -> dict | None:
     if not ro_id:
         return None
     try:
-        ro = RegistrationOfficer.objects.select_related("citizen").get(
-            citizen__user_id=ro_id
+        ro = RegistrationOfficer.objects.select_related("user").get(
+            id=ro_id
         )
         return {
             "id": ro_id,
             "employee_id": ro.employee_id,
-            "citizen": _citizen_summary(ro.citizen),
+            "citizen": _citizen_summary(ro.user.citizen) if hasattr(ro.user, 'citizen') else {
+                "din": "",
+                "full_name": f"{ro.user.first_name} {ro.user.last_name}",
+                "nrc": "",
+                "status": "ACTIVE",
+            },
         }
     except RegistrationOfficer.DoesNotExist:
         # Fallback — RO may exist as SystemUser without officer profile

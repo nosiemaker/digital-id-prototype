@@ -34,27 +34,11 @@ else
 fi
 
 echo "Running uv sync..."
-uv sync
+uv pip install -r requirements.txt
 
 echo "Running setup scripts..."
-python generate_signing_key.py
-python seed_zambia.py
-
-echo "Starting FastAPI..."
-uvicorn main:app --host 0.0.0.0 --port 8000 &
-
-echo "Starting Django..."
-python manage.py runserver 8001 &
-
-# Optional: Frontend check
-cd ..
-if [ -d "Frontend" ]; then
-    echo "Found Frontend. Starting..."
-    cd Frontend
-    pnpm dev &
-else
-    echo "Frontend folder not found, skipping."
-fi
+uv run python generate_signing_key.py
+uv run python seed_zambia.py
 
 echo "All processes started. Press Ctrl+C to stop."
 wait

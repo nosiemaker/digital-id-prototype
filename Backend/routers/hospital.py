@@ -194,7 +194,7 @@ async def reject_birth_record(
     submission_id: int,
     body: RecordRejection,
     request: Request,
-    user=Depends(require_groups(["RO"])),
+    user=Depends(require_groups([UserRole.REGISTRAR])),
 ):
     """
     PUT /births/{submission_id}/reject
