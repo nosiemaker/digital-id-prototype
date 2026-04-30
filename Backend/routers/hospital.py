@@ -17,6 +17,9 @@
 from asgiref.sync import sync_to_async
 from fastapi import APIRouter, Request
 from fastapi.params import Depends
+from fastapi.responses import StreamingResponse
+import os
+import io
 from dependencies.auth import require_groups, UserRole
 from Backend.hospital.schema import (
     BirthRecordSubmission,
@@ -42,6 +45,14 @@ from Backend.hospital.services.birth_death_recording import (
     get_birth_certificates_by_user,
     get_burial_permits_by_user,
     get_death_certificates_by_user,
+    review_birth_record,
+    view_birth_certificate,
+    review_death_documents,
+    view_death_certificates,
+    review_all_approved_death_documents,
+    review_all_approved_birth_documents,
+    get_all_approved_births_records,
+    get_all_approved_death_records,
 )
 
 birth_router = APIRouter()
@@ -161,6 +172,35 @@ async def get_all_birth_records(
     return result
 
 
+@birth_router.get("/all/approved")
+async def get_all_approved_birth_records(
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR])),
+):
+    """
+    GET /births/all/approved
+
+    Return only APPROVED birth record submissions.
+
+    Filters the BirthRecords table to return submissions that have successfully
+    passed Registrar review. Each approved record has an associated
+    BirthCertificate, Notice of Birth, and Record of Birth.
+
+    This endpoint is intended for:
+        - Administrative dashboards showing completed registrations.
+        - Auditing and statistical reporting on approved births.
+        - Populating UI lists where the Registrar or Citizen can then drill
+          into a specific record to retrieve the full document pack.
+
+    Access: REGISTRAR only.
+
+    Returns:
+        200 — Dict with "details" message and "records" list (may be empty).
+    """
+    result = await sync_to_async(get_all_approved_births_records)()
+    return result
+
+
 @birth_router.put("/{submission_id}/approve")
 async def approve_birth_record(
     submission_id: int,
@@ -217,6 +257,197 @@ async def reject_birth_record(
         submission_id, user["id"], body.rejection_reason
     )
     return result
+
+
+@birth_router.get("/{birth_records_id}/review")
+async def review_birth_submission(
+    birth_records_id: int,
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR])),
+):
+    """
+    GET /births/{birth_records_id}/review
+
+    Fetches a BirthRecords entry, validates that both NoticeOfBirth and
+    RecordOfBirth are attached, generates PDFs for each document, and
+    streams both back as a multipart/form-data response.
+
+    If either document is missing, returns a 400 error listing what's missing.
+
+    Access: REGISTRAR only.
+
+    Raises:
+        404 — BirthRecords not found.
+        400 — Missing NoticeOfBirth or RecordOfBirth.
+    """
+    result = await sync_to_async(review_birth_record)(birth_records_id)
+
+    notice_pdf = result["notice_of_birth_pdf"]
+    record_pdf = result["record_of_birth_pdf"]
+
+    if not os.path.exists(notice_pdf):
+        return {"error": "Notice of Birth PDF generation failed"}
+    if not os.path.exists(record_pdf):
+        return {"error": "Record of Birth PDF generation failed"}
+
+    with open(notice_pdf, "rb") as f1, open(record_pdf, "rb") as f2:
+        notice_data = f1.read()
+        record_data = f2.read()
+
+    boundary = "birth-review-boundary"
+    body = io.BytesIO()
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="notice_of_birth"; filename="notice_of_birth.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(notice_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="record_of_birth"; filename="record_of_birth.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(record_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}--\r\n".encode())
+    body.seek(0)
+
+    return StreamingResponse(
+        body,
+        media_type=f"multipart/form-data; boundary={boundary}",
+    )
+
+
+@birth_router.get("/{birth_records_id}/view/certificate")
+async def view_birth_certificate_endpoint(
+    birth_records_id: int,
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR,UserRole.CITIZEN])),
+):
+    """
+    GET /births/{birth_records_id}/review/certificate
+
+    Fetches a BirthRecords entry with its linked BirthCertificate,
+    validates it exists, generates the Birth Certificate PDF, and
+    streams it back as an application/pdf response.
+
+    If the certificate has not been generated yet, returns a 400 error.
+
+    Access: REGISTRAR only.
+
+    Raises:
+        404 — BirthRecords not found.
+        400 — BirthCertificate not yet generated (record not approved).
+    """
+    result = await sync_to_async(view_birth_certificate)(birth_records_id)
+
+    cert_pdf = result["birth_certificate_pdf"]
+
+    if not os.path.exists(cert_pdf):
+        return {"error": "Birth Certificate PDF generation failed"}
+
+    with open(cert_pdf, "rb") as f:
+        cert_data = f.read()
+
+    return StreamingResponse(
+        io.BytesIO(cert_data),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="birth_certificate_{birth_records_id}.pdf"'},
+    )
+
+
+@birth_router.get("/{birth_records_id}/review/full_pack")
+async def review_all_approved_birth_documents_endpoint(
+    birth_records_id: int,
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR, UserRole.HEALTH_WORKER])),
+):
+    """
+    GET /births/{birth_records_id}/review/full_pack
+
+    Fetches an APPROVED BirthRecords entry and streams all three
+    birth pipeline documents as a single multipart/form-data response:
+        1. Birth Certificate    — filename: birth_certificate.pdf
+        2. Notice of Birth      — filename: notice_of_birth.pdf
+        3. Record of Birth      — filename: record_of_birth.pdf
+
+    This is the comprehensive document retrieval endpoint for fully approved
+    birth records. It generates all three official PDFs on-demand from the
+    stored model data and delivers them in a single HTTP response.
+
+    Document provenance:
+        - Notice of Birth (Form VIII) and Record of Birth (M.F.2) are created
+          during the submission phase by the Health Worker and reviewed by the
+          Registrar before approval.
+        - Birth Certificate (Reg-Gen Form No. IV) is generated at approval time
+          from the data in the Notice of Birth and Record of Birth.
+
+    The response uses multipart/form-data with a custom boundary
+    ("birth-full-pack-boundary"). Each part includes:
+        - Content-Disposition with the document name and suggested filename.
+        - Content-Type: application/pdf.
+
+    The frontend should parse the multipart response using a library such as
+    `form-data` or `busboy` (Node.js) or `email.message` (Python) to extract
+    each PDF part by its name field.
+
+    Use cases:
+        - Registrar downloading the complete birth case file for archival.
+        - Parent (Citizen) retrieving all birth-related documents in one request.
+        - Audit/compliance officers requesting the full document set.
+
+    Access: REGISTRAR or CITIZEN.
+
+    Raises:
+        404 — BirthRecords not found.
+        409 — Submission is not APPROVED (the full pack requires the
+              Birth Certificate, which only exists after approval).
+        400 — Missing any of the three required documents (lists which
+              ones in the error detail).
+    """
+    result = await sync_to_async(review_all_approved_birth_documents)(birth_records_id)
+
+    cert_pdf = result["birth_certificate_pdf"]
+    notice_pdf = result["notice_of_birth_pdf"]
+    record_pdf = result["record_of_birth_pdf"]
+
+    for path, name in [(cert_pdf, "Birth Certificate"), (notice_pdf, "Notice of Birth"), (record_pdf, "Record of Birth")]:
+        if not os.path.exists(path):
+            return {"error": f"{name} PDF generation failed"}
+
+    with open(cert_pdf, "rb") as f1, open(notice_pdf, "rb") as f2, open(record_pdf, "rb") as f3:
+        cert_data = f1.read()
+        notice_data = f2.read()
+        record_data = f3.read()
+
+    boundary = "birth-full-pack-boundary"
+    body = io.BytesIO()
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="birth_certificate"; filename="birth_certificate.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(cert_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="notice_of_birth"; filename="notice_of_birth.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(notice_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="record_of_birth"; filename="record_of_birth.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(record_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}--\r\n".encode())
+    body.seek(0)
+
+    return StreamingResponse(
+        body,
+        media_type=f"multipart/form-data; boundary={boundary}",
+    )
 
 
 # ============================================================================
@@ -359,6 +590,36 @@ async def get_all_death_records_endpoint(
     return result
 
 
+@death_router.get("/all/approved")
+async def get_all_approved_death_records_endpoint(
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR])),
+):
+    """
+    GET /deaths/all/approved
+
+    Return only APPROVED death record submissions.
+
+    Filters the DeathRecords table to return submissions that have successfully
+    passed Registrar review. Each approved record has an associated
+    DeathCertificate, Burial Permit, Notice of Death, and Medical Certificate
+    of Cause of Death (MCCD).
+
+    This endpoint is intended for:
+        - Administrative dashboards showing completed death registrations.
+        - Auditing and statistical reporting on approved deaths.
+        - Populating UI lists where the Registrar or Citizen can then drill
+          into a specific record to retrieve the full document pack.
+
+    Access: REGISTRAR only.
+
+    Returns:
+        200 — Dict with "details" message and "records" list (may be empty).
+    """
+    result = await sync_to_async(get_all_approved_death_records)()
+    return result
+
+
 @death_router.put("/{submission_id}/approve")
 async def approve_death_record(
     submission_id: int,
@@ -412,6 +673,276 @@ async def reject_death_record(
         submission_id, user["id"], body.rejection_reason
     )
     return result
+
+
+@death_router.get("/{death_records_id}/view")
+async def view_death_submission(
+    death_records_id: int,
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR])),
+):
+    """
+    GET /deaths/{death_records_id}/view
+
+    Fetches a DeathRecords entry, validates that both MCCD and
+    NoticeOfDeath are attached, generates PDFs for each document on-demand,
+    and streams both back as a multipart/form-data response.
+
+    This endpoint is used by the Registrar during the pre-approval review
+    phase. It retrieves the two documents that exist at submission time:
+        1. Medical Certificate of Cause of Death (MCCD) — submitted by the
+           Health Worker in Step 1 of the death registration pipeline.
+        2. Notice of Death (DNRPC Form) — submitted by the informant in
+           Step 2; contains deceased particulars, informant details, and
+           police/coroner fields for non-natural deaths.
+
+    These documents are NOT pre-generated and stored as files. Instead,
+    the PDFs are generated on-demand from the model data each time this
+    endpoint is called, ensuring the output always reflects the latest
+    stored data.
+
+    The response uses multipart/form-data with two parts:
+        1. "mccd"            — filename: mccd.pdf
+        2. "notice_of_death" — filename: notice_of_death.pdf
+
+    The frontend should parse the multipart response and handle each PDF
+    part separately (e.g., display side-by-side in a review UI).
+
+    This endpoint is distinct from the post-approval endpoints:
+        - /view/certificates — retrieves Death Certificate + Burial Permit
+          (only available after approval).
+        - /review/full_pack  — retrieves all four documents (only available
+          after approval).
+
+    Access: REGISTRAR only.
+
+    Raises:
+        404 — DeathRecords not found.
+        400 — Missing MCCD or NoticeOfDeath (the case cannot be reviewed
+              until both documents are attached).
+    """
+    result = await sync_to_async(review_death_documents)(death_records_id)
+
+    mccd_pdf = result["mccd_pdf"]
+    notice_pdf = result["notice_of_death_pdf"]
+
+    if not os.path.exists(mccd_pdf):
+        return {"error": "MCCD PDF generation failed"}
+    if not os.path.exists(notice_pdf):
+        return {"error": "Notice of Death PDF generation failed"}
+
+    with open(mccd_pdf, "rb") as f1, open(notice_pdf, "rb") as f2:
+        mccd_data = f1.read()
+        notice_data = f2.read()
+
+    boundary = "death-review-boundary"
+    body = io.BytesIO()
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="mccd"; filename="mccd.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(mccd_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="notice_of_death"; filename="notice_of_death.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(notice_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}--\r\n".encode())
+    body.seek(0)
+
+    return StreamingResponse(
+        body,
+        media_type=f"multipart/form-data; boundary={boundary}",
+    )
+
+
+@death_router.get("/{death_records_id}/view/certificates")
+async def view_death_certificates(
+    death_records_id: int,
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR, UserRole.CITIZEN])),
+):
+    """
+    GET /deaths/{death_records_id}/view/certificates
+
+    Fetches an APPROVED DeathRecords entry, validates that both
+    DeathCertificate and BurialPermit are attached, generates PDFs
+    on-demand, and streams both back as a multipart/form-data response.
+
+    This endpoint retrieves the two post-approval documents that are
+    generated during the Registrar's approval step:
+        - Death Certificate — the legal proof of death issued by the
+          Registrar-General, derived from the Notice of Death and MCCD.
+        - Burial Permit (Form XI) — authorises burial or other disposal
+          of the body, derived from the Notice of Death.
+
+    These documents are NOT pre-generated and stored as files. Instead,
+    the PDFs are generated on-demand from the model data each time this
+    endpoint is called, ensuring the output always reflects the latest
+    stored data and eliminating stale file accumulation.
+
+    The response uses multipart/form-data with two parts:
+        1. "death_certificate" — filename: death_certificate.pdf
+        2. "burial_permit"     — filename: burial_permit.pdf
+
+    The frontend should parse the multipart response and handle each PDF
+    part separately (e.g., download both files or display in a viewer).
+
+    Access: REGISTRAR or CITIZEN.
+        - REGISTRAR — can view certificates for any approved death record.
+        - CITIZEN   — can view certificates for records where they are the
+          informant (no additional ownership check is enforced at this
+          layer; consider adding one if needed).
+
+    Raises:
+        404 — DeathRecords not found.
+        409 — Submission is not APPROVED (certificates only exist after approval).
+        400 — Missing DeathCertificate or BurialPermit (should not occur for
+              approved records, but guarded against).
+    """
+    result = await sync_to_async(view_death_certificates)(death_records_id)
+
+    cert_pdf = result["death_certificate_pdf"]
+    permit_pdf = result["burial_permit_pdf"]
+
+    if not os.path.exists(cert_pdf):
+        return {"error": "Death Certificate PDF generation failed"}
+    if not os.path.exists(permit_pdf):
+        return {"error": "Burial Permit PDF generation failed"}
+
+    with open(cert_pdf, "rb") as f1, open(permit_pdf, "rb") as f2:
+        cert_data = f1.read()
+        permit_data = f2.read()
+
+    boundary = "death-certificates-boundary"
+    body = io.BytesIO()
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="death_certificate"; filename="death_certificate.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(cert_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="burial_permit"; filename="burial_permit.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(permit_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}--\r\n".encode())
+    body.seek(0)
+
+    return StreamingResponse(
+        body,
+        media_type=f"multipart/form-data; boundary={boundary}",
+    )
+
+
+@death_router.get("/{death_records_id}/review/full_pack")
+async def review_all_approved_death_documents_endpoint(
+    death_records_id: int,
+    request: Request,
+    user=Depends(require_groups([UserRole.REGISTRAR, UserRole.HEALTH_WORKER])),
+):
+    """
+    GET /deaths/{death_records_id}/review/full_pack
+
+    Fetches an APPROVED DeathRecords entry and streams all four
+    death pipeline documents as a single multipart/form-data response:
+        1. Death Certificate    — filename: death_certificate.pdf
+        2. Burial Permit        — filename: burial_permit.pdf
+        3. Medical Certificate of Cause of Death — filename: mccd.pdf
+        4. Notice of Death      — filename: notice_of_death.pdf
+
+    This is the comprehensive document retrieval endpoint for fully approved
+    death records. It generates all four official PDFs on-demand from the
+    stored model data and delivers them in a single HTTP response.
+
+    Document provenance:
+        - MCCD and Notice of Death are created during the submission phase
+          (Steps 1 and 2 of the death registration pipeline) and reviewed
+          by the Registrar before approval.
+        - Death Certificate and Burial Permit are generated at approval time
+          (Step 3) from the data in the MCCD and Notice of Death.
+
+    The response uses multipart/form-data with a custom boundary
+    ("death-full-pack-boundary"). Each part includes:
+        - Content-Disposition with the document name and suggested filename.
+        - Content-Type: application/pdf.
+
+    The frontend should parse the multipart response using a library such as
+    `form-data` or `busboy` (Node.js) or `email.message` (Python) to extract
+    each PDF part by its name field.
+
+    Use cases:
+        - Registrar downloading the complete case file for archival.
+        - Citizen retrieving all death-related documents in one request.
+        - Audit/compliance officers requesting the full document set.
+
+    Access: REGISTRAR or CITIZEN.
+
+    Raises:
+        404 — DeathRecords not found.
+        409 — Submission is not APPROVED (the full pack requires the
+              Death Certificate and Burial Permit, which only exist
+              after approval).
+        400 — Missing any of the four required documents (lists which
+              ones in the error detail).
+    """
+    result = await sync_to_async(review_all_approved_death_documents)(death_records_id)
+
+    cert_pdf = result["death_certificate_pdf"]
+    permit_pdf = result["burial_permit_pdf"]
+    mccd_pdf = result["mccd_pdf"]
+    notice_pdf = result["notice_of_death_pdf"]
+
+    for path, name in [(cert_pdf, "Death Certificate"), (permit_pdf, "Burial Permit"), (mccd_pdf, "MCCD"), (notice_pdf, "Notice of Death")]:
+        if not os.path.exists(path):
+            return {"error": f"{name} PDF generation failed"}
+
+    with open(cert_pdf, "rb") as f1, open(permit_pdf, "rb") as f2, open(mccd_pdf, "rb") as f3, open(notice_pdf, "rb") as f4:
+        cert_data = f1.read()
+        permit_data = f2.read()
+        mccd_data = f3.read()
+        notice_data = f4.read()
+
+    boundary = "death-full-pack-boundary"
+    body = io.BytesIO()
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="death_certificate"; filename="death_certificate.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(cert_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="burial_permit"; filename="burial_permit.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(permit_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="mccd"; filename="mccd.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(mccd_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(b'Content-Disposition: form-data; name="notice_of_death"; filename="notice_of_death.pdf"\r\n')
+    body.write(b"Content-Type: application/pdf\r\n\r\n")
+    body.write(notice_data)
+    body.write(b"\r\n")
+
+    body.write(f"--{boundary}--\r\n".encode())
+    body.seek(0)
+
+    return StreamingResponse(
+        body,
+        media_type=f"multipart/form-data; boundary={boundary}",
+    )
 
 
 # ============================================================================

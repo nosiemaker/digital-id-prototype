@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "zdid_core.settings")
@@ -19,6 +20,8 @@ from Utils.audit_logger import AuditMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create directory for generated PDFs on startup
+    os.makedirs(os.path.join(os.path.dirname(__file__), "media", "generated_pdfs"), exist_ok=True)
     yield
 
 load_dotenv()
@@ -57,6 +60,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 
 @app.get("/")

@@ -24,7 +24,7 @@
 #   get_single_birth_record / get_single_death_record
 #   get_all_births_records / get_all_death_records
 #   get_birth_certificates_by_user / get_burial_permits_by_user / get_death_certificates_by_user
-
+import os
 import datetime
 from pathlib import Path
 from django.db import models, transaction
@@ -35,6 +35,11 @@ from admin_ops.models import SystemUser
 from citizens.models import Citizen, CitizenStatus
 from citizens.serializer import CitizenSerializer
 from citizens.utilities.id_generation import generate_id, child_seed_generation
+from hospital.Utils.mccd_generator import generate_mccd
+from hospital.Utils.notice_of_death_generator import generate_notice_of_death
+from hospital.Utils.birth_certificate_generator import generate_certificate
+from hospital.Utils.notice_of_birth_generator import generate_notice_of_birth
+from hospital.Utils.record_of_birth_generator import generate_record_of_birth
 from dependencies.auth import UserRole
 from hospital.models import (
     BirthCertificate, DeathRecords, MedicalCertificateCauseOfDeath,
@@ -1103,6 +1108,27 @@ def get_all_births_records():
         return {"details": "No Records Found", "records": serializer.data}
 
 
+def get_all_approved_births_records():
+    """
+    Returns only APPROVED BirthRecords submissions.
+
+    Filters the BirthRecords queryset to return only submissions that have
+    successfully passed Registrar review and been marked as APPROVED.
+    This is the primary source for generating approved-certificate reports
+    and for populating the citizen-facing certificate retrieval endpoints.
+
+    Returns:
+        Dict with details and serialised record list.
+        Empty list if no approved records exist.
+    """
+    records = BirthRecords.objects.filter(status=RecordStatus.APPROVED)
+    serializer = BirthRecordRequestSerializer(records, many=True)
+    if serializer.data:
+        return {"details": "Approved Records Found", "records": serializer.data}
+    else:
+        return {"details": "No Approved Records Found", "records": serializer.data}
+
+
 def get_all_death_records():
     """Returns all DeathRecords submissions regardless of status."""
     records = DeathRecords.objects.all()
@@ -1111,6 +1137,27 @@ def get_all_death_records():
         return {"details": "Records Found", "records": serializer.data}
     else:
         return {"details": "No Records Found", "records": serializer.data}
+
+
+def get_all_approved_death_records():
+    """
+    Returns only APPROVED DeathRecords submissions.
+
+    Filters the DeathRecords queryset to return only submissions that have
+    successfully passed Registrar review and been marked as APPROVED.
+    Approved death records have associated DeathCertificate and BurialPermit
+    records generated at approval time.
+
+    Returns:
+        Dict with details and serialised record list.
+        Empty list if no approved records exist.
+    """
+    records = DeathRecords.objects.filter(status=RegistrationStatusChoices.APPROVED)
+    serializer = DeathRecordRequestSerializer(records, many=True)
+    if serializer.data:
+        return {"details": "Approved Records Found", "records": serializer.data}
+    else:
+        return {"details": "No Approved Records Found", "records": serializer.data}
 
 
 # ============================================================================
@@ -1188,3 +1235,1070 @@ def get_death_certificates_by_user(user_id: int) -> dict:
         return {"details": "Death Certificates Found", "certificates": serializer.data}
     else:
         return {"details": "No Death Certificates Found", "certificates": []}
+
+
+# ============================================================================
+# BIRTH RECORD REVIEW — Generate PDFs on Demand
+# ============================================================================
+
+def review_birth_record(birth_records_id: int) -> dict:
+    """
+    Fetches a BirthRecords entry, validates that both NoticeOfBirth and
+    RecordOfBirth are attached, generates PDFs for each document, and
+    returns the file paths for streaming.
+
+    Steps:
+        1. Fetch BirthRecords with related documents.
+        2. Validate both NoticeOfBirth and RecordOfBirth exist.
+        3. Build payloads from model instances.
+        4. Call respective generators to create PDFs.
+        5. Return paths to generated PDFs.
+
+    Args:
+        birth_records_id: PK of the BirthRecords submission.
+
+    Returns:
+        Dict with notice_of_birth_pdf and record_of_birth_pdf paths.
+
+    Raises:
+        HTTPException 404 — BirthRecords not found.
+        HTTPException 400 — Missing NoticeOfBirth or RecordOfBirth.
+    """
+    try:
+        birth_records = (
+            BirthRecords.objects
+            .select_related("notice_of_birth", "record_of_birth")
+            .get(id=birth_records_id)
+        )
+    except BirthRecords.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Birth record not found",
+        )
+
+    notice_of_birth = birth_records.notice_of_birth
+    record_of_birth = birth_records.record_of_birth
+
+    missing_docs = []
+    if not notice_of_birth:
+        missing_docs.append("Notice of Birth")
+    if not record_of_birth:
+        missing_docs.append("Record of Birth")
+
+    if missing_docs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required documents: {', '.join(missing_docs)}",
+        )
+
+
+
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "media", "generated_pdfs")
+    os.makedirs(output_dir, exist_ok=True)
+
+    notice_payload = {
+        "form_serial_no": notice_of_birth.serial_number,
+        "serial_no": notice_of_birth.serial_number,
+        "district": notice_of_birth.district,
+        "date_and_time": str(notice_of_birth.date_and_time) if notice_of_birth.date_and_time else "",
+        "date_of_birth": str(notice_of_birth.date_of_birth),
+        "place_of_birth": notice_of_birth.place_of_birth or "HEALTH_FACILITY",
+        "health_facility_name": notice_of_birth.health_facility_name or "",
+        "home_address": notice_of_birth.home_address or "",
+        "other_specify": notice_of_birth.other_place_specified or "",
+        "child_surname": notice_of_birth.child_surname,
+        "child_given_name": notice_of_birth.child_given_name,
+        "child_other_names": notice_of_birth.child_other_names or "",
+        "birth_weight": str(notice_of_birth.birth_weight_kg),
+        "sex": notice_of_birth.sex,
+        "father_surname": notice_of_birth.father_surname or "",
+        "father_other_names": notice_of_birth.father_other_names or "",
+        "father_dob": str(notice_of_birth.father_dob) if notice_of_birth.father_dob else "",
+        "father_national_id": notice_of_birth.father_national_id or "",
+        "father_occupation": notice_of_birth.father_occupation or "",
+        "father_social_id": notice_of_birth.father_social_id or "",
+        "father_village": notice_of_birth.father_village_of_origin or "",
+        "father_chief": notice_of_birth.father_chief or "",
+        "father_district": notice_of_birth.father_district or "",
+        "father_tribe": notice_of_birth.father_tribe or "",
+        "father_nationality": notice_of_birth.father_nationality or "",
+        "father_residential_address": notice_of_birth.father_residential_address or "",
+        "father_contact_no": notice_of_birth.father_contact_no or "",
+        "mother_surname": notice_of_birth.mother_surname,
+        "mother_other_names": notice_of_birth.mother_other_names or "",
+        "mother_maiden_surname": notice_of_birth.mother_maiden_surname or "",
+        "mother_dob": str(notice_of_birth.mother_dob) if notice_of_birth.mother_dob else "",
+        "mother_national_id": notice_of_birth.mother_national_id or "",
+        "mother_nationality": notice_of_birth.mother_nationality or "",
+        "mother_occupation": notice_of_birth.mother_occupation or "",
+        "mother_social_id": notice_of_birth.mother_social_id or "",
+        "mother_village": notice_of_birth.mother_village_of_origin or "",
+        "mother_chief": notice_of_birth.mother_chief or "",
+        "mother_district": notice_of_birth.mother_district or "",
+        "mother_tribe": notice_of_birth.mother_tribe or "",
+        "mother_education": notice_of_birth.mother_education or "",
+        "mother_residential_address": notice_of_birth.mother_residential_address or "",
+        "mother_usual_residence": notice_of_birth.mother_usual_place_of_residence or "",
+        "attendant_type": notice_of_birth.attendant_at_birth or "",
+        "attendant_other": notice_of_birth.attendant_other_specified or "",
+        "marital_status": notice_of_birth.marital_status or "",
+        "father_acknowledgement_name": "",
+        "father_acknowledgement_date": str(notice_of_birth.father_acknowledgement_date) if notice_of_birth.father_acknowledgement_date else "",
+        "mother_consent_name": "",
+        "mother_consent_date": str(notice_of_birth.mother_consent_date) if notice_of_birth.mother_consent_date else "",
+    }
+
+    record_payload = {
+        "serial_number": record_of_birth.serial_number,
+        "place_of_birth": record_of_birth.place_of_birth,
+        "file_number": record_of_birth.file_number or "",
+        "child_surname": record_of_birth.child_surname,
+        "sex": record_of_birth.sex,
+        "child_other_names": record_of_birth.child_other_names or "",
+        "birth_weight_kg": str(record_of_birth.birth_weight_kg),
+        "date_of_birth": str(record_of_birth.date_of_birth),
+        "time_of_birth": str(record_of_birth.time_of_birth),
+        "father_name": record_of_birth.father_name or "",
+        "father_occupation": record_of_birth.father_occupation or "",
+        "father_address": record_of_birth.father_present_address or "",
+        "mother_name": record_of_birth.mother_name,
+        "officer_in_charge": record_of_birth.officer_in_charge or "",
+        "date_signed": str(record_of_birth.date_signed) if record_of_birth.date_signed else "",
+    }
+
+    notice_pdf_path = os.path.join(output_dir, f"notice_of_birth_{birth_records_id}.pdf")
+    record_pdf_path = os.path.join(output_dir, f"record_of_birth_{birth_records_id}.pdf")
+
+    generate_notice_of_birth(notice_payload, notice_pdf_path)
+    generate_record_of_birth(record_payload, record_pdf_path)
+
+    return {
+        "notice_of_birth_pdf": notice_pdf_path,
+        "record_of_birth_pdf": record_pdf_path,
+        "birth_records_id": birth_records_id,
+    }
+
+
+# ============================================================================
+# BIRTH CERTIFICATE REVIEW — Generate PDF on Demand
+# ============================================================================
+
+def view_birth_certificate(birth_records_id: int) -> dict:
+    """
+    Fetches a BirthRecords entry with its linked BirthCertificate,
+    validates it exists, generates the Birth Certificate PDF, and
+    returns the file path for streaming.
+
+    Steps:
+        1. Fetch BirthRecords with related documents.
+        2. Validate BirthCertificate exists.
+        3. Build payload from BirthCertificate instance.
+        4. Call certificate generator to create PDF.
+        5. Return path to generated PDF.
+
+    Args:
+        birth_records_id: PK of the BirthRecords submission.
+
+    Returns:
+        Dict with birth_certificate_pdf path.
+
+    Raises:
+        HTTPException 404 — BirthRecords not found.
+        HTTPException 400 — BirthCertificate not yet generated.
+    """
+    try:
+        birth_records = (
+            BirthRecords.objects
+            .select_related("notice_of_birth", "birth_certificate")
+            .get(id=birth_records_id)
+        )
+    except BirthRecords.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Birth record not found",
+        )
+
+    birth_certificate = birth_records.birth_certificate
+
+    if not birth_certificate:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Birth Certificate has not been generated yet. Please approve the record first.",
+        )
+
+
+
+
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "media", "generated_pdfs")
+    os.makedirs(output_dir, exist_ok=True)
+
+    cert_payload = {
+        "reg_no": birth_certificate.reg_no,
+        "district": birth_certificate.district,
+        "date_of_birth": str(birth_certificate.date_of_birth),
+        "sex": birth_certificate.sex,
+        "place_of_birth": birth_certificate.place_of_birth,
+        "surname": birth_certificate.surname,
+        "other_names": birth_certificate.other_names or "",
+        "father_name": birth_certificate.father_name or "",
+        "father_occupation": birth_certificate.father_occupation or "",
+        "father_nssf": birth_certificate.father_nssf or "",
+        "father_nationality": birth_certificate.father_nationality or "",
+        "father_nid": birth_certificate.father_nid or "",
+        "mother_name": birth_certificate.mother_name,
+        "mother_maiden": birth_certificate.mother_maiden or "",
+        "mother_nssf": birth_certificate.mother_nssf or "",
+        "mother_nationality": birth_certificate.mother_nationality or "",
+        "mother_nid": birth_certificate.mother_nid or "",
+        "informant_name": birth_certificate.informant_name or "",
+        "informant_address": birth_certificate.informant_address or "",
+        "postal_address": birth_certificate.postal_address or "",
+        "date_of_registration": str(birth_certificate.date_of_registration),
+        "registrar_name": birth_certificate.registrar_name,
+    }
+
+    cert_pdf_path = os.path.join(output_dir, f"birth_certificate_{birth_records_id}.pdf")
+
+    generate_certificate(cert_payload, cert_pdf_path)
+
+    return {
+        "birth_certificate_pdf": cert_pdf_path,
+        "birth_records_id": birth_records_id,
+    }
+
+
+def review_all_approved_birth_documents(birth_records_id: int) -> dict:
+    """
+    Fetches an APPROVED BirthRecords entry and generates PDFs for all
+    three birth pipeline documents: Birth Certificate, Notice of Birth,
+    and Record of Birth.
+
+    This is the comprehensive post-approval document retrieval service for
+    birth records. It combines the functionality of view_birth_certificate()
+    (which generates the Birth Certificate) with review_birth_record()
+    (which generates the Notice of Birth and Record of Birth) into a single
+    call that returns the complete document pack.
+
+    Pipeline context:
+        The birth registration workflow consists of three official documents:
+          1. Notice of Birth (Form VIII, Rules 16-23) — Created by the Health
+             Worker at submission; contains full parental details, child
+             particulars, attendant information, and paternity acknowledgement
+             fields for unmarried parents.
+          2. Record of Birth (M.F.2) — Facility summary form created alongside
+             the Notice of Birth; signed off by the officer in charge and used
+             for the official facility register.
+          3. Birth Certificate (Reg-Gen Form No. IV, Rule 5) — Generated at
+             approval from the data in docs 1 & 2; the legal proof of birth
+             issued by the Registrar-General. Contains child details, both
+             parents' information, and registration metadata.
+
+        Documents 1 and 2 exist from the submission phase and are reviewed by
+        the Registrar before approval. Document 3 is created during the approval
+        step and stored as a BirthCertificate model instance. This service
+        generates PDFs for all three documents on-demand from their respective
+        model data.
+
+    Steps:
+        1. Fetch BirthRecords with all three related documents via select_related
+           (single SQL query with three JOINs — no N+1 queries).
+        2. Validate status is APPROVED — rejects PENDING/REJECTED records since
+           the Birth Certificate only exists after approval.
+        3. Validate all three document FKs are populated (Defensive: an approved
+           record should always have all three, but we guard against corruption).
+        4. Build the Birth Certificate payload from the BirthCertificate model,
+           mapping all child, parent, informant, and registration fields.
+        5. Build the Notice of Birth payload from the NoticeOfBirth model,
+           including full parental details (tribe, chief, village, NAPSA, NRC),
+           attendant information, and paternity acknowledgement fields.
+        6. Build the Record of Birth payload from the RecordOfBirth model,
+           capturing the condensed facility record data.
+        7. Call all three generators to produce PDFs in media/generated_pdfs/.
+        8. Return dict with all three file paths and the birth_records_id.
+
+    Args:
+        birth_records_id: PK of the BirthRecords submission.
+
+    Returns:
+        Dict with keys:
+            - birth_certificate_pdf: str — path to the Birth Certificate PDF.
+            - notice_of_birth_pdf: str — path to the Notice of Birth (Form VIII) PDF.
+            - record_of_birth_pdf: str — path to the Record of Birth (M.F.2) PDF.
+            - birth_records_id: int — the original submission ID.
+
+    Raises:
+        HTTPException 404 — BirthRecords with the given ID does not exist.
+        HTTPException 409 — BirthRecords status is not APPROVED. The full
+            document pack is only available after Registrar approval because
+            the Birth Certificate is generated at that stage.
+        HTTPException 400 — Any of the three required document FKs is null.
+            Lists which specific documents are missing in the error detail.
+    """
+    try:
+        birth_records = (
+            BirthRecords.objects
+            .select_related(
+                "birth_certificate",
+                "notice_of_birth",
+                "record_of_birth",
+            )
+            .get(id=birth_records_id)
+        )
+    except BirthRecords.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Birth record not found",
+        )
+
+    if birth_records.status != RecordStatus.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Full document pack is only available after approval",
+        )
+
+    birth_certificate = birth_records.birth_certificate
+    notice_of_birth = birth_records.notice_of_birth
+    record_of_birth = birth_records.record_of_birth
+
+    missing_docs = []
+    if not birth_certificate:
+        missing_docs.append("Birth Certificate")
+    if not notice_of_birth:
+        missing_docs.append("Notice of Birth")
+    if not record_of_birth:
+        missing_docs.append("Record of Birth")
+
+    if missing_docs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required documents: {', '.join(missing_docs)}",
+        )
+
+    from hospital.Utils.birth_certificate_generator import generate_certificate
+    from hospital.Utils.notice_of_birth_generator import generate_notice_of_birth
+    from hospital.Utils.record_of_birth_generator import generate_record_of_birth
+
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "media", "generated_pdfs")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # --- Birth Certificate payload ---
+    cert_payload = {
+        "reg_no": birth_certificate.reg_no,
+        "district": birth_certificate.district,
+        "date_of_birth": str(birth_certificate.date_of_birth),
+        "sex": birth_certificate.sex,
+        "place_of_birth": birth_certificate.place_of_birth,
+        "surname": birth_certificate.surname,
+        "other_names": birth_certificate.other_names or "",
+        "father_name": birth_certificate.father_name or "",
+        "father_occupation": birth_certificate.father_occupation or "",
+        "father_nssf": birth_certificate.father_nssf or "",
+        "father_nationality": birth_certificate.father_nationality or "",
+        "father_nid": birth_certificate.father_nid or "",
+        "mother_name": birth_certificate.mother_name,
+        "mother_maiden": birth_certificate.mother_maiden or "",
+        "mother_nssf": birth_certificate.mother_nssf or "",
+        "mother_nationality": birth_certificate.mother_nationality or "",
+        "mother_nid": birth_certificate.mother_nid or "",
+        "informant_name": birth_certificate.informant_name or "",
+        "informant_address": birth_certificate.informant_address or "",
+        "postal_address": birth_certificate.postal_address or "",
+        "date_of_registration": str(birth_certificate.date_of_registration),
+        "registrar_name": birth_certificate.registrar_name,
+    }
+
+    # --- Notice of Birth payload ---
+    notice_payload = {
+        "form_serial_no": notice_of_birth.serial_number,
+        "serial_no": notice_of_birth.serial_number,
+        "district": notice_of_birth.district,
+        "date_and_time": str(notice_of_birth.date_and_time) if notice_of_birth.date_and_time else "",
+        "date_of_birth": str(notice_of_birth.date_of_birth),
+        "place_of_birth": notice_of_birth.place_of_birth or "HEALTH_FACILITY",
+        "health_facility_name": notice_of_birth.health_facility_name or "",
+        "home_address": notice_of_birth.home_address or "",
+        "other_specify": notice_of_birth.other_place_specified or "",
+        "child_surname": notice_of_birth.child_surname,
+        "child_given_name": notice_of_birth.child_given_name,
+        "child_other_names": notice_of_birth.child_other_names or "",
+        "birth_weight": str(notice_of_birth.birth_weight_kg),
+        "sex": notice_of_birth.sex,
+        "father_surname": notice_of_birth.father_surname or "",
+        "father_other_names": notice_of_birth.father_other_names or "",
+        "father_dob": str(notice_of_birth.father_dob) if notice_of_birth.father_dob else "",
+        "father_national_id": notice_of_birth.father_national_id or "",
+        "father_occupation": notice_of_birth.father_occupation or "",
+        "father_social_id": notice_of_birth.father_social_id or "",
+        "father_village": notice_of_birth.father_village_of_origin or "",
+        "father_chief": notice_of_birth.father_chief or "",
+        "father_district": notice_of_birth.father_district or "",
+        "father_tribe": notice_of_birth.father_tribe or "",
+        "father_nationality": notice_of_birth.father_nationality or "",
+        "father_residential_address": notice_of_birth.father_residential_address or "",
+        "father_contact_no": notice_of_birth.father_contact_no or "",
+        "mother_surname": notice_of_birth.mother_surname,
+        "mother_other_names": notice_of_birth.mother_other_names or "",
+        "mother_maiden_surname": notice_of_birth.mother_maiden_surname or "",
+        "mother_dob": str(notice_of_birth.mother_dob) if notice_of_birth.mother_dob else "",
+        "mother_national_id": notice_of_birth.mother_national_id or "",
+        "mother_nationality": notice_of_birth.mother_nationality or "",
+        "mother_occupation": notice_of_birth.mother_occupation or "",
+        "mother_social_id": notice_of_birth.mother_social_id or "",
+        "mother_village": notice_of_birth.mother_village_of_origin or "",
+        "mother_chief": notice_of_birth.mother_chief or "",
+        "mother_district": notice_of_birth.mother_district or "",
+        "mother_tribe": notice_of_birth.mother_tribe or "",
+        "mother_education": notice_of_birth.mother_education or "",
+        "mother_residential_address": notice_of_birth.mother_residential_address or "",
+        "mother_usual_residence": notice_of_birth.mother_usual_place_of_residence or "",
+        "attendant_type": notice_of_birth.attendant_at_birth or "",
+        "attendant_other": notice_of_birth.attendant_other_specified or "",
+        "marital_status": notice_of_birth.marital_status or "",
+        "father_acknowledgement_name": "",
+        "father_acknowledgement_date": str(notice_of_birth.father_acknowledgement_date) if notice_of_birth.father_acknowledgement_date else "",
+        "mother_consent_name": "",
+        "mother_consent_date": str(notice_of_birth.mother_consent_date) if notice_of_birth.mother_consent_date else "",
+    }
+
+    # --- Record of Birth payload ---
+    record_payload = {
+        "serial_number": record_of_birth.serial_number,
+        "place_of_birth": record_of_birth.place_of_birth,
+        "file_number": record_of_birth.file_number or "",
+        "child_surname": record_of_birth.child_surname,
+        "sex": record_of_birth.sex,
+        "child_other_names": record_of_birth.child_other_names or "",
+        "birth_weight_kg": str(record_of_birth.birth_weight_kg),
+        "date_of_birth": str(record_of_birth.date_of_birth),
+        "time_of_birth": str(record_of_birth.time_of_birth),
+        "father_name": record_of_birth.father_name or "",
+        "father_occupation": record_of_birth.father_occupation or "",
+        "father_address": record_of_birth.father_present_address or "",
+        "mother_name": record_of_birth.mother_name,
+        "officer_in_charge": record_of_birth.officer_in_charge or "",
+        "date_signed": str(record_of_birth.date_signed) if record_of_birth.date_signed else "",
+    }
+
+    # --- Generate all three PDFs ---
+    cert_pdf_path = os.path.join(output_dir, f"birth_certificate_{birth_records_id}.pdf")
+    notice_pdf_path = os.path.join(output_dir, f"notice_of_birth_{birth_records_id}.pdf")
+    record_pdf_path = os.path.join(output_dir, f"record_of_birth_{birth_records_id}.pdf")
+
+    generate_certificate(cert_payload, cert_pdf_path)
+    generate_notice_of_birth(notice_payload, notice_pdf_path)
+    generate_record_of_birth(record_payload, record_pdf_path)
+
+    return {
+        "birth_certificate_pdf": cert_pdf_path,
+        "notice_of_birth_pdf": notice_pdf_path,
+        "record_of_birth_pdf": record_pdf_path,
+        "birth_records_id": birth_records_id,
+    }
+
+
+# ============================================================================
+# DEATH RECORD REVIEW — Generate MCCD and Notice of Death PDFs on Demand
+# ============================================================================
+
+def review_death_documents(death_records_id: int) -> dict:
+    """
+    Fetches a DeathRecords entry, validates that both
+    MedicalCertificateCauseOfDeath and NoticeOfDeath are attached,
+    generates PDFs for each document, and returns the file paths.
+
+    Steps:
+        1. Fetch DeathRecords with related documents.
+        2. Validate both MCCD and NoticeOfDeath exist.
+        3. Build payloads from model instances.
+        4. Call respective generators to create PDFs.
+        5. Return paths to generated PDFs.
+
+    Args:
+        death_records_id: PK of the DeathRecords submission.
+
+    Returns:
+        Dict with mccd_pdf and notice_of_death_pdf paths.
+
+    Raises:
+        HTTPException 404 — DeathRecords not found.
+        HTTPException 400 — Missing MCCD or NoticeOfDeath.
+    """
+    try:
+        death_records = (
+            DeathRecords.objects
+            .select_related("medical_certificate_of_death", "notice_of_death")
+            .get(id=death_records_id)
+        )
+    except DeathRecords.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Death record not found",
+        )
+
+    mccd = death_records.medical_certificate_of_death
+    notice_of_death = death_records.notice_of_death
+
+    missing_docs = []
+    if not mccd:
+        missing_docs.append("Medical Certificate of Cause of Death (MCCD)")
+    if not notice_of_death:
+        missing_docs.append("Notice of Death")
+
+    if missing_docs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required documents: {', '.join(missing_docs)}",
+        )
+
+
+
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "media", "generated_pdfs")
+    os.makedirs(output_dir, exist_ok=True)
+
+    mccd_payload = {
+        "medical_no": mccd.medical_no,
+        "attended_name": mccd.attended_name,
+        "during": "",
+        "illness_start_date": str(mccd.illness_start_date),
+        "age_stated": mccd.age_stated,
+        "last_attended_alive_date": str(mccd.last_attended_alive_date),
+        "last_attended_alive_day": str(mccd.last_attended_alive_day),
+        "last_attended_alive_month": "",
+        "last_attended_alive_year": "",
+        "death_day": str(mccd.death_day),
+        "death_date": str(mccd.death_date),
+        "death_month": "",
+        "death_year": str(mccd.death_year),
+        "death_time": str(mccd.death_time) if mccd.death_time else "",
+        "body_identified_of": mccd.body_identified_of,
+        "postmortem_confirmed": mccd.postmortem_confirmed,
+        "cause_a": mccd.cause_a or "",
+        "cause_a_interval": mccd.cause_a_interval or "",
+        "cause_a_icd_code": mccd.cause_a_icd_code or "",
+        "cause_b": mccd.cause_b or "",
+        "cause_b_interval": mccd.cause_b_interval or "",
+        "cause_b_icd_code": mccd.cause_b_icd_code or "",
+        "cause_c": mccd.cause_c or "",
+        "cause_c_interval": mccd.cause_c_interval or "",
+        "cause_c_icd_code": mccd.cause_c_icd_code or "",
+        "other_condition_1": mccd.other_condition_1 or "",
+        "other_condition_1_interval": mccd.other_condition_1_interval or "",
+        "other_condition_2": mccd.other_condition_2 or "",
+        "other_condition_2_interval": mccd.other_condition_2_interval or "",
+        "witness_date": str(mccd.witness_date) if mccd.witness_date else "",
+        "witness_month": "",
+        "witness_year": "",
+        "certificate_handed_to": mccd.certificate_handed_to,
+        "medical_attendant_name": mccd.medical_attendant_name,
+        "medical_attendant_signature": "",
+        "medical_attendant_qualification": mccd.medical_attendant_qualification,
+        "medical_attendant_residence": mccd.medical_attendant_residence,
+        "village": mccd.village or "",
+        "chief": mccd.chief or "",
+        "district": mccd.district or "",
+    }
+
+    place_of_death = notice_of_death.place_of_death_name or notice_of_death.place_of_death_other or ""
+
+    notice_payload = {
+        "serial_number": notice_of_death.serial_number,
+        "application_no": notice_of_death.application_no or "",
+        "date_and_time": str(notice_of_death.date_and_time),
+        "surname": notice_of_death.surname,
+        "district": notice_of_death.district,
+        "other_names": notice_of_death.other_names or "",
+        "occupation": notice_of_death.occupation or "",
+        "residential_address": notice_of_death.residential_address or "",
+        "date_of_death": str(notice_of_death.date_of_death),
+        "place_of_death": notice_of_death.place_of_death or "",
+        "place_of_death_name": place_of_death,
+        "date_of_birth": str(notice_of_death.date_of_birth) if notice_of_death.date_of_birth else "",
+        "age_at_death": notice_of_death.age_at_death or "",
+        "sex": notice_of_death.sex or "",
+        "nationality": notice_of_death.nationality or "",
+        "national_identity_no": notice_of_death.national_identity_no or "",
+        "social_security_no": notice_of_death.social_security_no or "",
+        "education_level": notice_of_death.education_level or "",
+        "death_type": notice_of_death.death_type or "",
+        "immediate_cause": notice_of_death.immediate_cause or "",
+        "immediate_cause_icd": notice_of_death.immediate_cause_icd or "",
+        "antecedent_cause": notice_of_death.antecedent_cause or "",
+        "antecedent_cause_icd": notice_of_death.antecedent_cause_icd or "",
+        "underlying_cause": notice_of_death.underlying_cause or "",
+        "underlying_cause_icd": notice_of_death.underlying_cause_icd or "",
+        "police_certifier_name": notice_of_death.police_certifier_name or "",
+        "police_certifier_residence": notice_of_death.police_certifier_residence or "",
+        "police_certifier_relationship": notice_of_death.police_certifier_relationship or "",
+        "deceased_surname_police": notice_of_death.deceased_surname_police or "",
+        "deceased_other_names_police": notice_of_death.deceased_other_names_police or "",
+        "deceased_age_police": notice_of_death.deceased_age_police or "",
+        "passed_away_date": str(notice_of_death.passed_away_date) if notice_of_death.passed_away_date else "",
+        "passed_away_time": str(notice_of_death.passed_away_time) if notice_of_death.passed_away_time else "",
+        "passed_away_place": notice_of_death.passed_away_place or "",
+        "suddenly_suffering_from": notice_of_death.suddenly_suffering_from or "",
+        "treatment_was_at": notice_of_death.treatment_was_at or "",
+        "is_natural_death": notice_of_death.is_natural_death,
+        "is_sudden_death_postmortem": notice_of_death.is_sudden_death_postmortem_required,
+        "police_no_and_rank": notice_of_death.police_no_and_rank or "",
+        "police_formation": notice_of_death.police_formation or "",
+        "police_officer_name": notice_of_death.police_officer_name or "",
+        "police_officer_date": str(notice_of_death.police_officer_date) if notice_of_death.police_officer_date else "",
+        "doctors_remarks": notice_of_death.doctors_remarks or "",
+        "pupils_dilated_and_fixed": notice_of_death.pupils_dilated_and_fixed,
+        "certifying_doctor_name": notice_of_death.certifying_doctor_name or "",
+        "certifying_doctor_date": str(notice_of_death.certifying_doctor_date) if notice_of_death.certifying_doctor_date else "",
+        "informant_surname": notice_of_death.informant_surname,
+        "informant_other_names": notice_of_death.informant_other_names or "",
+        "informant_relationship": notice_of_death.informant_relationship or "",
+        "informant_contact_no": notice_of_death.informant_contact_no or "",
+        "informant_national_id": notice_of_death.informant_national_id or "",
+        "informant_nationality": notice_of_death.informant_nationality or "",
+        "informant_residential_address": notice_of_death.informant_residential_address or "",
+        "informant_postal_address": notice_of_death.informant_postal_address or "",
+        "date_of_registration": str(notice_of_death.date_of_registration) if notice_of_death.date_of_registration else "",
+        "has_mccd": notice_of_death.has_mccd,
+        "has_informant_national_id": notice_of_death.has_informant_national_id,
+        "has_coroner_report": notice_of_death.has_coroner_report,
+        "informant_declaration_name": notice_of_death.informant_declaration_name or "",
+        "informant_declaration_date": str(notice_of_death.informant_declaration_date) if notice_of_death.informant_declaration_date else "",
+        "assistant_registrar_name": notice_of_death.assistant_registrar_name or "",
+        "registrar_name": notice_of_death.registrar_name or "",
+    }
+
+    mccd_pdf_path = os.path.join(output_dir, f"mccd_{death_records_id}.pdf")
+    notice_pdf_path = os.path.join(output_dir, f"notice_of_death_{death_records_id}.pdf")
+
+    generate_mccd(mccd_payload, mccd_pdf_path)
+    generate_notice_of_death(notice_payload, notice_pdf_path)
+
+    return {
+        "mccd_pdf": mccd_pdf_path,
+        "notice_of_death_pdf": notice_pdf_path,
+        "death_records_id": death_records_id,
+    }
+
+
+def view_death_certificates(death_records_id: int) -> dict:
+    """
+    Fetches an APPROVED DeathRecords entry, validates that both
+    DeathCertificate and BurialPermit are attached, generates PDFs
+    for each document on-demand, and returns the file paths.
+
+    This service is the post-approval certificate retrieval path for death
+    records. Unlike the pre-approval review pipeline (which streams the MCCD
+    and Notice of Death for Registrar review), this method only works after
+    a Registrar has approved the submission and the system has created the
+    DeathCertificate and BurialPermit model instances.
+
+    Pipeline context:
+        The death registration workflow produces four documents:
+          1. MCCD (Medical Certificate of Cause of Death) — submitted by Health Worker
+          2. Notice of Death (Form XI) — submitted by informant
+          3. Death Certificate — generated at approval from docs 1 & 2
+          4. Burial Permit (Form XI) — generated at approval from doc 2
+
+        This function generates PDFs for documents 3 and 4 only.
+        For documents 1 and 2, use review_death_documents() instead.
+
+    Steps:
+        1. Fetch DeathRecords with related DeathCertificate and BurialPermit
+           via select_related (single SQL JOIN, no N+1 queries).
+        2. Validate status is APPROVED — rejects PENDING/REJECTED records.
+        3. Validate both DeathCertificate and BurialPermit FKs are populated.
+        4. Build the death certificate payload from the DeathCertificate model,
+           mapping all fields required by the death_certificate_generator.
+        5. Build the burial permit payload from the BurialPermit model,
+           extracting day/month/year components from the date_of_death field.
+        6. Call generate_death_certificate() and generate_burial_permit() to
+           produce PDFs in media/generated_pdfs/.
+        7. Return dict with both file paths and the death_records_id.
+
+    Args:
+        death_records_id: PK of the DeathRecords submission.
+
+    Returns:
+        Dict with keys:
+            - death_certificate_pdf: str — absolute path to the generated Death Certificate PDF.
+            - burial_permit_pdf: str — absolute path to the generated Burial Permit PDF.
+            - death_records_id: int — the original submission ID.
+
+    Raises:
+        HTTPException 404 — DeathRecords with the given ID does not exist.
+        HTTPException 409 — DeathRecords status is not APPROVED (certificates
+            are only issued after Registrar approval).
+        HTTPException 400 — Either DeathCertificate or BurialPermit FK is null
+            (should not happen for approved records, but guarded against).
+    """
+    try:
+        death_records = (
+            DeathRecords.objects
+            .select_related("death_certificate", "burial_permit")
+            .get(id=death_records_id)
+        )
+    except DeathRecords.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Death record not found",
+        )
+
+    if death_records.status != RegistrationStatusChoices.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Death record is not approved; certificates are only available after approval",
+        )
+
+    death_cert = death_records.death_certificate
+    burial_permit = death_records.burial_permit
+
+    missing_docs = []
+    if not death_cert:
+        missing_docs.append("Death Certificate")
+    if not burial_permit:
+        missing_docs.append("Burial Permit")
+
+    if missing_docs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required documents: {', '.join(missing_docs)}",
+        )
+
+    from hospital.Utils.death_certificate_generator import generate_death_certificate
+    from hospital.Utils.burial_permit_generator import generate_burial_permit
+
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "media", "generated_pdfs")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Build Death Certificate payload from the approved certificate model.
+    # All fields are copied directly — no derivation needed since the
+    # certificate was already assembled during the approval step.
+    death_cert_payload = {
+        "registration_no":              death_cert.registration_no,
+        "date_of_death":                str(death_cert.date_of_death),
+        "district":                     death_cert.district,
+        "place_of_death":               death_cert.place_of_death,
+        "deceased_names_and_surname":   death_cert.deceased_names_and_surname,
+        "sex":                          death_cert.sex,
+        "age":                          death_cert.age,
+        "nationality":                  death_cert.nationality or "",
+        "occupation":                   death_cert.occupation or "",
+        "napsa_social_security_no":     death_cert.napsa_social_security_no or "",
+        "national_identity_no":         death_cert.national_identity_no or "",
+        "cause_of_death":               death_cert.cause_of_death,
+        "informant_name":               death_cert.informant_name,
+        "informant_relationship":       death_cert.informant_relationship,
+        "date_of_registration":         str(death_cert.date_of_registration),
+        "registrar_name":               death_cert.registrar_general_name,
+        "register_kept_at":             death_cert.register_kept_at,
+        "registrar_general_name":       death_cert.registrar_general_name,
+    }
+
+    # Build Burial Permit payload. The generator expects the date of death
+    # split into day/month/year components for form filling.
+    death_date = burial_permit.date_of_death
+    burial_permit_payload = {
+        "authorised_by_name":   burial_permit.authorised_by_name,
+        "deceased_name":        burial_permit.deceased_name,
+        "place_of_death":       burial_permit.place_of_death,
+        "death_day":            str(death_date.day),
+        "death_month":          death_date.strftime("%B").upper(),
+        "death_year":           str(death_date.year)[-2:],
+        "issuing_authority":    burial_permit.issuing_authority,
+        "issuing_officer_name": burial_permit.issuing_officer_name or "",
+        "issued_date":          str(burial_permit.issued_date),
+    }
+
+    death_cert_pdf_path = os.path.join(output_dir, f"death_certificate_{death_records_id}.pdf")
+    burial_permit_pdf_path = os.path.join(output_dir, f"burial_permit_{death_records_id}.pdf")
+
+    generate_death_certificate(death_cert_payload, death_cert_pdf_path)
+    generate_burial_permit(burial_permit_payload, burial_permit_pdf_path)
+
+    return {
+        "death_certificate_pdf": death_cert_pdf_path,
+        "burial_permit_pdf": burial_permit_pdf_path,
+        "death_records_id": death_records_id,
+    }
+
+
+def review_all_approved_death_documents(death_records_id: int) -> dict:
+    """
+    Fetches an APPROVED DeathRecords entry and generates PDFs for all
+    four death pipeline documents: Death Certificate, Burial Permit,
+    Notice of Death, and Medical Certificate of Cause of Death (MCCD).
+
+    This is the comprehensive post-approval document retrieval service for
+    death records. It combines the functionality of view_death_certificates()
+    (which generates the Death Certificate and Burial Permit) with
+    review_death_documents() (which generates the MCCD and Notice of Death)
+    into a single call that returns the complete document pack.
+
+    Pipeline context:
+        The death registration workflow consists of four official documents:
+          1. MCCD (Medical Certificate of Cause of Death) — Form completed
+             by the attending Health Worker certifying the medical cause.
+          2. Notice of Death (DNRPC Form) — Filed by the informant after the
+             MCCD is submitted; contains deceased particulars and informant details.
+          3. Death Certificate — Generated at approval from the data in docs 1 & 2;
+             the legal proof of death issued by the Registrar-General.
+          4. Burial Permit (Form XI, Rules 30 & 37) — Generated at approval from
+             doc 2; authorises burial or other disposal of the body.
+
+        Documents 1 and 2 exist from the submission phase and are reviewed by
+        the Registrar before approval. Documents 3 and 4 are created during the
+        approval step and stored as model instances. This service generates PDFs
+        for all four documents on-demand from their respective model data.
+
+    Steps:
+        1. Fetch DeathRecords with all four related documents via select_related
+           (single SQL query with four JOINs — no N+1 queries).
+        2. Validate status is APPROVED — rejects PENDING/REJECTED records since
+           the Death Certificate and Burial Permit only exist after approval.
+        3. Validate all four document FKs are populated (Defensive: an approved
+           record should always have all four, but we guard against corruption).
+        4. Build the Death Certificate payload from the DeathCertificate model.
+        5. Build the Burial Permit payload from the BurialPermit model, splitting
+           the date_of_death into day/month/year components for the form generator.
+        6. Build the MCCD payload from the MedicalCertificateCauseOfDeath model,
+           mapping all cause-of-death chain fields (a, b, c) and ICD codes.
+        7. Build the Notice of Death payload from the NoticeOfDeath model,
+           including deceased particulars, informant details, and police/coroner
+           fields for non-natural deaths.
+        8. Call all four generators to produce PDFs in media/generated_pdfs/.
+        9. Return dict with all four file paths and the death_records_id.
+
+    Args:
+        death_records_id: PK of the DeathRecords submission.
+
+    Returns:
+        Dict with keys:
+            - death_certificate_pdf: str — path to the Death Certificate PDF.
+            - burial_permit_pdf: str — path to the Burial Permit (Form XI) PDF.
+            - mccd_pdf: str — path to the Medical Certificate of Cause of Death PDF.
+            - notice_of_death_pdf: str — path to the Notice of Death PDF.
+            - death_records_id: int — the original submission ID.
+
+    Raises:
+        HTTPException 404 — DeathRecords with the given ID does not exist.
+        HTTPException 409 — DeathRecords status is not APPROVED. The full
+            document pack is only available after Registrar approval because
+            the Death Certificate and Burial Permit are generated at that stage.
+        HTTPException 400 — Any of the four required document FKs is null.
+            Lists which specific documents are missing in the error detail.
+    """
+    try:
+        death_records = (
+            DeathRecords.objects
+            .select_related(
+                "death_certificate",
+                "burial_permit",
+                "medical_certificate_of_death",
+                "notice_of_death",
+            )
+            .get(id=death_records_id)
+        )
+    except DeathRecords.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Death record not found",
+        )
+
+    if death_records.status != RegistrationStatusChoices.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Full document pack is only available after approval",
+        )
+
+    death_cert = death_records.death_certificate
+    burial_permit = death_records.burial_permit
+    mccd = death_records.medical_certificate_of_death
+    notice_of_death = death_records.notice_of_death
+
+    missing_docs = []
+    if not death_cert:
+        missing_docs.append("Death Certificate")
+    if not burial_permit:
+        missing_docs.append("Burial Permit")
+    if not mccd:
+        missing_docs.append("Medical Certificate of Cause of Death (MCCD)")
+    if not notice_of_death:
+        missing_docs.append("Notice of Death")
+
+    if missing_docs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required documents: {', '.join(missing_docs)}",
+        )
+
+    from hospital.Utils.death_certificate_generator import generate_death_certificate
+    from hospital.Utils.burial_permit_generator import generate_burial_permit
+    from hospital.Utils.mccd_generator import generate_mccd
+    from hospital.Utils.notice_of_death_generator import generate_notice_of_death
+
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "media", "generated_pdfs")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # --- Death Certificate payload ---
+    death_cert_payload = {
+        "registration_no":              death_cert.registration_no,
+        "date_of_death":                str(death_cert.date_of_death),
+        "district":                     death_cert.district,
+        "place_of_death":               death_cert.place_of_death,
+        "deceased_names_and_surname":   death_cert.deceased_names_and_surname,
+        "sex":                          death_cert.sex,
+        "age":                          death_cert.age,
+        "nationality":                  death_cert.nationality or "",
+        "occupation":                   death_cert.occupation or "",
+        "napsa_social_security_no":     death_cert.napsa_social_security_no or "",
+        "national_identity_no":         death_cert.national_identity_no or "",
+        "cause_of_death":               death_cert.cause_of_death,
+        "informant_name":               death_cert.informant_name,
+        "informant_relationship":       death_cert.informant_relationship,
+        "date_of_registration":         str(death_cert.date_of_registration),
+        "registrar_name":               death_cert.registrar_general_name,
+        "register_kept_at":             death_cert.register_kept_at,
+        "registrar_general_name":       death_cert.registrar_general_name,
+    }
+
+    # --- Burial Permit payload ---
+    death_date = burial_permit.date_of_death
+    burial_permit_payload = {
+        "authorised_by_name":   burial_permit.authorised_by_name,
+        "deceased_name":        burial_permit.deceased_name,
+        "place_of_death":       burial_permit.place_of_death,
+        "death_day":            str(death_date.day),
+        "death_month":          death_date.strftime("%B").upper(),
+        "death_year":           str(death_date.year)[-2:],
+        "issuing_authority":    burial_permit.issuing_authority,
+        "issuing_officer_name": burial_permit.issuing_officer_name or "",
+        "issued_date":          str(burial_permit.issued_date),
+    }
+
+    # --- MCCD payload ---
+    mccd_payload = {
+        "medical_no": mccd.medical_no,
+        "attended_name": mccd.attended_name,
+        "during": "",
+        "illness_start_date": str(mccd.illness_start_date),
+        "age_stated": mccd.age_stated,
+        "last_attended_alive_date": str(mccd.last_attended_alive_date),
+        "last_attended_alive_day": str(mccd.last_attended_alive_day),
+        "last_attended_alive_month": "",
+        "last_attended_alive_year": "",
+        "death_day": str(mccd.death_day),
+        "death_date": str(mccd.death_date),
+        "death_month": "",
+        "death_year": str(mccd.death_year),
+        "death_time": str(mccd.death_time) if mccd.death_time else "",
+        "body_identified_of": mccd.body_identified_of,
+        "postmortem_confirmed": mccd.postmortem_confirmed,
+        "cause_a": mccd.cause_a or "",
+        "cause_a_interval": mccd.cause_a_interval or "",
+        "cause_a_icd_code": mccd.cause_a_icd_code or "",
+        "cause_b": mccd.cause_b or "",
+        "cause_b_interval": mccd.cause_b_interval or "",
+        "cause_b_icd_code": mccd.cause_b_icd_code or "",
+        "cause_c": mccd.cause_c or "",
+        "cause_c_interval": mccd.cause_c_interval or "",
+        "cause_c_icd_code": mccd.cause_c_icd_code or "",
+        "other_condition_1": mccd.other_condition_1 or "",
+        "other_condition_1_interval": mccd.other_condition_1_interval or "",
+        "other_condition_2": mccd.other_condition_2 or "",
+        "other_condition_2_interval": mccd.other_condition_2_interval or "",
+        "witness_date": str(mccd.witness_date) if mccd.witness_date else "",
+        "witness_month": "",
+        "witness_year": "",
+        "certificate_handed_to": mccd.certificate_handed_to,
+        "medical_attendant_name": mccd.medical_attendant_name,
+        "medical_attendant_signature": "",
+        "medical_attendant_qualification": mccd.medical_attendant_qualification,
+        "medical_attendant_residence": mccd.medical_attendant_residence,
+        "village": mccd.village or "",
+        "chief": mccd.chief or "",
+        "district": mccd.district or "",
+    }
+
+    # --- Notice of Death payload ---
+    place_of_death = notice_of_death.place_of_death_name or notice_of_death.place_of_death_other or ""
+    notice_payload = {
+        "serial_number": notice_of_death.serial_number,
+        "application_no": notice_of_death.application_no or "",
+        "date_and_time": str(notice_of_death.date_and_time),
+        "surname": notice_of_death.surname,
+        "district": notice_of_death.district,
+        "other_names": notice_of_death.other_names or "",
+        "occupation": notice_of_death.occupation or "",
+        "residential_address": notice_of_death.residential_address or "",
+        "date_of_death": str(notice_of_death.date_of_death),
+        "place_of_death": notice_of_death.place_of_death or "",
+        "place_of_death_name": place_of_death,
+        "date_of_birth": str(notice_of_death.date_of_birth) if notice_of_death.date_of_birth else "",
+        "age_at_death": notice_of_death.age_at_death or "",
+        "sex": notice_of_death.sex or "",
+        "nationality": notice_of_death.nationality or "",
+        "national_identity_no": notice_of_death.national_identity_no or "",
+        "social_security_no": notice_of_death.social_security_no or "",
+        "education_level": notice_of_death.education_level or "",
+        "death_type": notice_of_death.death_type or "",
+        "immediate_cause": notice_of_death.immediate_cause or "",
+        "immediate_cause_icd": notice_of_death.immediate_cause_icd or "",
+        "antecedent_cause": notice_of_death.antecedent_cause or "",
+        "antecedent_cause_icd": notice_of_death.antecedent_cause_icd or "",
+        "underlying_cause": notice_of_death.underlying_cause or "",
+        "underlying_cause_icd": notice_of_death.underlying_cause_icd or "",
+        "police_certifier_name": notice_of_death.police_certifier_name or "",
+        "police_certifier_residence": notice_of_death.police_certifier_residence or "",
+        "police_certifier_relationship": notice_of_death.police_certifier_relationship or "",
+        "deceased_surname_police": notice_of_death.deceased_surname_police or "",
+        "deceased_other_names_police": notice_of_death.deceased_other_names_police or "",
+        "deceased_age_police": notice_of_death.deceased_age_police or "",
+        "passed_away_date": str(notice_of_death.passed_away_date) if notice_of_death.passed_away_date else "",
+        "passed_away_time": str(notice_of_death.passed_away_time) if notice_of_death.passed_away_time else "",
+        "passed_away_place": notice_of_death.passed_away_place or "",
+        "suddenly_suffering_from": notice_of_death.suddenly_suffering_from or "",
+        "treatment_was_at": notice_of_death.treatment_was_at or "",
+        "is_natural_death": notice_of_death.is_natural_death,
+        "is_sudden_death_postmortem": notice_of_death.is_sudden_death_postmortem_required,
+        "police_no_and_rank": notice_of_death.police_no_and_rank or "",
+        "police_formation": notice_of_death.police_formation or "",
+        "police_officer_name": notice_of_death.police_officer_name or "",
+        "police_officer_date": str(notice_of_death.police_officer_date) if notice_of_death.police_officer_date else "",
+        "doctors_remarks": notice_of_death.doctors_remarks or "",
+        "pupils_dilated_and_fixed": notice_of_death.pupils_dilated_and_fixed,
+        "certifying_doctor_name": notice_of_death.certifying_doctor_name or "",
+        "certifying_doctor_date": str(notice_of_death.certifying_doctor_date) if notice_of_death.certifying_doctor_date else "",
+        "informant_surname": notice_of_death.informant_surname,
+        "informant_other_names": notice_of_death.informant_other_names or "",
+        "informant_relationship": notice_of_death.informant_relationship or "",
+        "informant_contact_no": notice_of_death.informant_contact_no or "",
+        "informant_national_id": notice_of_death.informant_national_id or "",
+        "informant_nationality": notice_of_death.informant_nationality or "",
+        "informant_residential_address": notice_of_death.informant_residential_address or "",
+        "informant_postal_address": notice_of_death.informant_postal_address or "",
+        "date_of_registration": str(notice_of_death.date_of_registration) if notice_of_death.date_of_registration else "",
+        "has_mccd": notice_of_death.has_mccd,
+        "has_informant_national_id": notice_of_death.has_informant_national_id,
+        "has_coroner_report": notice_of_death.has_coroner_report,
+        "informant_declaration_name": notice_of_death.informant_declaration_name or "",
+        "informant_declaration_date": str(notice_of_death.informant_declaration_date) if notice_of_death.informant_declaration_date else "",
+        "assistant_registrar_name": notice_of_death.assistant_registrar_name or "",
+        "registrar_name": notice_of_death.registrar_name or "",
+    }
+
+    # --- Generate all four PDFs ---
+    death_cert_pdf_path = os.path.join(output_dir, f"death_certificate_{death_records_id}.pdf")
+    burial_permit_pdf_path = os.path.join(output_dir, f"burial_permit_{death_records_id}.pdf")
+    mccd_pdf_path = os.path.join(output_dir, f"mccd_{death_records_id}.pdf")
+    notice_pdf_path = os.path.join(output_dir, f"notice_of_death_{death_records_id}.pdf")
+
+    generate_death_certificate(death_cert_payload, death_cert_pdf_path)
+    generate_burial_permit(burial_permit_payload, burial_permit_pdf_path)
+    generate_mccd(mccd_payload, mccd_pdf_path)
+    generate_notice_of_death(notice_payload, notice_pdf_path)
+
+    return {
+        "death_certificate_pdf": death_cert_pdf_path,
+        "burial_permit_pdf": burial_permit_pdf_path,
+        "mccd_pdf": mccd_pdf_path,
+        "notice_of_death_pdf": notice_pdf_path,
+        "death_records_id": death_records_id,
+    }

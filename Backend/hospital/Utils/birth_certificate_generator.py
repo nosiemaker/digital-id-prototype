@@ -1,5 +1,5 @@
 """
-certificate_generator.py
+birth_certificate_generator.py
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Zambia Digital ID System — Civil Registration Module
 Generates official birth certificates as PDFs by overlaying
@@ -15,30 +15,20 @@ Usage:
 """
 
 from PIL import Image, ImageDraw, ImageFont
-from routers import auth, citizens, citizen_registration, hospital
-from hospital.services.birth_death_recording import record_submission, create_death_record, create_birth_record, \
-    death_record_approval, death_record_rejection, birth_record_rejection, birth_record_approval, get_all_death_records, \
-    get_single_death_record, get_single_birth_record, get_all_births_records, get_single_pending_birth, \
-    get_all_pending_births, get_all_pending_deaths, get_single_pending_death
-
-from Utils.certificate_generator import generate_certificate
-
-from reportlab.pdfgen import canvas as rl_canvas
-
-'reportlab'
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 import qrcode
 import hashlib
 import uuid
+import os
 from datetime import datetime
 from io import BytesIO
  
 
 # ── Configuration ──────────────────────────────────────────────────────────
 
-TEMPLATE_PATH = r"C:\Users\LENOVO\Downloads\Birth Certificate Template.png"
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "media", "Birth Certificate Template.png")
 VERIFY_BASE_URL  = "https://zdid.gov.zm/verify/birth"
 FONT_REGULAR = "C:\\Windows\\Fonts\\arial.ttf" 
 FONT_BOLD    = "C:\\Windows\\Fonts\\arialbd.ttf"
@@ -55,46 +45,46 @@ FONT_SIZE_TINY   = 11
 
 FIELD_COORDS = {
     # (x, y) — top-left corner where the field VALUE is written
-    "serial_number"        : (710, 135),   # Nº ______ (top right)
+    "serial_number"        : (660, 155),   # Nº ______ (top right)
     
     # --- Block 1: Core Details (30px line height) ---
-    "reg_no"               : (115, 350),   # No::
-    "district"             : (430, 350),   # District:
-    "date_of_birth"        : (210, 380),   # Date of Birth:
-    "sex"                  : (600, 380),   # Sex:
-    "place_of_birth"       : (210, 410),   # Place of Birth:
-    "surname"              : (245, 440),   # Surname of Child:
-    "other_names"          : (205, 470),   # Other Names:
+    "reg_no"               : (115, 361),   # No::
+    "district"             : (380, 361),   # District:
+    "date_of_birth"        : (180, 388),   # Date of Birth:
+    "sex"                  : (580, 388),   # Sex:
+    "place_of_birth"       : (190, 417),   # Place of Birth:
+    "surname"              : (215, 445),   # Surname of Child:
+    "other_names"          : (185, 470),   # Other Names:
     
     # --- Block 2: Father's Details ---
-    "father_name"          : (320, 500),   # Names and Surname of Father:
-    "father_occupation"    : (255, 530),   # Occupation of Father:
-    "father_nssf"          : (400, 560),   # Father's Social Security Scheme Number:
-    "father_nationality"   : (250, 590),   # Father's Nationality:
-    "father_nid"           : (300, 620),   # Father's National Identity No.:
+    "father_name"          : (310, 500),   # Names and Surname of Father:
+    "father_occupation"    : (245, 525),   # Occupation of Father:
+    "father_nssf"          : (390, 553),   # Father's Social Security Scheme Number:
+    "father_nationality"   : (240, 580),   # Father's Nationality:
+    "father_nid"           : (300, 605),   # Father's National Identity No.:
     
     # --- Block 3: Mother's Details ---
-    "mother_name"          : (320, 650),   # Name and Surname of Mother:
-    "mother_maiden"        : (285, 680),   # Mother's Maiden Surname:
-    "mother_nssf"          : (400, 710),   # Mother's Social Security Scheme Number:
-    "mother_nationality"   : (250, 740),   # Mother's Nationality:
-    "mother_nid"           : (300, 770),   # Mother's National Identity No.:
+    "mother_name"          : (320, 635),   # Name and Surname of Mother:
+    "mother_maiden"        : (285, 660),   # Mother's Maiden Surname:
+    "mother_nssf"          : (405, 690),   # Mother's Social Security Scheme Number:
+    "mother_nationality"   : (245, 718),   # Mother's Nationality:
+    "mother_nid"           : (300, 745),   # Mother's National Identity No.:
     
     # --- Block 4: Informant & Addresses ---
-    "informant_name"       : (250, 800),   # Name of Informant:
-    "informant_address"    : (315, 830),   # Informant's Residential Address:
+    "informant_name"       : (235, 772),   # Name of Informant:
+    "informant_address"    : (315, 799),   # Informant's Residential Address:
     # (Blank dotted line skipped at y=860)
-    "postal_address"       : (210, 890),   # Postal Address:
+    "postal_address"       : (205, 882),   # Postal Address:
     # (Blank dotted line skipped at y=920)
     
     # --- Block 5: Registration Details ---
-    "date_of_registration" : (245, 950),   # Date of Registration:
-    "registrar_name"       : (235, 980),   # Name of Registrar:
+    "date_of_registration" : (230, 938),   # Date of Registration:
+    "registrar_name"       : (230, 965),   # Name of Registrar:
     
     # --- Block 6: Footer Dates ---
-    "dated_day"            : (285, 1060),  # Dated this ___
-    "dated_month"          : (445, 1060),  # day of ___
-    "dated_year"           : (655, 1060),  # , 20__
+    "dated_day"            : (285, 1040),  # Dated this ___
+    "dated_month"          : (415, 1040),  # day of ___
+    "dated_year"           : (580, 1040),  # , 20__
     
     # --- Block 7: System Appends ---
     "qr_code"              : (60,  1090),  # QR code paste position
@@ -197,8 +187,8 @@ def generate_certificate(citizen_data: dict, output_pdf: str) -> tuple[str, str]
     _write_field(draw, "date_of_birth",       g("date_of_birth", ""),                 font_reg,  BLACK)
     _write_field(draw, "sex",                 g("sex", ""),                           font_reg,  BLACK)
     _write_field(draw, "place_of_birth",      g("place_of_birth", ""),               font_reg,  BLACK)
-    _write_field(draw, "surname",             g("surname", "").upper(),               font_bold, BLACK)
-    _write_field(draw, "other_names",         g("other_names", "").upper(),           font_bold, BLACK)
+    _write_field(draw, "surname",             g("surname", "").upper(),               font_reg, BLACK)
+    _write_field(draw, "other_names",         g("other_names", "").upper(),           font_reg, BLACK)
     _write_field(draw, "father_name",         g("father_name", ""),                  font_reg,  BLACK)
     _write_field(draw, "father_occupation",   g("father_occupation", "NIL"),          font_reg,  BLACK)
     _write_field(draw, "father_nssf",         g("father_nssf", "NIL"),               font_reg,  BLACK)
@@ -238,7 +228,7 @@ def generate_certificate(citizen_data: dict, output_pdf: str) -> tuple[str, str]
     c.drawImage(ImageReader(buf), 0, 0, width=pw, height=ph, preserveAspectRatio=False)
     c.save()
 
-    return vhash ,output_pdf
+    return cert_no, vhash
 
 
 # ── Quick test ─────────────────────────────────────────────────────────────
@@ -269,7 +259,7 @@ if __name__ == "__main__":
         "registrar_name"       : "GETRUDE NAWILA",
     }
 
-    cert_no, vhash = generate_certificate(sample, r"C:\Users\LENOVO\Downloads\test_certificate.pdf")
+    cert_no, vhash = generate_certificate(sample, os.path.join(os.path.dirname(__file__), "..", "..", "media", "test_certificate.pdf"))
     print(f" Certificate generated")
     print(f"   Cert No : {cert_no}")
     print(f"   Hash    : {vhash}")
