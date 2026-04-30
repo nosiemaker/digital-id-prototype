@@ -1015,4 +1015,8 @@ export const thirdPartyApi = {
     const { data } = await axiosInstance.post("/third_party/register", body);
     return data;
   },
+  getActive: async (): Promise<any[]> => {
+    const { data } = await axiosInstance.get("/third_party/active");
+    return data;
+  },
 };

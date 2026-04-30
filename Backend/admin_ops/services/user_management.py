@@ -337,6 +337,14 @@ def get_all_pending():
     serializer = ThirdPartyEnrollmentRequestSerializer(pending_enrollments, many=True)
     return serializer.data
 
+# Retrieves all third-party institutions that are currently ACTIVE.
+def get_active_institutions():
+    print("DEBUG: get_active_institutions called")
+    active_institutions = ThirdPartyInstitution.objects.filter(status=InstitutionStatus.ACTIVE)
+    print(f"DEBUG: Found {active_institutions.count()} active institutions")
+    serializer = ThirdPartyInstitutionSerializer(active_institutions, many=True)
+    return serializer.data
+
 # -------------------------------------------------------------------
 # Staff Role Addition Functions
 # -------------------------------------------------------------------
