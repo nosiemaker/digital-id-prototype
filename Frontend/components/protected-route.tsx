@@ -13,21 +13,35 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const router = useRouter()
   const pathname = usePathname()
   const [isAuthorized, setIsAuthorized] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const token = tokenStore.getAccess()
+    const userRole = tokenStore.getRole()
 
     if (!token) {
       // Not logged in
       router.push(`/login?redirect=${pathname}`)
+      setIsLoading(false)
       return
     }
 
-    // Token exists - user is authenticated
-    setIsAuthorized(true)
-  }, [router, pathname])
+    // Check if role is allowed (if allowedRoles is specified)
+    if (allowedRoles && allowedRoles.length > 0) {
+      if (!userRole || !allowedRoles.includes(userRole)) {
+        // Role not authorized
+        router.push("/login")
+        setIsLoading(false)
+        return
+      }
+    }
 
-  if (!isAuthorized) {
+    // Token exists and role is authorized
+    setIsAuthorized(true)
+    setIsLoading(false)
+  }, [router, pathname, allowedRoles])
+
+  if (isLoading || !isAuthorized) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">

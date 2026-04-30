@@ -49,8 +49,8 @@ class SyncStatus(models.TextChoices):
 
 class SexChoices(models.TextChoices):
     """Biological sex as recorded on official vital-events forms."""
-    MALE   = "Male"
-    FEMALE = "Female"
+    MALE   = "MALE", "Male"
+    FEMALE = "FEMALE", "Female"
 
 class AttendantChoices(models.TextChoices):
     """Who assisted at the birth — required on Form VIII (Notice of Birth)."""
@@ -159,9 +159,13 @@ class MedicalCertificateCauseOfDeath(models.Model):
     )
     last_attended_alive_date = models.DateField(
         help_text="Date doctor last attended the deceased alive",
+        null=True,
+        blank=True,
     )
     last_attended_alive_day = models.PositiveSmallIntegerField(
         help_text="Day of month — last attended alive (mirrors paper form layout)",
+        null=True,
+        blank=True,
     )
     death_date  = models.DateField(help_text="Date the person died")
     death_day   = models.PositiveSmallIntegerField(help_text="Day of month — died (mirrors paper form layout)")
@@ -286,7 +290,7 @@ class NoticeOfDeath(models.Model):
     place_of_death_other  = models.CharField(max_length=255, blank=True, null=True)
     date_of_birth         = models.DateField(blank=True, null=True)
     age_at_death          = models.PositiveSmallIntegerField(blank=True, null=True)
-    sex                   = models.CharField(max_length=1, choices=SexChoices.choices)
+    sex                   = models.CharField(max_length=10, choices=SexChoices.choices)
     nationality           = models.CharField(max_length=100, blank=True, null=True)
     national_identity_no  = models.CharField(max_length=30, blank=True, null=True, help_text="NRC number")
     social_security_no    = models.CharField(max_length=30, blank=True, null=True, help_text="NAPSA number")
@@ -472,7 +476,7 @@ class DeathCertificate(models.Model):
 
     # Deceased particulars
     deceased_names_and_surname = models.CharField(max_length=255)
-    sex                        = models.CharField(max_length=1, choices=SexChoices.choices)
+    sex                        = models.CharField(max_length=10, choices=SexChoices.choices)
     age                        = models.CharField(max_length=20, help_text="Age as recorded e.g. '62 years'")
     nationality                = models.CharField(max_length=100, blank=True, null=True)
     occupation                 = models.CharField(max_length=100, blank=True, null=True)
@@ -645,7 +649,7 @@ class NoticeOfBirth(models.Model):
     child_surname    = models.CharField(max_length=100)
     child_given_name = models.CharField(max_length=100)
     child_other_names = models.CharField(max_length=255, blank=True, null=True)
-    sex              = models.CharField(max_length=1, choices=SexChoices.choices)
+    sex              = models.CharField(max_length=10, choices=SexChoices.choices)
     birth_weight_kg  = models.DecimalField(max_digits=4, decimal_places=2, help_text="Birth weight in kilograms")
 
     # --- Section 2: Details of Father ---
@@ -733,7 +737,7 @@ class RecordOfBirth(models.Model):
     place_of_birth   = models.CharField(max_length=255)
     child_surname    = models.CharField(max_length=100)
     child_other_names = models.CharField(max_length=255, blank=True, null=True)
-    sex              = models.CharField(max_length=1, choices=SexChoices.choices)
+    sex              = models.CharField(max_length=10, choices=SexChoices.choices)
     birth_weight_kg  = models.DecimalField(max_digits=4, decimal_places=2, help_text="BWT — birth weight in kilograms")
     date_of_birth    = models.DateField()
     time_of_birth    = models.TimeField()
@@ -802,7 +806,7 @@ class BirthCertificate(models.Model):
     reg_no            = models.CharField(max_length=20, unique=True)   # Generated child DIN used as registration number
     district          = models.CharField(max_length=100)
     date_of_birth     = models.DateField()
-    sex               = models.CharField(max_length=1, choices=SexChoices.choices)
+    sex               = models.CharField(max_length=10, choices=SexChoices.choices)
     place_of_birth    = models.CharField(max_length=255)
     surname           = models.CharField(max_length=100)
     other_names       = models.CharField(max_length=255, blank=True, null=True)
@@ -973,6 +977,5 @@ class OfflineSyncQueue(models.Model):
             # Composite index to efficiently retrieve all failed/queued records for a given device
             models.Index(fields=["device_id", "status"]),
         ]
-
     def __str__(self):
         return f"Sync [{self.event_type}] from {self.device_id} — {self.status}"

@@ -18,6 +18,7 @@ PUBLIC_ROUTES = [
     "/enrollments/verify-otp",
     "/enrollments/resend-otp",
     "/third_party/register",
+    "/third_party/active",
     "/users/activate/{din}",
     "/users/set-password",
     "/districts/provinces",
@@ -30,7 +31,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
-        if request.url.path in PUBLIC_ROUTES:
+        path = request.url.path.rstrip("/")
+        if not path: path = "/"
+        
+        # Check if the path (without trailing slash) is in PUBLIC_ROUTES
+        # Note: PUBLIC_ROUTES should also be stripped of trailing slashes for comparison
+        is_public = any(path == p.rstrip("/") for p in PUBLIC_ROUTES)
+        
+        if is_public:
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization")

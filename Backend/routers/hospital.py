@@ -21,13 +21,13 @@ from fastapi.responses import StreamingResponse
 import os
 import io
 from dependencies.auth import require_groups, UserRole
-from Backend.hospital.schema import (
+from hospital.schema import (
     BirthRecordSubmission,
     MedicalCertificateCauseOfDeathCreate,
     NoticeOfDeathCreate,
     RecordRejection,
 )
-from Backend.hospital.services.birth_death_recording import (
+from hospital.services.birth_death_recording import (
     record_submission,
     death_record_approval,
     death_record_rejection,
@@ -234,7 +234,7 @@ async def reject_birth_record(
     submission_id: int,
     body: RecordRejection,
     request: Request,
-    user=Depends(require_groups(["RO"])),
+    user=Depends(require_groups([UserRole.REGISTRAR])),
 ):
     """
     PUT /births/{submission_id}/reject

@@ -6,17 +6,7 @@ import { useRouter } from "next/navigation"
 import { Shield, Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react"
 import { authApi, APIError, tokenStore } from "@/lib/axios"
 
-// Role → destination route mapping.
-const ROLE_ROUTES: Record<string, string> = {
-  REGISTRATION_OFFICER: "/admin/registrations",
-  SUPERVISOR: "/admin",
-  REGISTRAR: "/admin",
-  HEALTH_WORKER: "/admin",
-  CITIZEN: "/wallet",
-  THIRD_PARTY: "/institutions/dashboard",
-}
-
-const DEFAULT_ROUTE = "/wallet"
+import { ROLE_ROUTES, DEFAULT_ROUTE, type UserRole } from "@/lib/config/routes"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -24,7 +14,9 @@ export default function LoginPage() {
   useEffect(() => {
     const token = tokenStore.getAccess()
     if (token) {
-      //router.push("/wallet")
+      const role = tokenStore.getRole() as UserRole
+      const destination = ROLE_ROUTES[role] ?? DEFAULT_ROUTE
+      router.replace(destination)
     }
   }, [router])
 
@@ -44,11 +36,7 @@ export default function LoginPage() {
         password: form.password,
       })
 
-      // authApi.login already persisted the tokens via tokenStore.set —
-      // navigate to the role-appropriate dashboard.
-      localStorage.setItem("user_name", user.name); 
-      localStorage.setItem("user_role", user.role);
-      const destination = ROLE_ROUTES[user.role] ?? DEFAULT_ROUTE
+      const destination = ROLE_ROUTES[user.role as UserRole] ?? DEFAULT_ROUTE
       router.push(destination)
     } catch (err) {
       const apiErr = err as APIError

@@ -11,7 +11,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { tokenStore, digitalIdApi, qrApi, authApi, citizenApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type CitizenResponse } from "@/lib/axios"
+import { tokenStore, digitalIdApi, qrApi, authApi, citizenApi, thirdPartyApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type CitizenResponse } from "@/lib/axios"
 import { QRCodeCanvas as QRCode } from "qrcode.react"
 import {
   Shield,
@@ -39,6 +39,7 @@ import {
   Link2,
   Search,
   Crown,
+  Building2,
 } from "lucide-react"
 import { useMe } from "@/hooks/useMe"
 import { EnrollmentBanner } from "@/components/enrollment/enrollmentBanner"
@@ -57,6 +58,7 @@ const sidebarLinks = [
   { id: "family", label: "Family Tree", icon: Users },
   { id: "activity", label: "Activity Log", icon: History },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "partners", label: "Partners", icon: Link2 },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
@@ -91,6 +93,7 @@ function getPageTitle(tab: string) {
     case "family": return "My Family Tree"
     case "activity": return "Activity Log"
     case "notifications": return "Notifications"
+    case "partners": return "Official Partners"
     case "settings": return "Settings"
     default: return "Digital ID Wallet"
   }
@@ -103,6 +106,7 @@ function getPageSubtitle(tab: string) {
     case "family": return "View your verified family connections"
     case "activity": return "A history of your identity usage"
     case "notifications": return "Stay updated on your ID status"
+    case "partners": return "Connect with verified services and institutions"
     case "settings": return "Manage your preferences and security"
     default: return ""
   }
@@ -514,6 +518,9 @@ export default function WalletPage() {
   const [cardFlipped, setCardFlipped] = useState(false)
   const [serverPublicKey, setServerPublicKey] = useState<ServerPublicKey | null>(null)
 
+  const [activeInstitutions, setActiveInstitutions] = useState<any[]>([])
+  const [institutionsLoading, setInstitutionsLoading] = useState(false)
+
   /* -------------------- Helper Functions -------------------- */
 
   // Helper function to calculate age from date of birth
@@ -590,6 +597,23 @@ export default function WalletPage() {
     }
   }, [])
 
+  const fetchActiveInstitutions = useCallback(async () => {
+    setInstitutionsLoading(true)
+    try {
+      const data = await thirdPartyApi.getActive()
+      setActiveInstitutions(data)
+    } catch (err: any) {
+      console.error("Failed to fetch active institutions", {
+        message: err.message,
+        detail: err.detail,
+        status: err.status,
+        response: err.response?.data
+      })
+    } finally {
+      setInstitutionsLoading(false)
+    }
+  }, [])
+
   /* -------------------- Effects -------------------- */
 
   // Redirect unauthenticated
@@ -606,6 +630,12 @@ export default function WalletPage() {
       fetchServerPublicKey()
     }
   }, [enrollmentState, me, fetchCitizenData, fetchServerPublicKey])
+
+  useEffect(() => {
+    if (activeTab === "partners") {
+      fetchActiveInstitutions()
+    }
+  }, [activeTab, fetchActiveInstitutions])
 
   /* -------------------- Handlers -------------------- */
 
@@ -1086,6 +1116,73 @@ export default function WalletPage() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "partners" && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="rounded-2xl border border-border bg-card p-6">
+                    <h2 className="text-xl font-bold text-foreground mb-2 flex items-center gap-2">
+                      <Link2 className="h-5 w-5 text-primary" /> Verified Service Partners
+                    </h2>
+                    <p className="text-sm text-muted-foreground mb-8">
+                      Connect your Digital ID with official partners to access seamless services without manual document verification.
+                    </p>
+
+                    {institutionsLoading ? (
+                      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-sm text-muted-foreground">Fetching official partners...</p>
+                      </div>
+                    ) : activeInstitutions.length === 0 ? (
+                      <div className="text-center py-20 bg-secondary/20 rounded-2xl border border-dashed border-border">
+                        <Globe className="h-10 w-10 text-muted-foreground mx-auto mb-4 opacity-20" />
+                        <p className="text-sm text-muted-foreground">No active partners found at the moment.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {activeInstitutions.map((inst) => (
+                          <div key={inst.id} className="group rounded-2xl border border-border bg-secondary/20 p-5 hover:border-primary/40 transition-all duration-300">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                <Building2 className="h-6 w-6 text-primary" />
+                              </div>
+                              <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                                Verified
+                              </span>
+                            </div>
+                            <div className="space-y-1 mb-6">
+                              <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">{inst.name}</h3>
+                              <p className="text-xs text-muted-foreground">Reg No: {inst.reg_number}</p>
+                              <div className="flex gap-1.5 mt-2">
+                                {inst.permitted_scope?.map((scope: string) => (
+                                  <span key={scope} className="text-[9px] bg-card border border-border px-1.5 py-0.5 rounded-md text-muted-foreground">
+                                    {scope.replace("_", " ")}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => alert(`Linking ${inst.name} to your Digital ID...`)}
+                              className="w-full py-2.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
+                            >
+                              <Link2 className="h-3.5 w-3.5" /> Link Account
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mt-8 p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-start gap-3">
+                      <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-bold text-foreground mb-1">Privacy Guarantee</p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          Linking an account does not share your data immediately. It only establishes a secure connection so you can choose what to share when you use their services.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

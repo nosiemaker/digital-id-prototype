@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { thirdPartyApi, APIError } from "@/lib/axios"
 import {
   Shield,
   ArrowRight,
@@ -17,14 +18,15 @@ import {
   AlertCircle,
   Clock,
   Briefcase,
-  ArrowUpRight,
 } from "lucide-react"
 
 export default function InstitutionsPage() {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: "",
+    reg_number: "",
     type: "Financial Institution",
     email: "",
     phone: "",
@@ -32,14 +34,24 @@ export default function InstitutionsPage() {
     purpose: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // Simulate API call
-    setTimeout(() => {
+    setError(null)
+    
+    try {
+      await thirdPartyApi.register({
+        name: form.name,
+        reg_number: form.reg_number,
+        email: form.email,
+      })
       setLoading(false)
       setSubmitted(true)
-    }, 1500)
+    } catch (err) {
+      const apiErr = err as APIError
+      setError(apiErr.detail || "Failed to submit application. Please try again.")
+      setLoading(false)
+    }
   }
 
   return (
@@ -163,6 +175,21 @@ export default function InstitutionsPage() {
                     </div>
                   </div>
 
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Business Registration Number (PACRA)</label>
+                    <div className="relative">
+                      <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="e.g. 120230045678"
+                        className="w-full rounded-lg border border-border bg-input pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none transition-colors"
+                        value={form.reg_number}
+                        onChange={(e) => setForm({...form, reg_number: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Email Address</label>
@@ -227,6 +254,13 @@ export default function InstitutionsPage() {
                       I certify that I am an authorized representative of this institution and agree to the ZDID Data Usage Terms and Privacy Policy.
                     </label>
                   </div>
+
+                  {error && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2 text-xs text-destructive">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      {error}
+                    </div>
+                  )}
 
                   <button 
                     disabled={loading}

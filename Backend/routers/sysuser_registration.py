@@ -16,7 +16,7 @@ from admin_ops.services.user_management import (
     get_user_by_din, set_system_user_password, activate_system_user, get_user_by_email,
     approve_third_party_registration,
     third_party_registration_request, reject_third_party_registration, get_all_pending,
-    get_single_pending, create_registration_officer, create_registrar, create_supervisor,
+    get_single_pending, get_active_institutions, create_registration_officer, create_registrar, create_supervisor,
     create_health_worker, remove_registration_officer, remove_registrar, remove_supervisor,
     remove_health_worker
 )
@@ -92,6 +92,13 @@ async def reject_third_party(request_id: int,body: RejectionRequest,request: Req
     result = await sync_to_async(reject_third_party_registration)(
         request_id, user["id"], body.rejection_reason
     )
+    return result
+
+# Returns all ACTIVE third-party institutions.
+@third_party_router.get("/active")
+async def list_active(request: Request):
+    print("API: GET /third_party/active called")
+    result = await sync_to_async(get_active_institutions)()
     return result
 
 

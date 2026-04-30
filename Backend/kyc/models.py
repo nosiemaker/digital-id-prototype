@@ -23,12 +23,12 @@ class ThirdPartyInstitution(models.Model):
     Registrar enrolls and approves them. OIDC credentials generated on approval.
     """
     email = models.EmailField(unique=True,null=True)
-    institution_id = models.CharField(max_length=20,blank=True, unique=True)
+    institution_id = models.CharField(max_length=20, blank=True, null=True, unique=True)
     name = models.CharField(max_length=255)
     reg_number = models.CharField(max_length=100, unique=True)  # Business registration number
     oidc_client_id = models.CharField(max_length=128, unique=True, null=True, blank=True)
     oidc_secret = models.CharField(max_length=255, null=True, blank=True)  # hashed
-    permitted_scope = models.JSONField(default=list)  # e.g. ["full_name", "dob", "phone"]
+    permitted_scope = models.JSONField(default=list, blank=True)  # e.g. ["full_name", "dob", "phone"]
     status = models.CharField(
         max_length=20,
         choices=InstitutionStatus.choices,

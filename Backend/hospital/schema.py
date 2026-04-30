@@ -43,8 +43,8 @@ class SyncStatus(str, Enum):
 
 class Sex(str, Enum):
     """Biological sex of a person, as recorded on official Zambian vital-events forms."""
-    MALE = "MALE", "Male"
-    FEMALE = "FEMALE", "Female"
+    MALE = "MALE"
+    FEMALE = "FEMALE"
 
 class EventType(str, Enum):
     """Distinguishes whether an offline sync payload carries a birth or a death event."""
@@ -146,11 +146,10 @@ class BirthRecordSubmission(BaseModel):
     # ----------------------------------------------------------------
 
     # Official reference numbers pre-printed on the physical forms
-    notice_serial_number: str = Field(..., max_length=20, description="Pre-printed serial on Notice of Birth form")
-    record_of_birth_serial_number: str = Field(..., max_length=20, description="Pre-printed serial on Record of Birth form (M.F.2)")
+    notice_serial_number: Optional[str] = Field(None, max_length=20, description="Pre-printed serial on Notice of Birth form")
+    record_of_birth_serial_number: Optional[str] = Field(None, max_length=20, description="Pre-printed serial on Record of Birth form (M.F.2)")
 
     # Facility and administrative details
-    facility_name: str = Field(..., max_length=255, description="Name of hospital or clinic where birth occurred")
     district: str = Field(..., max_length=100, description="District where facility is located")
     date_and_time_of_birth_notification: datetime = Field(..., description="Official date and time recorded by facility")
 
@@ -343,10 +342,10 @@ class MedicalCertificateCauseOfDeathCreate(BaseModel):
     # Captures the timeline of the doctor's involvement with the patient
     attended_name: str = Field(..., max_length=255, description="Full name of the person the doctor attended")
     illness_start_date: date = Field(...)                             # Date doctor first attended during last illness
-    last_attended_alive_date: date = Field(...)                       # Last date the patient was seen alive
-    last_attended_alive_day: int = Field(..., ge=1, le=31)            # Day of month (mirrors paper form format)
+    last_attended_alive_date: Optional[date] = Field(None)                       # Last date the patient was seen alive
+    last_attended_alive_day: Optional[int] = Field(None, ge=1, le=31)            # Day of month (mirrors paper form format)
     death_date: date = Field(...)
-    death_day: int = Field(..., ge=1, le=31)                          # Day of month (mirrors paper form format)
+    death_day: int = Field(..., ge=1, le=31, description="Day of month when death occurred (1-31)")
     death_year: int = Field(..., description="Year of death (last 2 digits)")
     death_time: Optional[time] = Field(None)
     body_identified_of: str = Field(..., max_length=255)              # Name of person whose body was formally identified
@@ -375,7 +374,7 @@ class MedicalCertificateCauseOfDeathCreate(BaseModel):
     other_condition_2_interval: Optional[str] = Field(None, max_length=100)
 
     # --- Doctor Sign-off ---
-    witness_date: date = Field(...)                                     # Date the doctor signed the certificate
+    witness_date: date = Field(..., description="Date the doctor signed the certificate (required)")
     certificate_handed_to: str = Field(..., max_length=255)            # Name/address of person who received the certificate
     medical_attendant_name: str = Field(..., max_length=255)
     medical_attendant_signature: Optional[str] = Field(None, description="Base64 signature or reference")
