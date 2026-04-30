@@ -10,7 +10,7 @@ class SystemUserSerializer(ModelSerializer):
 class ThirdPartyInstitutionSerializer(ModelSerializer):
     class Meta:
         model = ThirdPartyInstitution
-        fields = "__all__"
+        fields = ["id", "name", "reg_number", "institution_id", "email", "status", "permitted_scope"]
 
 class ThirdPartyEnrollmentRequestSerializer(ModelSerializer):
     class Meta:

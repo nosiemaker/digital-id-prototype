@@ -78,7 +78,6 @@ class Migration(migrations.Migration):
                 ("nrc", models.CharField(max_length=15, null=True, unique=True)),
                 ("full_name", models.CharField(max_length=255)),
                 ("residential_address", models.CharField(max_length=255, null=True)),
-                ("maiden_name", models.CharField(max_length=255, null=True)),
                 ("dob", models.DateField()),
                 ("phone", models.CharField(blank=True, max_length=20, null=True)),
                 (
@@ -150,26 +149,6 @@ class Migration(migrations.Migration):
                         max_length=20,
                     ),
                 ),
-                (
-                    "nationality",
-                    models.CharField(blank=True, max_length=100, null=True),
-                ),
-                ("occupation", models.CharField(blank=True, max_length=100, null=True)),
-                (
-                    "education_level",
-                    models.CharField(
-                        blank=True,
-                        choices=[
-                            ("NONE", "Never Been to School"),
-                            ("PRIMARY", "Primary"),
-                            ("SECONDARY", "Secondary"),
-                            ("TERTIARY", "Tertiary"),
-                        ],
-                        max_length=20,
-                        null=True,
-                    ),
-                ),
-                ("social_id", models.CharField(blank=True, max_length=30, null=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 (
