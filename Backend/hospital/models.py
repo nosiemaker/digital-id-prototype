@@ -49,8 +49,8 @@ class SyncStatus(models.TextChoices):
 
 class SexChoices(models.TextChoices):
     """Biological sex as recorded on official vital-events forms."""
-    MALE   = "Male"
-    FEMALE = "Female"
+    MALE   = "MALE", "Male"
+    FEMALE = "FEMALE", "Female"
 
 class AttendantChoices(models.TextChoices):
     """Who assisted at the birth — required on Form VIII (Notice of Birth)."""
@@ -159,9 +159,13 @@ class MedicalCertificateCauseOfDeath(models.Model):
     )
     last_attended_alive_date = models.DateField(
         help_text="Date doctor last attended the deceased alive",
+        null=True,
+        blank=True,
     )
     last_attended_alive_day = models.PositiveSmallIntegerField(
         help_text="Day of month — last attended alive (mirrors paper form layout)",
+        null=True,
+        blank=True,
     )
     death_date  = models.DateField(help_text="Date the person died")
     death_day   = models.PositiveSmallIntegerField(help_text="Day of month — died (mirrors paper form layout)")

@@ -25,7 +25,8 @@
 #   get_all_births_records / get_all_death_records
 #   get_birth_certificates_by_user / get_burial_permits_by_user / get_death_certificates_by_user
 
-import datetime
+from datetime import datetime
+import secrets
 from pathlib import Path
 from django.db import models, transaction
 from fastapi import HTTPException
@@ -389,7 +390,7 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
         # for personal details (NRC, NAPSA, nationality, etc.) to ensure accuracy.
         notice_data = {
             # Form reference fields
-            "serial_number":  request_body.get("notice_serial_number"),
+            "serial_number":  f'NB-{secrets.token_hex(4).upper()}', # Auto generated
             "district":       request_body.get("district"),
             "date_and_time":  request_body.get("date_and_time_of_birth_notification"),
             # Section 1: Birth details
@@ -452,18 +453,36 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
             )
         notice_of_birth = notice_serializer.save()
 
+        notif_time = request_body.get("date_and_time_of_birth_notification")
+        parsed_time_string = None
+
+        if notif_time:
+            try:
+                if isinstance(notif_time, datetime):
+                    dt_obj = notif_time
+                else:
+                    dt_obj = datetime.fromisoformat(str(notif_time).replace('Z', '+00:00'))
+
+                parsed_time_string = dt_obj.strftime("%H:%M:%S")
+
+            except (ValueError, TypeError):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid timestamp format: {notif_time}"
+                )
+
         # --- 5. Build RecordOfBirth data dict ---
         # The Record of Birth (M.F.2) is the condensed facility summary form.
         record_data = {
-            "serial_number":   request_body.get("record_of_birth_serial_number"),
+            "serial_number":   f'RB-{secrets.token_hex(4).upper()}',
             "file_number":     request_body.get("file_number"),
-            "place_of_birth":  request_body.get("place_of_birth_text"),
+            "place_of_birth":  request_body.get("place_of_birth"),
             "child_surname":   request_body.get("child_surname"),
             "child_other_names": request_body.get("child_other_names"),
             "sex":             request_body.get("sex"),
             "birth_weight_kg": request_body.get("birth_weight_kg"),
             "date_of_birth":   request_body.get("date_of_birth"),
-            "time_of_birth":   request_body.get("time_of_birth"),
+            "time_of_birth":   parsed_time_string,
             # Mother and father names come from the Citizen records
             "mother_name":          mother_citizen.full_name,
             "father_name":          father_citizen.full_name if father_citizen else None,

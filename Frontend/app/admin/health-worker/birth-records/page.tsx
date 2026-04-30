@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Baby, Search, Plus, Filter, Download, MoreHorizontal, Eye, FileText,
   CheckCircle2, Clock, Building2, Home, ChevronLeft, ChevronRight, Loader2,
-  AlertCircle, ArrowRight, ArrowLeft, Check
+  AlertCircle, ArrowRight, ArrowLeft, Check, Stethoscope, UserCheck
 } from "lucide-react"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -20,8 +20,10 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { birthRecordApi, type BirthRecordSubmission } from "@/lib/axios"
+import { birthRecordApi} from "@/lib/axios"
+import { referenceApi } from "@/lib/api"
 import { useRoleGuard } from "@/hooks/use-role-guard"
+import { type BirthRecordSubmission, type DistrictOption } from "@/utils/types"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -36,6 +38,7 @@ const steps = [
   { id: 1, label: "Child & Birth Details" },
   { id: 2, label: "Parent Information" },
   { id: 3, label: "Attendance & Sign-off" },
+  { id: 4, label: "Review & Submit" },
 ]
 
 // Extend the type to include additional fields
@@ -63,6 +66,8 @@ export default function BirthRecordsPage() {
   // Multi-step state
   const [step, setStep] = useState(1)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [districts, setDistricts] = useState<DistrictOption[]>([])
+  const [districtsLoading, setDistrictsLoading] = useState(true)
 
   const [form, setForm] = useState<Partial<ExtendedBirthRecordSubmission>>({
     date_of_birth: new Date().toISOString().split('T')[0],
@@ -73,22 +78,32 @@ export default function BirthRecordsPage() {
     date_and_time_of_birth_notification: new Date().toISOString(),
   })
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData(); loadDistricts() }, [])
 
   async function fetchData() {
     setLoading(true)
     try {
-      const [allRecords, pending] = await Promise.all([
-        birthRecordApi.getAll(),
-        birthRecordApi.getPendingSubmissions()
-      ])
-      
-      setRecords(allRecords.records || [])
-      setPendingSubmissions(pending.pending_submissions || [])
+      // Health workers can only submit records, not view all/pending records
+      // These endpoints are for registrar role only
+      setRecords([])
+      setPendingSubmissions([])
     } catch (err: any) {
       toast.error(err.detail || "Failed to fetch birth records")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadDistricts() {
+    setDistrictsLoading(true)
+    try {
+      const data = await referenceApi.getDistricts()
+      setDistricts(data)
+    } catch (err: any) {
+      toast.error(err.detail || "Failed to load districts")
+      setDistricts([])
+    } finally {
+      setDistrictsLoading(false)
     }
   }
 
@@ -114,7 +129,7 @@ export default function BirthRecordsPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const nextStep = () => { if (validateStep(step)) { setErrors({}); setStep(s => Math.min(s + 1, 3)) } }
+  const nextStep = () => { if (validateStep(step)) { setErrors({}); setStep(s => Math.min(s + 1, 4)) } }
   const prevStep = () => { setErrors({}); setStep(s => Math.max(s - 1, 1)) }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -438,7 +453,17 @@ export default function BirthRecordsPage() {
                     <Select value={form.district} onValueChange={(val) => setForm({ ...form, district: val })}>
                       <SelectTrigger className={cn(errors.district && "border-red-500")}><SelectValue placeholder="Select district" /></SelectTrigger>
                       <SelectContent>
-                        {["Lusaka","Copperbelt","Eastern","Western","Northern","Southern","Central","Luapula","North-Western","Muchinga"].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        {districtsLoading ? (
+                          <SelectItem value="" disabled>Loading districts...</SelectItem>
+                        ) : districts.length > 0 ? (
+                          districts.map((district, index) => (
+                            <SelectItem key={`${district.code}-${index}`} value={district.code}>
+                              {district.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="" disabled>No districts available</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                     {errors.district && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3"/> {errors.district}</p>}
@@ -562,6 +587,167 @@ export default function BirthRecordsPage() {
                 </div>
               </div>
             )}
+
+            {/* STEP 4: Review & Submit */}
+            {step === 4 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-blue-700">Please review all details carefully before submitting.</p>
+                      <p className="text-xs text-blue-600/80">Once submitted, this record will be sent to the registrar for approval and certificate generation.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Child & Birth Details Summary */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <Baby className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Child & Birth Details</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Child Name</p>
+                      <p className="font-medium text-foreground">{form.child_given_name} {form.child_other_names} {form.child_surname}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Sex</p>
+                      <p className="font-medium text-foreground capitalize">{form.sex}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Date of Birth</p>
+                      <p className="font-medium text-foreground">{new Date(form.date_of_birth!).toLocaleDateString()}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Birth Weight</p>
+                      <p className="font-medium text-foreground">{form.birth_weight_kg} kg</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Place of Birth</p>
+                      <p className="font-medium text-foreground capitalize">{form.place_of_birth === "HEALTH_FACILITY" ? "Health Facility" : "Home"}</p>
+                    </div>
+                    {form.place_of_birth === "HEALTH_FACILITY" && (
+                      <div className="space-y-1">
+                        <p className="text-muted-foreground text-xs">Facility Name</p>
+                        <p className="font-medium text-foreground">{form.health_facility_name}</p>
+                      </div>
+                    )}
+                    {form.place_of_birth === "HOME" && (
+                      <div className="space-y-1">
+                        <p className="text-muted-foreground text-xs">Home Address</p>
+                        <p className="font-medium text-foreground">{form.home_address}</p>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">District</p>
+                      <p className="font-medium text-foreground">{form.district}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Notification Date</p>
+                      <p className="font-medium text-foreground">{new Date(form.date_and_time_of_birth_notification!).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Parent Information Summary */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <UserCheck className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Parent Information</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Mother's DIN</p>
+                      <p className="font-medium text-foreground font-mono">{form.mother_din}</p>
+                    </div>
+                    {form.father_din && (
+                      <div className="space-y-1">
+                        <p className="text-muted-foreground text-xs">Father's DIN</p>
+                        <p className="font-medium text-foreground font-mono">{form.father_din}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-3 rounded-lg border border-border bg-muted/10 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Mother's Tribal Details</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div><span className="text-muted-foreground">Village:</span> <span className="font-medium">{form.mother_village_of_origin}</span></div>
+                      <div><span className="text-muted-foreground">Chief:</span> <span className="font-medium">{form.mother_chief}</span></div>
+                      <div><span className="text-muted-foreground">District:</span> <span className="font-medium">{form.mother_district}</span></div>
+                      <div><span className="text-muted-foreground">Tribe:</span> <span className="font-medium">{form.mother_tribe}</span></div>
+                      <div className="col-span-2"><span className="text-muted-foreground">Residence:</span> <span className="font-medium">{form.mother_usual_place_of_residence}</span></div>
+                    </div>
+                  </div>
+
+                  {form.father_din && (
+                    <div className="p-3 rounded-lg border border-border bg-muted/10 space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground">Father's Tribal Details</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div><span className="text-muted-foreground">Village:</span> <span className="font-medium">{form.father_village_of_origin}</span></div>
+                        <div><span className="text-muted-foreground">Chief:</span> <span className="font-medium">{form.father_chief}</span></div>
+                        <div><span className="text-muted-foreground">District:</span> <span className="font-medium">{form.father_district}</span></div>
+                        <div><span className="text-muted-foreground">Tribe:</span> <span className="font-medium">{form.father_tribe}</span></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Attendance & Sign-off Summary */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <Stethoscope className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Attendance & Sign-off</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Attendant at Birth</p>
+                      <p className="font-medium text-foreground capitalize">{form.attendant_at_birth === "MIDWIFE" ? "Qualified Midwife" : form.attendant_at_birth === "TBA" ? "Traditional Birth Attendant" : form.attendant_other_specified || "Other"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">Marital Status</p>
+                      <p className="font-medium text-foreground capitalize">{form.marital_status}</p>
+                    </div>
+                  </div>
+                  
+                  {form.marital_status === "NOT_MARRIED" && (
+                    <div className="p-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 space-y-2">
+                      <p className="text-xs font-semibold text-yellow-700">Paternity Acknowledgement & Mother Consent</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div><span className="text-muted-foreground">Ack. Date:</span> <span className="font-medium">{form.father_acknowledgement_date ? new Date(form.father_acknowledgement_date).toLocaleDateString() : "Not provided"}</span></div>
+                        <div><span className="text-muted-foreground">Consent Date:</span> <span className="font-medium">{form.mother_consent_date ? new Date(form.mother_consent_date).toLocaleDateString() : "Not provided"}</span></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(form.file_number || form.officer_in_charge || form.date_signed) && (
+                    <div className="p-3 rounded-lg border border-border bg-muted/10 space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground">M.F.2 Facility Sign-off</p>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        {form.file_number && <div><span className="text-muted-foreground">File No:</span> <span className="font-medium">{form.file_number}</span></div>}
+                        {form.officer_in_charge && <div><span className="text-muted-foreground">Officer:</span> <span className="font-medium">{form.officer_in_charge}</span></div>}
+                        {form.date_signed && <div><span className="text-muted-foreground">Date Signed:</span> <span className="font-medium">{new Date(form.date_signed).toLocaleDateString()}</span></div>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Declaration */}
+                <div className="p-4 rounded-lg border border-border bg-muted/20 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Declaration</p>
+                  <p className="text-xs text-muted-foreground">
+                    I hereby declare that the information provided above is true and correct to the best of my knowledge. I understand that false statements may result in rejection of this birth registration.
+                  </p>
+                  <div className="flex items-start gap-2 pt-2">
+                    <div className="flex h-4 w-4 items-center justify-center rounded border border-primary bg-primary/20">
+                      <Check className="h-3 w-3 text-primary" />
+                    </div>
+                    <p className="text-xs text-foreground">I confirm all details are accurate and ready for submission.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </form>
 
           <DialogFooter className="px-6 py-4 border-t border-border bg-muted/20">
@@ -569,7 +755,7 @@ export default function BirthRecordsPage() {
               <Button type="button" variant="outline" onClick={step === 1 ? () => setRegisterOpen(false) : prevStep}>
                 {step === 1 ? "Cancel" : <><ArrowLeft className="h-4 w-4 mr-2" /> Back</>}
               </Button>
-              {step < 3 ? (
+              {step < 4 ? (
                 <Button type="button" onClick={nextStep} className="bg-primary hover:bg-primary/90">
                   Next <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
