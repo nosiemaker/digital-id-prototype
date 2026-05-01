@@ -118,7 +118,7 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
 
     # Resolve the Citizen to a SystemUser so we can set the informant FK on DeathRecords
     try:
-        informant_sys = SystemUser.objects.get(citizen=informant)
+        informant_sys = SystemUser.objects.get(profile=informant)
     except SystemUser.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

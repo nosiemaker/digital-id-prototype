@@ -66,6 +66,7 @@ class SystemUser(AbstractUser):
     """
     All users across all roles. Inherits from AbstractUser to work with Django Admin.
     """
+
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=100, choices=UserRole.choices, default=UserRole.CITIZEN)
     institution_din = models.CharField(max_length=20, blank=True, unique=True, null=True)

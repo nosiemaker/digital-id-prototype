@@ -336,7 +336,7 @@ class MedicalCertificateCauseOfDeathCreate(BaseModel):
     """
 
     # --- Reference (pre-printed on the physical counterfoil) ---
-    medical_no: Optional[str] = Field(..., max_length=30, description="Pre-printed medical number on the counterfoil")
+    medical_no: Optional[str] = Field(None, max_length=30, description="Pre-printed medical number on the counterfoil")
     # --- Doctor's Attendance Narrative ---
     # Captures the timeline of the doctor's involvement with the patient
     attended_name: str = Field(..., max_length=255, description="Full name of the person the doctor attended")
