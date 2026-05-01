@@ -604,3 +604,10 @@ export interface DeathRecordApproveResponse {
   burial_permit_id: number;
   status: number;
 }
+
+// ── Third Party ──────────────────────────────────────────────────────────────
+export interface ThirdPartyRegistrationRequest {
+  name: string;
+  reg_number: string;
+  email: string;
+}
