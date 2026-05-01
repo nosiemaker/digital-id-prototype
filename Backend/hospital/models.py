@@ -144,7 +144,7 @@ class MedicalCertificateCauseOfDeath(models.Model):
 
     # --- Reference ---
     medical_no = models.CharField(
-        max_length=30, unique=True,null=True,
+        max_length=100, unique=True,null=True,
         help_text="Pre-printed medical number on the counterfoil",
     )
 
