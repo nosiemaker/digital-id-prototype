@@ -82,9 +82,44 @@ function injectECTAssets(): Promise<void> {
           overflow: hidden !important;
           color: #1a1a1a !important;
           pointer-events: auto !important;
+          font-family: inherit !important;
         }
+        
+        /* Aggressive Clean UI: Hide all clutter */
+        .ctw-window .ctw-results-header,
+        .ctw-window .ctw-label,
+        .ctw-window .ctw-results-count,
+        .ctw-window .ctw-filter-container,
+        .ctw-window .ctw-sort-container,
+        .ctw-window .ctw-searching,
+        .ctw-window .ctw-searching-text,
+        .ctw-window .ctw-word-list,
+        .ctw-window .ctw-word-item,
+        .ctw-window b {
+          display: none !important;
+        }
+
         .ctw-window .ctw-embedded-explorer { display: block !important; height: 100% !important; }
-        .ctw-window .ctw-results-container { height: 100% !important; overflow-y: auto !important; }
+        .ctw-window .ctw-results-container { height: 100% !important; overflow-y: auto !important; padding: 1rem !important; }
+        
+        /* Clean Item Styling */
+        .ctw-window .ctw-entity-item { 
+          padding: 12px 16px !important; 
+          border-radius: 8px !important; 
+          border: 1px solid transparent !important;
+          margin-bottom: 4px !important;
+        }
+        .ctw-window .ctw-entity-item:hover { 
+          background: #f1f5f9 !important; 
+          border-color: #3b82f6 !important;
+        }
+        .ctw-window .ctw-entity-code {
+          background: #3b82f6 !important;
+          color: white !important;
+          padding: 2px 8px !important;
+          border-radius: 4px !important;
+          font-weight: 700 !important;
+        }
       `
       document.head.appendChild(style)
     }

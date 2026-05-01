@@ -223,50 +223,132 @@ export default function DeathRecordsPage() {
           )}
 
           {step === 2 && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
-              <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-2">
-                <p className="text-sm font-medium text-blue-700">ICD-11 Cause of Death</p>
-                <p className="text-xs text-blue-600/80">Primary cause (A) is required. Secondary causes (B/C) are optional.</p>
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+              <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Stethoscope className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-blue-700 leading-none">ICD-11 Cause of Death</p>
+                  <p className="text-[11px] text-blue-600/70 mt-1 uppercase tracking-wider font-medium">Pathological sequence of events</p>
+                </div>
               </div>
+
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <ICD11SearchInput instanceId="cause-a" value={form.cause_a_icd_code} label={form.cause_a}
-                    onSelect={(code, title) => setForm({ ...form, cause_a_icd_code: code, cause_a: title })}
-                    onClear={() => setForm({ ...form, cause_a_icd_code: "", cause_a: "" })}
-                    placeholder="Search primary cause (A)…" error={errors.cause_a || errors.cause_a_icd_code} />
-                  <div className="space-y-2">
-                    <Label>Interval (A)</Label>
-                    <Input placeholder="e.g., 5 days" value={form.cause_a_interval} onChange={e => setForm({ ...form, cause_a_interval: e.target.value })} />
+                {/* Cause A */}
+                <div className="p-5 rounded-2xl border border-blue-500/20 bg-blue-500/[0.02] relative overflow-hidden group">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="h-5 w-5 rounded bg-blue-500 text-white flex items-center justify-center text-[10px] font-black shadow-sm">A</span>
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Primary / Immediate Cause</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      <div className="md:col-span-8">
+                        <ICD11SearchInput 
+                          instanceId="cause-a" 
+                          value={form.cause_a_icd_code} 
+                          label={form.cause_a}
+                          onSelect={(code, title) => setForm({ ...form, cause_a_icd_code: code, cause_a: title })}
+                          onClear={() => setForm({ ...form, cause_a_icd_code: "", cause_a: "" })}
+                          placeholder="Search immediate cause…" 
+                          error={errors.cause_a || errors.cause_a_icd_code} 
+                        />
+                      </div>
+                      <div className="md:col-span-4">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5 block">Interval (A)</Label>
+                        <Input 
+                          placeholder="e.g. 5 days" 
+                          className="h-12 bg-white"
+                          value={form.cause_a_interval} 
+                          onChange={e => setForm({ ...form, cause_a_interval: e.target.value })} 
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <ICD11SearchInput instanceId="cause-b" value={form.cause_b_icd_code} label={form.cause_b}
-                    onSelect={(code, title) => setForm({ ...form, cause_b_icd_code: code, cause_b: title })}
-                    onClear={() => setForm({ ...form, cause_b_icd_code: "", cause_b: "" })}
-                    placeholder="Search secondary cause (B)…" />
-                  <div className="space-y-2">
-                    <Label>Interval (B)</Label>
-                    <Input placeholder="e.g., 2 years" value={form.cause_b_interval} onChange={e => setForm({ ...form, cause_b_interval: e.target.value })} />
+
+                {/* Cause B */}
+                <div className="p-5 rounded-2xl border border-border bg-slate-50/50 relative overflow-hidden group">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-300" />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="h-5 w-5 rounded bg-slate-400 text-white flex items-center justify-center text-[10px] font-black shadow-sm">B</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Intermediate Cause</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      <div className="md:col-span-8">
+                        <ICD11SearchInput 
+                          instanceId="cause-b" 
+                          value={form.cause_b_icd_code} 
+                          label={form.cause_b}
+                          onSelect={(code, title) => setForm({ ...form, cause_b_icd_code: code, cause_b: title })}
+                          onClear={() => setForm({ ...form, cause_b_icd_code: "", cause_b: "" })}
+                          placeholder="Search antecedent cause…" 
+                        />
+                      </div>
+                      <div className="md:col-span-4">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5 block">Interval (B)</Label>
+                        <Input 
+                          placeholder="e.g. 2 years" 
+                          className="h-12 bg-white"
+                          value={form.cause_b_interval} 
+                          onChange={e => setForm({ ...form, cause_b_interval: e.target.value })} 
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <ICD11SearchInput instanceId="cause-c" value={form.cause_c_icd_code} label={form.cause_c}
-                    onSelect={(code, title) => setForm({ ...form, cause_c_icd_code: code, cause_c: title })}
-                    onClear={() => setForm({ ...form, cause_c_icd_code: "", cause_c: "" })}
-                    placeholder="Search underlying cause (C)…" />
-                  <div className="space-y-2">
-                    <Label>Interval (C)</Label>
-                    <Input placeholder="e.g., 10 years" value={form.cause_c_interval} onChange={e => setForm({ ...form, cause_c_interval: e.target.value })} />
+
+                {/* Cause C */}
+                <div className="p-5 rounded-2xl border border-border bg-slate-50/30 relative overflow-hidden group">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-200" />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="h-5 w-5 rounded bg-slate-200 text-slate-500 flex items-center justify-center text-[10px] font-black shadow-sm border border-slate-300">C</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Underlying Cause</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      <div className="md:col-span-8">
+                        <ICD11SearchInput 
+                          instanceId="cause-c" 
+                          value={form.cause_c_icd_code} 
+                          label={form.cause_c}
+                          onSelect={(code, title) => setForm({ ...form, cause_c_icd_code: code, cause_c: title })}
+                          onClear={() => setForm({ ...form, cause_c_icd_code: "", cause_c: "" })}
+                          placeholder="Search underlying cause…" 
+                        />
+                      </div>
+                      <div className="md:col-span-4">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5 block">Interval (C)</Label>
+                        <Input 
+                          placeholder="e.g. 10 years" 
+                          className="h-12 bg-white"
+                          value={form.cause_c_interval} 
+                          onChange={e => setForm({ ...form, cause_c_interval: e.target.value })} 
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="pt-2 border-t border-border space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Other Significant Conditions</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input placeholder="Condition 1" value={form.other_condition_1} onChange={e => setForm({ ...form, other_condition_1: e.target.value })} />
-                  <Input placeholder="Interval 1" value={form.other_condition_1_interval} onChange={e => setForm({ ...form, other_condition_1_interval: e.target.value })} />
-                  <Input placeholder="Condition 2" value={form.other_condition_2} onChange={e => setForm({ ...form, other_condition_2: e.target.value })} />
-                  <Input placeholder="Interval 2" value={form.other_condition_2_interval} onChange={e => setForm({ ...form, other_condition_2_interval: e.target.value })} />
+
+              <div className="pt-4 border-t border-dashed border-border space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-1 bg-slate-300 rounded-full" />
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Other Significant Conditions</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 p-4 rounded-xl bg-slate-50/30 border border-slate-100">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Condition 1</Label>
+                    <Input placeholder="Contributing condition…" className="bg-white" value={form.other_condition_1} onChange={e => setForm({ ...form, other_condition_1: e.target.value })} />
+                    <Input placeholder="Duration…" className="bg-white text-xs" value={form.other_condition_1_interval} onChange={e => setForm({ ...form, other_condition_1_interval: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Condition 2</Label>
+                    <Input placeholder="Additional condition…" className="bg-white" value={form.other_condition_2} onChange={e => setForm({ ...form, other_condition_2: e.target.value })} />
+                    <Input placeholder="Duration…" className="bg-white text-xs" value={form.other_condition_2_interval} onChange={e => setForm({ ...form, other_condition_2_interval: e.target.value })} />
+                  </div>
                 </div>
               </div>
             </div>
