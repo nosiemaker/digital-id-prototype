@@ -20,6 +20,7 @@ import {
   Weight,
   MapPin,
   FileText,
+  Stethoscope,
 } from "lucide-react"
 import {
   Select,
@@ -45,6 +46,13 @@ import { birthRecordApi, type RecordRejection } from "@/lib/axios"
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import {
+  BirthDocumentActions,
+  DocumentViewerDialog,
+  BIRTH_REVIEW_ENDPOINT,
+  BIRTH_CERTIFICATE_ENDPOINT,
+  BIRTH_FULL_PACK_ENDPOINT,
+} from "@/components/document-viewer"
 
 export default function RegistrarBirthRecordsPage() {
   useRoleGuard(["REGISTRAR"])
@@ -61,6 +69,13 @@ export default function RegistrarBirthRecordsPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
 
+  // Document viewer state
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerEndpoint, setViewerEndpoint] = useState<any>(null)
+  const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -72,7 +87,7 @@ export default function RegistrarBirthRecordsPage() {
         birthRecordApi.getAll(),
         birthRecordApi.getPendingSubmissions()
       ])
-      
+
       setRecords(allData.records || [])
       setPendingSubmissions(pendingData.pending_submissions || [])
     } catch (err: any) {
@@ -116,6 +131,13 @@ export default function RegistrarBirthRecordsPage() {
     } finally {
       setActionLoading(false)
     }
+  }
+
+  // Document viewer helpers
+  function openDocumentViewer(endpoint: any, record: any) {
+    setViewerEndpoint(endpoint)
+    setViewerRecordId(record.id)
+    setViewerOpen(true)
   }
 
   const currentList = activeTab === "pending" ? pendingSubmissions : records
@@ -301,6 +323,12 @@ export default function RegistrarBirthRecordsPage() {
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{record.mother_din}</td>
                   <td className="px-4 py-3 text-muted-foreground">
+                    {record.date_of_birth ? new Date(record.date_of_birth).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">
+                    {record.health_facility_name || record.place_of_birth || "—"}
+                  </td>
+                  <td className="px-4 py-3">
                     <Badge
                       variant="outline"
                       className={cn(
@@ -317,7 +345,7 @@ export default function RegistrarBirthRecordsPage() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -326,18 +354,53 @@ export default function RegistrarBirthRecordsPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+
+                      {/* Document Actions based on status */}
                       {record.status === "PENDING" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                          onClick={() => openDocumentViewer(BIRTH_REVIEW_ENDPOINT, record)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Review Docs
+                        </Button>
+                      )}
+
+                      {record.status === "APPROVED" && (
                         <>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => setReviewRecord(record)}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => openDocumentViewer(BIRTH_CERTIFICATE_ENDPOINT, record)}
                           >
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Review
+                            <FileText className="h-4 w-4 mr-1" />
+                            Certificate
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => openDocumentViewer(BIRTH_FULL_PACK_ENDPOINT, record)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Full Pack
                           </Button>
                         </>
+                      )}
+
+                      {record.status === "PENDING" && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => setReviewRecord(record)}
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                          Review
+                        </Button>
                       )}
                     </div>
                   </td>
@@ -441,7 +504,7 @@ export default function RegistrarBirthRecordsPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Facility</p>
-                  <p className="text-sm font-medium text-foreground">{selectedRecord.facility_name}</p>
+                  <p className="text-sm font-medium text-foreground">{selectedRecord.health_facility_name || selectedRecord.home_address || "—"}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">District</p>
@@ -449,20 +512,72 @@ export default function RegistrarBirthRecordsPage() {
                 </div>
               </div>
 
+              {/* Document Actions in Detail View */}
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <h4 className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5" />
+                  Documents
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedRecord.status === "PENDING" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-primary text-primary hover:bg-primary/10"
+                      onClick={() => {
+                        setSelectedRecord(null)
+                        openDocumentViewer(BIRTH_REVIEW_ENDPOINT, selectedRecord)
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1.5" />
+                      Review Documents (Notice + Record)
+                    </Button>
+                  )}
+                  {selectedRecord.status === "APPROVED" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-green-500 text-green-600 hover:bg-green-50"
+                        onClick={() => {
+                          setSelectedRecord(null)
+                          openDocumentViewer(BIRTH_CERTIFICATE_ENDPOINT, selectedRecord)
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-1.5" />
+                        View Birth Certificate
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-primary text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setSelectedRecord(null)
+                          openDocumentViewer(BIRTH_FULL_PACK_ENDPOINT, selectedRecord)
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-1.5" />
+                        Download Full Pack (3 docs)
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+
               {/* Form References */}
               <div className="rounded-lg border border-border p-4 space-y-2">
                 <h4 className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5" />
+                  <Stethoscope className="h-3.5 w-3.5" />
                   Form References
                 </h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Notice Serial:</span>
-                    <span className="ml-2 font-mono">{selectedRecord.notice_serial_number}</span>
+                    <span className="ml-2 font-mono">{selectedRecord.notice_serial_number || selectedRecord.notice_of_birth?.serial_number || "—"}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Record Serial:</span>
-                    <span className="ml-2 font-mono">{selectedRecord.record_of_birth_serial_number}</span>
+                    <span className="ml-2 font-mono">{selectedRecord.record_of_birth_serial_number || selectedRecord.record_of_birth?.serial_number || "—"}</span>
                   </div>
                 </div>
               </div>
@@ -536,7 +651,7 @@ export default function RegistrarBirthRecordsPage() {
               Please verify all details before approving. This will generate a Birth Certificate and assign a DIN to the child.
             </DialogDescription>
           </DialogHeader>
-          
+
           {reviewRecord && (
             <div className="space-y-4 mt-4">
               <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
@@ -550,10 +665,30 @@ export default function RegistrarBirthRecordsPage() {
                       Mother: {reviewRecord.mother_din}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Born: {new Date(reviewRecord.date_of_birth).toLocaleDateString()} at {reviewRecord.facility_name}
+                      Born: {new Date(reviewRecord.date_of_birth).toLocaleDateString()} at {reviewRecord.health_facility_name || reviewRecord.place_of_birth}
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Pre-approval document review link */}
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Pre-Approval Review:</h4>
+                <p className="text-sm text-blue-700 mb-3">
+                  Before approving, review the submitted documents to verify all details are correct.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  onClick={() => {
+                    setReviewRecord(null)
+                    openDocumentViewer(BIRTH_REVIEW_ENDPOINT, reviewRecord)
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-1.5" />
+                  Review Notice of Birth + Record of Birth
+                </Button>
               </div>
 
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
@@ -614,7 +749,7 @@ export default function RegistrarBirthRecordsPage() {
               Please provide a detailed reason for rejection. This will be visible to the submitting Health Worker.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 mt-4">
             {reviewRecord && (
               <div className="rounded-lg bg-muted/50 p-3">
@@ -670,6 +805,18 @@ export default function RegistrarBirthRecordsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Document Viewer Dialog */}
+      {viewerEndpoint && viewerRecordId && (
+        <DocumentViewerDialog
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          endpoint={viewerEndpoint}
+          recordId={viewerRecordId}
+          token={token}
+          status={records.find(r => r.id === viewerRecordId)?.status || "PENDING"}
+        />
+      )}
     </div>
   )
 }

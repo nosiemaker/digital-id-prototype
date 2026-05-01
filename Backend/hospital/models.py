@@ -144,7 +144,7 @@ class MedicalCertificateCauseOfDeath(models.Model):
 
     # --- Reference ---
     medical_no = models.CharField(
-        max_length=30, unique=True,
+        max_length=30, unique=True,null=True,
         help_text="Pre-printed medical number on the counterfoil",
     )
 
@@ -294,7 +294,7 @@ class NoticeOfDeath(models.Model):
     nationality           = models.CharField(max_length=100, blank=True, null=True)
     national_identity_no  = models.CharField(max_length=30, blank=True, null=True, help_text="NRC number")
     social_security_no    = models.CharField(max_length=30, blank=True, null=True, help_text="NAPSA number")
-    education_level       = models.CharField(max_length=20, choices=EducationChoices.choices, blank=True, null=True)
+    education_level      = models.CharField(max_length=20, choices=EducationChoices.choices, blank=True, null=True)
 
     # --- Section B: Cause of Death (FOR OFFICIAL USE ONLY) ---
     # Populated by the RO from the attached MCCD — not submitted by the informant.

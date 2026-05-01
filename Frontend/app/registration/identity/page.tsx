@@ -120,7 +120,7 @@ export default function IdentityRegistrationPage() {
     if (!tokenStore.getAccess()) { router.replace("/login"); return }
     authApi.me()
       .then(me => {
-        if (me.citizen_din) router.replace("/wallet")
+        if (me.citizen_din) router.replace("/admin/citizens/wallet")
         else setGuardDone(true)
       })
       .catch(() => setGuardDone(true))
@@ -221,7 +221,7 @@ export default function IdentityRegistrationPage() {
         face_image_url: form.faceUrl,
       })
 
-      router.push("/wallet")
+      router.push("/admin/citizens/wallet")
     } catch (e: unknown) {
       const err = e as { detail?: string; message?: string }
       setError(err?.detail ?? err?.message ?? "Submission failed. Please try again.")
@@ -261,7 +261,7 @@ export default function IdentityRegistrationPage() {
               <span className="text-[10px] font-medium text-muted-foreground">Identity Registration</span>
             </div>
           </Link>
-          <Link href="/wallet" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/admin/citizens/wallet" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to wallet
           </Link>
         </div>

@@ -1,3 +1,4 @@
+// app/admin/registrar/death-records/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -46,6 +47,12 @@ import { deathRecordApi, type RecordRejection } from "@/lib/axios"
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import {
+  DocumentViewerDialog,
+  DEATH_REVIEW_ENDPOINT,
+  DEATH_CERTIFICATES_ENDPOINT,
+  DEATH_FULL_PACK_ENDPOINT,
+} from "@/components/document-viewer"
 
 export default function RegistrarDeathRecordsPage() {
   useRoleGuard(["REGISTRAR"])
@@ -62,6 +69,13 @@ export default function RegistrarDeathRecordsPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
 
+  // Document viewer state
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerEndpoint, setViewerEndpoint] = useState<any>(null)
+  const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -73,7 +87,7 @@ export default function RegistrarDeathRecordsPage() {
         deathRecordApi.getAll(),
         deathRecordApi.getPendingSubmissions()
       ])
-      
+
       setRecords(allData.records || [])
       setPendingSubmissions(pendingData.pending_submissions || [])
     } catch (err: any) {
@@ -117,6 +131,13 @@ export default function RegistrarDeathRecordsPage() {
     } finally {
       setActionLoading(false)
     }
+  }
+
+  // Document viewer helpers
+  function openDocumentViewer(endpoint: any, record: any) {
+    setViewerEndpoint(endpoint)
+    setViewerRecordId(record.id)
+    setViewerOpen(true)
   }
 
   const currentList = activeTab === "pending" ? pendingSubmissions : records
@@ -331,7 +352,7 @@ export default function RegistrarDeathRecordsPage() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -340,6 +361,43 @@ export default function RegistrarDeathRecordsPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+
+                      {/* Document Actions based on status */}
+                      {record.status === "PENDING" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                          onClick={() => openDocumentViewer(DEATH_REVIEW_ENDPOINT, record)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Review Docs
+                        </Button>
+                      )}
+
+                      {record.status === "APPROVED" && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => openDocumentViewer(DEATH_CERTIFICATES_ENDPOINT, record)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Certificates
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => openDocumentViewer(DEATH_FULL_PACK_ENDPOINT, record)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Full Pack
+                          </Button>
+                        </>
+                      )}
+
                       {record.status === "PENDING" && (
                         <Button 
                           variant="ghost" 
@@ -422,7 +480,7 @@ export default function RegistrarDeathRecordsPage() {
                   <Stethoscope className="h-3.5 w-3.5" />
                   Medical Certificate of Cause of Death
                 </h4>
-                
+
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Medical No</p>
@@ -472,6 +530,58 @@ export default function RegistrarDeathRecordsPage() {
                   <p className="text-xs text-muted-foreground">Medical Attendant</p>
                   <p className="text-sm font-medium">{selectedRecord.medical_attendant_name}</p>
                   <p className="text-xs text-muted-foreground">{selectedRecord.medical_attendant_qualification}</p>
+                </div>
+              </div>
+
+              {/* Document Actions in Detail View */}
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <h4 className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5" />
+                  Documents
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedRecord.status === "PENDING" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-primary text-primary hover:bg-primary/10"
+                      onClick={() => {
+                        setSelectedRecord(null)
+                        openDocumentViewer(DEATH_REVIEW_ENDPOINT, selectedRecord)
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1.5" />
+                      Review MCCD + Notice of Death
+                    </Button>
+                  )}
+                  {selectedRecord.status === "APPROVED" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-green-500 text-green-600 hover:bg-green-50"
+                        onClick={() => {
+                          setSelectedRecord(null)
+                          openDocumentViewer(DEATH_CERTIFICATES_ENDPOINT, selectedRecord)
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-1.5" />
+                        View Death Certificate + Burial Permit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-primary text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setSelectedRecord(null)
+                          openDocumentViewer(DEATH_FULL_PACK_ENDPOINT, selectedRecord)
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-1.5" />
+                        Download Full Pack (4 docs)
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -579,7 +689,7 @@ export default function RegistrarDeathRecordsPage() {
               Please verify all details before approving. This will generate a Death Certificate and Burial Permit.
             </DialogDescription>
           </DialogHeader>
-          
+
           {reviewRecord && (
             <div className="space-y-4 mt-4">
               <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
@@ -595,6 +705,26 @@ export default function RegistrarDeathRecordsPage() {
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Pre-approval document review link */}
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Pre-Approval Review:</h4>
+                <p className="text-sm text-blue-700 mb-3">
+                  Before approving, review the submitted MCCD and Notice of Death to verify all details are correct.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  onClick={() => {
+                    setReviewRecord(null)
+                    openDocumentViewer(DEATH_REVIEW_ENDPOINT, reviewRecord)
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-1.5" />
+                  Review MCCD + Notice of Death
+                </Button>
               </div>
 
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
@@ -655,7 +785,7 @@ export default function RegistrarDeathRecordsPage() {
               Please provide a detailed reason for rejection. This will be visible to the submitting Health Worker.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 mt-4">
             {reviewRecord && (
               <div className="rounded-lg bg-muted/50 p-3">
@@ -711,6 +841,18 @@ export default function RegistrarDeathRecordsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Document Viewer Dialog */}
+      {viewerEndpoint && viewerRecordId && (
+        <DocumentViewerDialog
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          endpoint={viewerEndpoint}
+          recordId={viewerRecordId}
+          token={token}
+          status={records.find(r => r.id === viewerRecordId)?.status || "PENDING"}
+        />
+      )}
     </div>
   )
 }

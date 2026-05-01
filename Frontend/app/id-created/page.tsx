@@ -88,7 +88,7 @@ export default function IDCreatedPage() {
         {/* Actions */}
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <Link
-            href="/wallet"
+            href="/admin/citizens/wallet"
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
           >
             View My Digital ID <ArrowRight className="h-4 w-4" />

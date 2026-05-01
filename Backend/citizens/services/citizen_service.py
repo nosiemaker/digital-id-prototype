@@ -148,3 +148,24 @@ def reinstate_citizen(din: str, actor_id: Optional[int] = None, actor_role: str 
             audit.citizen_reinstated(actor_id, actor_role, din)
 
     return citizen
+
+def lookup_citizen_for_form(din: str) -> Optional[dict]:
+    """
+    Fetches a citizen by DIN and returns a flattened dict for frontend auto-fill.
+    Returns None if not found. Avoids full profile serialization overhead.
+    """
+    citizen = Citizen.objects.filter(din=din.strip()).first()
+    if not citizen:
+        return None
+
+    return {
+        "din": citizen.din,
+        "full_name": citizen.full_name,
+        "phone": citizen.phone,
+        "residential_address": citizen.residential_address,
+        "nrc": citizen.nrc,
+        "nationality": citizen.nationality,
+        "sex": citizen.gender,
+        "dob": citizen.dob,
+        "occupation": citizen.occupation,
+    }

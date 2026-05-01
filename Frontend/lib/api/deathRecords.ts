@@ -36,4 +36,44 @@ export const deathRecordApi = {
     const { data } = await axiosInstance.put(`/deaths/${submissionId}/reject`, body);
     return data;
   },
+    getMyCertificates: async (): Promise<{ details: string; certificates: any[] }> => {
+    const { data } = await axiosInstance.get('/deaths/my_certificates');
+    return data;
+  },
+    getMyBurialPermits: async (): Promise<{ details: string; permits: any[] }> => {
+    const { data } = await axiosInstance.get('/deaths/my_burial_permits');
+    return data;
+  },
+    reviewDocuments: async (id: number): Promise<Response> => {
+    return axiosInstance.get(`/deaths/${id}/view`, {
+      responseType: 'arraybuffer',
+    });
+  },
+    viewCertificates: async (id: number): Promise<Response> => {
+    return axiosInstance.get(`/deaths/${id}/view/certificates`, {
+      responseType: 'arraybuffer',
+    });
+  },
+    reviewFullPack: async (id: number): Promise<Response> => {
+    return axiosInstance.get(`/deaths/${id}/review/full_pack`, {
+      responseType: 'arraybuffer',
+    });
+  },
+  submitNoticeOfDeath: async (deathRecordId: number, body: Record<string, any>): Promise<{
+  details: string;
+  death_records_id: number;
+  notice_of_death_id: number;
+  status: number;
+}> => {
+  const { data } = await axiosInstance.post(`/deaths/submit/${deathRecordId}/notice_of_death`, body);
+  return data;
+},
+getAllApproved: async (): Promise<{ details: string; records: any[] }> => {
+  const { data } = await axiosInstance.get('/deaths/all/approved');
+  return data;
+},
+getMySubmissions: async (): Promise<{ details: string; records: any[] }> => {
+  const { data } = await axiosInstance.get('/deaths/my_submissions');
+  return data;
+},
 };

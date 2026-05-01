@@ -16,6 +16,7 @@ dependencies = [
     "python-decouple>=3.8",
     "python-dotenv>=1.2.2",
     "python-jose[cryptography,cyptography]>=3.5.0",
+    "qrcode>=8.2",
     "reportlab>=4.4.10",
     "uvicorn>=0.44.0",
 ]

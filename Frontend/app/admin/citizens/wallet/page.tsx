@@ -11,7 +11,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { tokenStore, digitalIdApi, qrApi, authApi, citizenApi, thirdPartyApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type CitizenResponse } from "@/lib/axios"
+import { tokenStore, digitalIdApi, qrApi, authApi, citizenApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type CitizenResponse } from "@/lib/axios"
 import { QRCodeCanvas as QRCode } from "qrcode.react"
 import {
   Shield,
@@ -28,6 +28,8 @@ import {
   Eye,
   History,
   ChevronRight,
+  FileText,
+  Link2,
   Globe,
   Moon,
   Smartphone,
@@ -36,8 +38,6 @@ import {
   Lock,
   Copy,
   RefreshCw,
-  Link2,
-  Search,
   Crown,
   Building2,
 } from "lucide-react"
@@ -60,6 +60,7 @@ const sidebarLinks = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "partners", label: "Partners", icon: Link2 },
   { id: "settings", label: "Settings", icon: Settings },
+  { id: "notice-of-death", label: "Submit Notice of Death", icon: FileText, href: "/admin/citizens/notice-of-death" },
 ]
 
 const recentActivity = [
@@ -600,8 +601,10 @@ export default function WalletPage() {
   const fetchActiveInstitutions = useCallback(async () => {
     setInstitutionsLoading(true)
     try {
-      const data = await thirdPartyApi.getActive()
-      setActiveInstitutions(data)
+      // TODO: Implement third-party API when available
+      // const data = await thirdPartyApi.getActive()
+      // setActiveInstitutions(data)
+      setActiveInstitutions([]) // Temporary empty array
     } catch (err: any) {
       console.error("Failed to fetch active institutions", {
         message: err.message,
@@ -674,6 +677,18 @@ export default function WalletPage() {
           {sidebarLinks.map((link) => {
             const Icon = link.icon
             const isActive = activeTab === link.id
+            if (link.href) {
+              return (
+                <a
+                  key={link.id}
+                  href={link.href}
+                  className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground"
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left">{link.label}</span>
+                </a>
+              )
+            }
             return (
               <button
                 key={link.id}

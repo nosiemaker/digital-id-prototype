@@ -42,4 +42,31 @@ export const birthRecordApi = {
     const { data } = await axiosInstance.put(`/births/${submissionId}/reject`, body);
     return data;
   },
+    getMyCertificates: async (): Promise<{ details: string; certificates: any[] }> => {
+    const { data } = await axiosInstance.get('/births/my_certificates');
+    return data;
+  },
+    reviewDocuments: async (id: number): Promise<Response> => {
+    return axiosInstance.get(`/births/${id}/review`, {
+      responseType: 'arraybuffer',
+    });
+  },
+    viewCertificate: async (id: number): Promise<Response> => {
+    return axiosInstance.get(`/births/${id}/view/certificate`, {
+      responseType: 'arraybuffer',
+    });
+  },
+    reviewFullPack: async (id: number): Promise<Response> => {
+    return axiosInstance.get(`/births/${id}/review/full_pack`, {
+      responseType: 'arraybuffer',
+    });
+  },
+  getAllApproved: async (): Promise<{ details: string; records: any[] }> => {
+  const { data } = await axiosInstance.get('/births/all/approved');
+  return data;
+},
+getMySubmissions: async (): Promise<{ details: string; records: any[] }> => {
+  const { data } = await axiosInstance.get('/births/my_submissions');
+  return data;
+},
 };

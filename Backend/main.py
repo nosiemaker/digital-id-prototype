@@ -34,7 +34,7 @@ app = FastAPI(
 
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(citizens.router, prefix="/citizens", tags=["citizens"])
+app.include_router(citizens.router, tags=["citizens"])
 app.include_router(citizen_registration.router,prefix="/enrollments", tags=["enrollments"])
 app.include_router(hospital.birth_router,prefix="/births", tags=["birth_records"])
 app.include_router(hospital.death_router,prefix="/deaths", tags=["death_records"])

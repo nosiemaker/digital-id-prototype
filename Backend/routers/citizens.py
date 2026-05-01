@@ -11,9 +11,11 @@ from citizens.schema import (
     BiometricRecordBase,
     BiometricRecordResponse,
     FamilyLinkBase,
-    FamilyLinkResponse,
+    FamilyLinkResponse, CitizenLookupResponse,
 )
-from citizens.services import citizen_service, biometric_service, family_service
+from citizens.services import(
+    citizen_service, biometric_service, family_service)
+from citizens.services.citizen_service import lookup_citizen_for_form
 from asgiref.sync import sync_to_async
 
 from dependencies.auth import require_groups
@@ -42,6 +44,28 @@ async def get_citizen(
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Citizens can only view their own profile.")
 
     return citizen
+
+@router.get("/lookup/{din}", response_model=CitizenLookupResponse)
+async def look_citizen_for_autofill(
+        din: str,
+        user=Depends(require_groups([
+            UserRole.HEALTH_WORKER,
+            UserRole.REGISTRAR,
+            UserRole.CITIZEN
+        ]))
+):
+    """
+    GET /citizens/lookup/{din}
+    Lightweight citizen lookup for form auto-fill.
+    Returns essential fields without full profile overhead.
+    """
+    result = await sync_to_async(lookup_citizen_for_form)(din)
+    if not result:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"Citizen with DIN '{din}' not found in registry"
+        )
+    return result
 
 
 @router.patch("/{din}", response_model=CitizenResponse)

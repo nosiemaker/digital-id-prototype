@@ -16,14 +16,14 @@ export interface RouteConfig {
 
 export const ROLE_ROUTES: Record<UserRole, string> = {
   REGISTRATION_OFFICER: "/admin/registrations",
-  HEALTH_WORKER: "/admin/health-worker/birth-records",
+  HEALTH_WORKER: "/admin/health-worker/dashboard",
   REGISTRAR: "/admin/registrar/birth-records",
   SUPERVISOR: "/admin/dashboard",
-  CITIZEN: "/wallet",
+  CITIZEN: "/admin/citizens/wallet",
   THIRD_PARTY: "/institutions/dashboard",
 };
 
-export const DEFAULT_ROUTE = "/wallet";
+export const DEFAULT_ROUTE = "/admin/citizens/wallet";
 
 // Navigation items for sidebar
 export const sidebarRoutes: RouteConfig[] = [
@@ -51,6 +51,13 @@ export const sidebarRoutes: RouteConfig[] = [
   },
 
   // HEALTH WORKER ONLY
+  {
+    path: "/admin/health-worker/dashboard",
+    label: "Dashboard",
+    icon: "LayoutDashboard",
+    allowedRoles: ["HEALTH_WORKER"],
+    description: "View your submission history and statistics",
+  },
   {
     path: "/admin/health-worker/birth-records",
     label: "Birth Records",
@@ -89,11 +96,11 @@ export const sidebarRoutes: RouteConfig[] = [
     description: "Approve or reject death registrations",
   },
   {
-    path: "/admin/certificates",
+    path: "/admin/registrar/certificates",
     label: "Certificates",
     icon: "FileText",
     allowedRoles: ["REGISTRAR"],
-    description: "Generate, verify, and manage digital certificates",
+    description: "View, search, and reissue approved birth and death certificates",
   },
   {
     path: "/admin/reports",

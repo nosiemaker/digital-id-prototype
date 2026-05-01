@@ -89,6 +89,19 @@ export interface ProvinceOption {
   code: string;
 }
 
+export interface CitizenLookupResult {
+  din: string;
+  full_name: string;
+  phone?: string;
+  residential_address?: string;
+  nrc?: string;
+  nationality?: string;
+  sex?: string;
+  dob?: string;
+  occupation?: string;
+}
+
+
 export interface DistrictOption {
   id: number;
   name: string;

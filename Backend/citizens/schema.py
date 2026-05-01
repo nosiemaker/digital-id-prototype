@@ -125,6 +125,19 @@ class CitizenResponse(CitizenBase):
     created_at: datetime
     updated_at: datetime
 
+class CitizenLookupResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    din: str
+    full_name: str
+    phone: Optional[str] = None
+    residential_address: Optional[str] = None
+    nrc: Optional[str] = None
+    nationality: Optional[str] = None
+    sex: Optional[str] = None
+    dob: Optional[date] = None
+    occupation: Optional[str] = None
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Biometric Schemas

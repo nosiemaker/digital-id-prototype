@@ -25,11 +25,11 @@
 #   get_all_births_records / get_all_death_records
 #   get_birth_certificates_by_user / get_burial_permits_by_user / get_death_certificates_by_user
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import secrets
-from pathlib import Path
+
 from django.db import models, transaction
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from Utils.audit_logger import audit
 #from Utils.certificate_generator import generate_certificate
 from admin_ops.models import SystemUser
@@ -87,22 +87,24 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         HTTPException 400 — informant_din missing, Citizen not found, serialiser invalid.
         HTTPException 400 — SystemUser not found for resolved Citizen.
     """
+    if not request_body.get("medical_no"):
+        request_body["medical_no"] = f"MED-{datetime.now(timezone.utc)}{secrets.token_hex(3).upper()}"
+    if not request_body.get("witness_date"):
+        request_body["witness_date"] = datetime.now(timezone.utc)
+
     informant_din = request_body.get("informant_din")
 
     if not informant_din:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="informant_din is required",
+            detail="Informant Din is required",
         )
 
     # Resolve informant's DIN to a Citizen record
-    try:
-        informant = Citizen.objects.get(din=informant_din)
-    except Citizen.DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Informant with DIN '{informant_din}' not found in citizen registry",
-        )
+    informant = Citizen.objects.filter(din=informant_din.upper().strip()).first()
+
+    if not informant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Citizen with DIN '{informant_din}' not found")
 
     # Enrich request data with informant details pulled from the Citizen record
     # so the MCCD model receives concrete values rather than just the DIN reference.
@@ -2321,3 +2323,15 @@ def review_all_approved_death_documents(death_records_id: int) -> dict:
         "notice_of_death_pdf": notice_pdf_path,
         "death_records_id": death_records_id,
     }
+
+def get_hw_birth_submission(user_id: int) -> dict:
+    """Returns all birth submissions created by this health worker"""
+    records = BirthRecords.objects.filter(health_worker_id=user_id).order_by("-submitted_at")
+    serializer = BirthRecordRequestSerializer(records, many=True)
+    return {"details": "Submission Found", "record": serializer.data}
+
+def get_hw_death_submission(user_id: int) -> dict:
+    """Returns all death submissions created by this health worker."""
+    records = DeathRecords.objects.filter(health_worker_id=user_id).order_by("-submitted_at")
+    serializer = DeathRecordRequestSerializer(records, many=True)
+    return {"details": "submissions Found", "records": serializer.data}

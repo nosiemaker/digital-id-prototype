@@ -9,6 +9,7 @@ import type {
   FamilyLinkBase,
   FamilyLinkResponse,
   FamilyTreeResponse,
+  CitizenLookupResult,
 } from '../../utils/types';
 
 export const citizenApi = {
@@ -59,6 +60,10 @@ export const citizenApi = {
 
   getFamilyTree: async (din: string): Promise<FamilyTreeResponse> => {
     const { data } = await axiosInstance.get<FamilyTreeResponse>(`/citizens/${din}/family-tree`);
+    return data;
+  },
+  lookup: async (din: string): Promise<CitizenLookupResult> => {
+    const { data } = await axiosInstance.get(`/citizens/lookup/${din}`);
     return data;
   },
 };

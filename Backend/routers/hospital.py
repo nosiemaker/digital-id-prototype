@@ -53,6 +53,8 @@ from hospital.services.birth_death_recording import (
     review_all_approved_birth_documents,
     get_all_approved_births_records,
     get_all_approved_death_records,
+    get_hw_birth_submission,
+    get_hw_death_submission,
 )
 
 birth_router = APIRouter()
@@ -1009,4 +1011,22 @@ async def get_my_death_certificates(
     Returns: List of DeathCertificate records (or empty list).
     """
     result = await sync_to_async(get_death_certificates_by_user)(user["id"])
+    return result
+
+@birth_router.get("/my_submissions")
+async def get_my_birth_submissions(
+        request: Request,
+        user=Depends(require_groups([UserRole.HEALTH_WORKER])),
+):
+    """Get /births/my_submissions -HW Only: returns own birth submissions."""
+    result = await sync_to_async(get_hw_birth_submission)(user["id"])
+    return result
+
+@death_router.get("/my_submissions")
+async def get_my_death_submissions(
+        request: Request,
+        user=Depends(require_groups([UserRole.HEALTH_WORKER])),
+):
+    """GET /deaths/my_submissions — HW-only: returns own death submissions."""
+    result = await sync_to_async(get_hw_death_submission)(user["id"])
     return result
