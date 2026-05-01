@@ -1,4 +1,4 @@
-// app/admin/registrar/birth-records/page.tsx
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -74,7 +74,7 @@ export default function RegistrarBirthRecordsPage() {
   const [viewerEndpoint, setViewerEndpoint] = useState<any>(null)
   const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
+  const token = typeof window !== 'undefined' ? localStorage.getItem('zdid_access_token') || '' : ''
 
   useEffect(() => {
     fetchData()

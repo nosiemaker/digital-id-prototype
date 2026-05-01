@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { FileText, Download, X, Loader2, AlertCircle, Eye } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -85,8 +85,10 @@ export interface StreamingEndpoint {
   accessRoles: string[]
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL
+
 export const BIRTH_REVIEW_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `/births/${id}/review`,
+  url: (id: number) => `${API_BASE}/births/${id}/review`,
   method: "GET",
   parts: [
     { name: "notice_of_birth", label: "Notice of Birth (Form VIII)", filename: "notice_of_birth.pdf" },
@@ -97,7 +99,7 @@ export const BIRTH_REVIEW_ENDPOINT: StreamingEndpoint = {
 }
 
 export const BIRTH_CERTIFICATE_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `/births/${id}/view/certificate`,
+  url: (id: number) => `${API_BASE}/births/${id}/view/certificate`,
   method: "GET",
   parts: [{ name: "birth_certificate", label: "Birth Certificate", filename: "birth_certificate.pdf" }],
   isSinglePdf: true,
@@ -106,7 +108,7 @@ export const BIRTH_CERTIFICATE_ENDPOINT: StreamingEndpoint = {
 }
 
 export const BIRTH_FULL_PACK_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `/births/${id}/review/full_pack`,
+  url: (id: number) => `${API_BASE}/births/${id}/view/full_pack`,
   method: "GET",
   parts: [
     { name: "birth_certificate", label: "Birth Certificate", filename: "birth_certificate.pdf" },
@@ -119,7 +121,7 @@ export const BIRTH_FULL_PACK_ENDPOINT: StreamingEndpoint = {
 }
 
 export const DEATH_REVIEW_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `/deaths/${id}/view`,
+  url: (id: number) => `${API_BASE}/deaths/${id}/view`,
   method: "GET",
   parts: [
     { name: "mccd", label: "Medical Certificate of Cause of Death", filename: "mccd.pdf" },
@@ -130,7 +132,7 @@ export const DEATH_REVIEW_ENDPOINT: StreamingEndpoint = {
 }
 
 export const DEATH_CERTIFICATES_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `/deaths/${id}/view/certificates`,
+  url: (id: number) => `${API_BASE}/deaths/${id}/view/certificates`,
   method: "GET",
   parts: [
     { name: "death_certificate", label: "Death Certificate", filename: "death_certificate.pdf" },
@@ -142,7 +144,7 @@ export const DEATH_CERTIFICATES_ENDPOINT: StreamingEndpoint = {
 }
 
 export const DEATH_FULL_PACK_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `/deaths/${id}/review/full_pack`,
+  url: (id: number) => `${API_BASE}/deaths/${id}/view/full_pack`,
   method: "GET",
   parts: [
     { name: "death_certificate", label: "Death Certificate", filename: "death_certificate.pdf" },
@@ -164,6 +166,12 @@ export function useDocumentStream() {
   const [error, setError] = useState<string | null>(null)
   const [documents, setDocuments] = useState<Map<string, string>>(new Map())
   const [activeDoc, setActiveDoc] = useState<string | null>(null)
+  const documentsRef = useRef<Map<string, string>>(new Map())
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    documentsRef.current = documents
+  }, [documents])
 
   const fetchDocuments = useCallback(async (
     endpoint: StreamingEndpoint,
@@ -174,9 +182,6 @@ export function useDocumentStream() {
     setError(null)
     setDocuments(new Map())
     setActiveDoc(null)
-
-    // Revoke old URLs
-    documents.forEach((url) => URL.revokeObjectURL(url))
 
     try {
       const url = typeof endpoint.url === 'function' ? endpoint.url(recordId) : endpoint.url
@@ -238,17 +243,17 @@ export function useDocumentStream() {
     } finally {
       setLoading(false)
     }
-  }, [documents])
+  }, [])
 
   const cleanup = useCallback(() => {
-    documents.forEach((url) => URL.revokeObjectURL(url))
+    documentsRef.current.forEach((url) => URL.revokeObjectURL(url))
     setDocuments(new Map())
     setActiveDoc(null)
     setError(null)
-  }, [documents])
+  }, [])
 
   const downloadDocument = useCallback((part: DocumentPart) => {
-    const url = documents.get(part.name)
+    const url = documentsRef.current.get(part.name)
     if (!url) return
 
     const a = document.createElement('a')
@@ -257,7 +262,7 @@ export function useDocumentStream() {
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-  }, [documents])
+  }, [])
 
   const downloadAll = useCallback((parts: DocumentPart[]) => {
     parts.forEach((part, i) => {
@@ -318,9 +323,9 @@ export function DocumentViewerDialog({
       fetchDocuments(endpoint, recordId, token)
     }
     return () => {
-      if (!open) cleanup()
+      cleanup()
     }
-  }, [open, recordId, endpoint, token, fetchDocuments, cleanup])
+  }, [open, recordId, endpoint, token])
 
   const activePart = endpoint.parts.find(p => p.name === activeDoc)
   const availableParts = endpoint.parts.filter(p => documents.has(p.name))

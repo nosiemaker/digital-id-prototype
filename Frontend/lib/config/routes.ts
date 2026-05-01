@@ -19,11 +19,11 @@ export const ROLE_ROUTES: Record<UserRole, string> = {
   HEALTH_WORKER: "/admin/health-worker/dashboard",
   REGISTRAR: "/admin/registrar/birth-records",
   SUPERVISOR: "/admin/dashboard",
-  CITIZEN: "/admin/citizens/wallet",
+  CITIZEN: "/citizens/wallet",
   THIRD_PARTY: "/institutions/dashboard",
 };
 
-export const DEFAULT_ROUTE = "/admin/citizens/wallet";
+export const DEFAULT_ROUTE = "/citizens/wallet";
 
 // Navigation items for sidebar
 export const sidebarRoutes: RouteConfig[] = [
@@ -36,14 +36,14 @@ export const sidebarRoutes: RouteConfig[] = [
     description: "Review and process citizen enrollment applications",
   },
   {
-    path: "/admin/citizens",
+    path: "/citizens",
     label: "Citizens",
     icon: "Users",
     allowedRoles: ["REGISTRATION_OFFICER"],
     description: "View all registered citizens",
   },
   {
-    path: "/admin/citizens/:id",
+    path: "/citizens/:id",
     label: "Citizen Details",
     icon: "Users",
     allowedRoles: ["REGISTRATION_OFFICER"],
