@@ -8,6 +8,7 @@ from django.conf import settings
 from fastapi import HTTPException, status
 from admin_ops.models import SystemUser
 from Utils.audit_logger import audit
+from Utils.email_service import send_account_verified_email
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ def issue_otp(user: SystemUser) -> None:
 
     _deliver_otp_email(user.email, raw_otp)
 
-    audit.alog(
+    audit.log(
         actor_id=user.id,
         actor_role=user.role,
         action="OTP_ISSUED",
@@ -149,7 +150,7 @@ def verify_otp(email: str, raw_otp: str) -> SystemUser:
     user.is_active = True
     user.save(update_fields=["is_email_verified", "otp_code", "otp_expires_at", "is_active"])
 
-    audit.alog(
+    audit.log(
         actor_id=user.id,
         actor_role=user.role,
         action="OTP_ISSUED",
@@ -157,5 +158,8 @@ def verify_otp(email: str, raw_otp: str) -> SystemUser:
         target_id=user.id,
         meta={"email": user.email}
     )
+
+    # Send welcome email
+    send_account_verified_email(user)
 
     return user

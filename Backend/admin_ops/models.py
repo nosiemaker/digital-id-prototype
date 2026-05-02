@@ -71,7 +71,7 @@ class SystemUser(AbstractUser):
     role = models.CharField(max_length=100, choices=UserRole.choices, default=UserRole.CITIZEN)
     institution_din = models.CharField(max_length=20, blank=True, unique=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
-    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_code = models.CharField(max_length=255, null=True, blank=True)
     otp_expires_at = models.DateTimeField(null=True, blank=True)
     is_email_verified = models.BooleanField(default=False)
 

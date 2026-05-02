@@ -20,6 +20,12 @@ from uuid import uuid4
 from citizens.utilities.id_generation import generate_id
 from Utils.audit_logger import audit
 from Utils.auth import hash_password
+from Utils.email_service import (
+    send_identity_submitted_email,
+    notify_officers_of_pending_review,
+    send_enrollment_approved_email,
+    send_enrollment_rejected_email
+)
 
 logger = logging.getLogger(__name__)
 
@@ -328,9 +334,12 @@ def identity_submission(body: IdentitySubmitRequest, system_user_id: int) -> dic
         )
 
         logger.info(
-            f"Identity submitted: user={system_user_id}, citizen={citizen.id}, "
             f"enrollment_request={enrollment_request.id}"
         )
+
+        # Send notifications
+        send_identity_submitted_email(system_user)
+        notify_officers_of_pending_review(citizen.full_name)
 
         return {
             "enrollment_request_id": enrollment_request.id,
@@ -372,7 +381,7 @@ def approve_citizen_registration(request_id: int, ro_id: int) -> dict:
     and activates the citizen record.
     """
     try:
-        enrollment = EnrollmentRequest.objects.select_related("citizen").get(id=request_id)
+        enrollment = EnrollmentRequest.objects.select_related("citizen", "citizen__user").get(id=request_id)
     except EnrollmentRequest.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -429,6 +438,13 @@ def approve_citizen_registration(request_id: int, ro_id: int) -> dict:
             meta={"din": din, "citizen_id": citizen.id, "nrc": citizen.nrc},
         )
 
+        # Send approval email
+        if citizen.user:
+            logger.info(f"Sending approval email to {citizen.user.email} for DIN {din}")
+            send_enrollment_approved_email(citizen.user, din)
+        else:
+            logger.warning(f"No user linked to citizen {citizen.id}, cannot send approval email.")
+
         return _enrollment_response(enrollment)
 
 # ─── Reject ───────────────────────────────────────────────────────────────────
@@ -447,7 +463,7 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason: s
         )
 
     try:
-        enrollment = EnrollmentRequest.objects.select_related("citizen").get(id=request_id)
+        enrollment = EnrollmentRequest.objects.select_related("citizen", "citizen__user").get(id=request_id)
     except EnrollmentRequest.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -483,6 +499,13 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason: s
                 "rejection_reason": rejection_reason,
             },
         )
+
+        # Send rejection email
+        if citizen.user:
+            logger.info(f"Sending rejection email to {citizen.user.email} for request {enrollment.id}")
+            send_enrollment_rejected_email(citizen.user, reason)
+        else:
+            logger.warning(f"No user linked to citizen {citizen.id}, cannot send rejection email.")
 
         return _enrollment_response(enrollment)
 
