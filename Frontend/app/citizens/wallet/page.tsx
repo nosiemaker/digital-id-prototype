@@ -441,6 +441,30 @@ export default function WalletPage() {
 
               {activeTab === "wallet" && (
                 <div className="space-y-6">
+                  {/* Complete Profile CTA */}
+                  {enrollmentState === "NOT_STARTED" && (
+                    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-card p-1 shadow-lg">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent opacity-50" />
+                      <div className="relative flex flex-col items-center justify-between gap-4 p-4 sm:flex-row sm:p-6">
+                        <div className="flex items-center gap-4 text-center sm:text-left">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20">
+                            <Logo width={32} height={32} />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-foreground">Complete Your Registration</h3>
+                            <p className="text-sm text-muted-foreground">Unlock your Digital ID and access all government services online.</p>
+                          </div>
+                        </div>
+                        <Link
+                          href="/registration/identity"
+                          className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 sm:w-auto"
+                        >
+                          Complete Now
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                   {/* Integrated Digital ID Card */}
                   {enrollmentState === "ACTIVE" ? (
                     <div className="rounded-2xl border border-primary/20 bg-[#0c0c0c] p-4 sm:p-6 shadow-2xl relative overflow-hidden">
@@ -603,30 +627,6 @@ export default function WalletPage() {
 
               {activeTab === "profile" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  {/* Complete Profile CTA */}
-                  {enrollmentState === "NOT_STARTED" && (
-                    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-card p-1 shadow-lg">
-                      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent opacity-50" />
-                      <div className="relative flex flex-col items-center justify-between gap-4 p-4 sm:flex-row sm:p-6">
-                        <div className="flex items-center gap-4 text-center sm:text-left">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20">
-                            <Logo width={32} height={32} />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-bold text-foreground">Complete Your Registration</h3>
-                            <p className="text-sm text-muted-foreground">Unlock your Digital ID and access all government services online.</p>
-                          </div>
-                        </div>
-                        <Link
-                          href="/registration/identity"
-                          className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 sm:w-auto"
-                        >
-                          Complete Now
-                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                        </Link>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Profile Header */}
                   <div className="rounded-2xl border border-border bg-card overflow-hidden">
