@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { Shield, Search, CheckCircle2, XCircle, ScanLine, ArrowLeft, User, Calendar, MapPin, Fingerprint } from "lucide-react"
+import { Logo } from "@/components/Logo"
 
 type VerifyState = "idle" | "loading" | "success" | "error"
 
@@ -31,14 +32,8 @@ export default function VerifyPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/90 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Shield className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold text-foreground">Zambia</span>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID</span>
-            </div>
+          <Link href="/" className="hover:opacity-90 transition-opacity">
+            <Logo variant="full" width={36} height={36} />
           </Link>
           <nav className="flex items-center gap-1">
             <Link href="/" className="px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors flex items-center gap-1.5">

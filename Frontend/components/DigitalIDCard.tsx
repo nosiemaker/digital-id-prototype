@@ -44,12 +44,12 @@ const formatCitizenType = (type: string): string => {
 }
 
 const ZambiaOfficialSeal = ({ className = "", style }: { className?: string; style?: React.CSSProperties }) => (
-  <div className={`rounded-full overflow-hidden border flex items-center justify-center bg-[#161D19] ${className}`} style={{ ...style, borderColor: style?.borderColor }}>
-    {/* Image 1: The Circular Seal */}
+  <div className={`rounded-full overflow-hidden border flex items-center justify-center bg-white ${className}`} style={{ ...style, borderColor: style?.borderColor }}>
+    {/* ZAMREN Logo */}
     <img 
-      src="/assets/image.png" 
-      alt="Republic of Zambia Official Seal" 
-      className="w-full h-full object-cover opacity-90" 
+      src="/assets/zamren_logo.png" 
+      alt="ZAMREN Logo" 
+      className="w-full h-full object-contain p-0.5" 
     />
   </div>
 )

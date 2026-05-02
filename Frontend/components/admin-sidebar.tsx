@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils"
 import { tokenStore } from "@/lib/axios"
 import { getRoutesForRole, type UserRole } from "@/lib/config/routes"
+import { Logo } from "@/components/Logo"
 
 const iconMap: Record<string, React.ElementType> = {
   ClipboardList,
@@ -58,12 +59,10 @@ export function AdminSidebar({ userRole, onNavigate }: AdminSidebarProps) {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
       {/* Header */}
-      <div className="flex h-16 items-center gap-3 border-b border-border px-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shadow-sm">
-          <Shield className="h-5 w-5 text-primary-foreground" />
-        </div>
+      <div className="flex h-16 items-center gap-3 border-b border-border px-4">
+        <Logo width={32} height={32} />
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-foreground leading-tight">Zambia Digital ID</span>
+          <span className="text-sm font-bold text-foreground leading-tight">ZAMREN</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
             {userRole.replace("_", " ")}
           </span>

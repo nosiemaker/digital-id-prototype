@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Shield, Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react"
 import { authApi, APIError, tokenStore } from "@/lib/axios"
+import { Logo } from "@/components/Logo"
 
 import { ROLE_ROUTES, DEFAULT_ROUTE, type UserRole } from "@/lib/config/routes"
 
@@ -59,11 +60,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex flex-col items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/20">
-              <Shield className="h-7 w-7 text-primary-foreground" />
-            </div>
+            <Logo width={64} height={64} />
             <div>
-              <p className="text-lg font-bold text-foreground">Zambia Digital ID</p>
+              <p className="text-lg font-bold text-foreground">ZAMREN Digital ID</p>
               <p className="text-xs text-muted-foreground">Admin Portal Access</p>
             </div>
           </Link>

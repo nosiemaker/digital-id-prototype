@@ -17,6 +17,7 @@ import {
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { tokenStore } from "@/lib/axios"
+import { Logo } from "@/components/Logo"
 
 
 const features = [
@@ -64,14 +65,8 @@ export default function LandingPage() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/90 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Shield className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold text-foreground">Zambia</span>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID</span>
-            </div>
+          <Link href="/" className="hover:opacity-90 transition-opacity">
+            <Logo variant="full" width={36} height={36} />
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
@@ -105,8 +100,8 @@ export default function LandingPage() {
         </div>
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            Republic of Zambia — Official Digital Identity System
+            <Logo width={16} height={16} />
+            ZAMREN — Official Digital Identity System
           </div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl text-balance">
             Your Identity,{" "}
@@ -131,10 +126,8 @@ export default function LandingPage() {
             <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-primary" />
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded bg-primary">
-                  <Shield className="h-4 w-4 text-white" />
-                </div>
-                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Zambia Digital ID</span>
+                <Logo width={28} height={28} />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Digital ID</span>
               </div>
               <span className="text-xs text-primary font-semibold bg-primary/10 px-2 py-0.5 rounded-full">VERIFIED</span>
             </div>

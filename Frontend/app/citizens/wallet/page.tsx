@@ -42,6 +42,7 @@ import {
   Share2,
   ScanLine,
 } from "lucide-react"
+import { Logo } from "@/components/Logo"
 
 import { useMe } from "@/hooks/useMe"
 import { EnrollmentBanner } from "@/components/enrollment/enrollmentBanner"
@@ -334,13 +335,11 @@ export default function WalletPage() {
     <div className="min-h-screen bg-background font-sans flex">
       {/* Sidebar */}
       <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-card shrink-0 sticky top-0 h-screen">
-        <div className="flex h-16 items-center gap-2.5 px-5 border-b border-border">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Shield className="h-5 w-5 text-primary-foreground" />
-          </div>
+        <div className="flex h-16 items-center gap-2.5 px-4 border-b border-border">
+          <Logo width={32} height={32} />
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold text-foreground">Zambia</span>
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID</span>
+            <span className="text-sm font-bold text-foreground">ZAMREN</span>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID Wallet</span>
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -610,8 +609,8 @@ export default function WalletPage() {
                       <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent opacity-50" />
                       <div className="relative flex flex-col items-center justify-between gap-4 p-4 sm:flex-row sm:p-6">
                         <div className="flex items-center gap-4 text-center sm:text-left">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
-                            <Shield className="h-6 w-6" />
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20">
+                            <Logo width={32} height={32} />
                           </div>
                           <div>
                             <h3 className="text-lg font-bold text-foreground">Complete Your Registration</h3>
