@@ -119,10 +119,17 @@ export default function CitizenCertificatesPage() {
   const [viewerRecordName, setViewerRecordName] = useState<string>("")
 
   // Get auth token from your auth context/hook
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
+  const [token, setToken] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('zdid_access_token') || ''
+    }
+    return ''
+  })
 
   useEffect(() => {
     fetchData()
+    const stored = localStorage.getItem('zdid_access_token')
+    if (stored) setToken(stored)
   }, [])
 
   async function fetchData() {
