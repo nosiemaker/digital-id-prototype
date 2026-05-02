@@ -15,7 +15,7 @@ export interface RouteConfig {
 }
 
 export const ROLE_ROUTES: Record<UserRole, string> = {
-  REGISTRATION_OFFICER: "/admin/registrations",
+  REGISTRATION_OFFICER: "/admin",
   HEALTH_WORKER: "/admin/health-worker/dashboard",
   REGISTRAR: "/admin/registrar/birth-records",
   SUPERVISOR: "/admin/dashboard",
@@ -27,6 +27,15 @@ export const DEFAULT_ROUTE = "/citizens/wallet";
 
 // Navigation items for sidebar
 export const sidebarRoutes: RouteConfig[] = [
+  // SHARED DASHBOARD
+  {
+    path: "/admin",
+    label: "Dashboard",
+    icon: "LayoutDashboard",
+    allowedRoles: ["REGISTRAR", "SUPERVISOR", "REGISTRATION_OFFICER"],
+    description: "Overview and analytics",
+  },
+
   // REGISTRATION OFFICER ONLY
   {
     path: "/admin/registrations",
@@ -36,18 +45,18 @@ export const sidebarRoutes: RouteConfig[] = [
     description: "Review and process citizen enrollment applications",
   },
   {
+    path: "/admin/analytics",
+    label: "Analysis",
+    icon: "BarChart3",
+    allowedRoles: ["REGISTRATION_OFFICER", "SUPERVISOR", "REGISTRAR"],
+    description: "System analytics and demographic data",
+  },
+  {
     path: "/citizens",
     label: "Citizens",
     icon: "Users",
     allowedRoles: ["REGISTRATION_OFFICER"],
     description: "View all registered citizens",
-  },
-  {
-    path: "/citizens/:id",
-    label: "Citizen Details",
-    icon: "Users",
-    allowedRoles: ["REGISTRATION_OFFICER"],
-    description: "Review and approve/reject citizen enrollment applications",
   },
 
   // HEALTH WORKER ONLY
@@ -74,13 +83,6 @@ export const sidebarRoutes: RouteConfig[] = [
   },
 
   // REGISTRAR ONLY
-  {
-    path: "/admin/registrar",
-    label: "Dashboard",
-    icon: "LayoutDashboard",
-    allowedRoles: ["REGISTRAR", "SUPERVISOR"],
-    description: "Overview and analytics",
-  },
   {
     path: "/admin/registrar/birth-records",
     label: "Review Birth Records",

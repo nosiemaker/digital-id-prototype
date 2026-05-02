@@ -14,9 +14,11 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth
 
 from dependencies.auth import require_groups, UserRole
-from hospital.models import BirthRecords, DeathRecords
 # Adjust import path to match your project structure
 from Utils.audit_logger import audit
+from citizens.models import Citizen, CitizenStatus
+from registration.models import EnrollmentRequest, EnrollmentStatus
+from admin_ops.models import SystemUser, UserRole as AdminUserRole
 
 router = APIRouter()
 
@@ -28,6 +30,12 @@ class ReportsSummaryResponse(BaseModel):
     kpi: dict
     monthly_trends: dict
     demographics: dict
+
+class AdminStatsResponse(BaseModel):
+    kpi: dict
+    staff_breakdown: dict
+    recent_registrations: list
+    trends: list
 
 def _compute_summary(date_from: Optional[date], date_to: Optional[date], district: Optional[str]) -> dict:
     """
@@ -138,6 +146,65 @@ async def get_reports_summary(
     result = await sync_to_async(_compute_summary)(date_from, date_to, district)
     return result
 
+
+def _get_admin_stats():
+    # Citizen KPIs
+    total_citizens = Citizen.objects.count()
+    verified_citizens = Citizen.objects.filter(status=CitizenStatus.ACTIVE).count()
+    pending_enrollments = EnrollmentRequest.objects.filter(status=EnrollmentStatus.PENDING).count()
+    rejected_enrollments = EnrollmentRequest.objects.filter(status=EnrollmentStatus.REJECTED).count()
+
+    # Staff Breakdown
+    total_staff = SystemUser.objects.exclude(role=AdminUserRole.CITIZEN).count()
+    ro_count = SystemUser.objects.filter(role=AdminUserRole.REGISTRATION_OFFICER).count()
+    hw_count = SystemUser.objects.filter(role=AdminUserRole.HEALTH_WORKER).count()
+    registrar_count = SystemUser.objects.filter(role=AdminUserRole.REGISTRAR).count()
+
+    # Recent Registrations (Last 7)
+    recent = EnrollmentRequest.objects.select_related("citizen").order_by("-submitted_at")[:7]
+    recent_list = [
+        {
+            "id": r.id,
+            "name": r.citizen.full_name,
+            "date": r.submitted_at.strftime("%d %b %Y"),
+            "status": r.status,
+            "nrc": r.citizen.nrc
+        }
+        for r in recent
+    ]
+
+    # Trends (Mocked for now as we need more historical data, but structured correctly)
+    trends = [65, 72, 68, 80, 88, 91, 85, 95, 102, 98, 110, 115] # Values for last 12 months
+
+    return {
+        "kpi": {
+            "total_citizens": f"{total_citizens:,}",
+            "verified_ids": f"{verified_citizens:,}",
+            "pending_registrations": f"{pending_enrollments:,}",
+            "rejected_applications": f"{rejected_enrollments:,}"
+        },
+        "staff_breakdown": {
+            "total": total_staff,
+            "ro_count": ro_count,
+            "hw_count": hw_count,
+            "registrar_count": registrar_count,
+            "ro_pct": round((ro_count / total_staff * 100), 0) if total_staff else 0,
+            "hw_pct": round((hw_count / total_staff * 100), 0) if total_staff else 0,
+        },
+        "recent_registrations": recent_list,
+        "trends": trends
+    }
+
+@router.get("/admin-stats", response_model=AdminStatsResponse)
+async def get_admin_dashboard_stats(
+    user: dict = Depends(require_groups([UserRole.REGISTRAR, UserRole.SUPERVISOR, UserRole.REGISTRATION_OFFICER])),
+):
+    """
+    Real-time statistics for the main Admin Dashboard.
+    """
+    return await sync_to_async(_get_admin_stats)()
+
+
 @router.post("/log-export")
 async def log_export_action(
     payload: ExportLogRequest,
@@ -162,3 +229,7 @@ async def log_export_action(
         ip_address=ip,
     )
     return {"status": "logged", "message": "Export action recorded in audit trail"}
+
+@router.get("/health")
+async def reports_health():
+    return {"status": "ok", "message": "Reports router is active"}
