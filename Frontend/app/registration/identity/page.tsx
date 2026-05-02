@@ -120,7 +120,7 @@ export default function IdentityRegistrationPage() {
     if (!tokenStore.getAccess()) { router.replace("/login"); return }
     authApi.me()
       .then(me => {
-        if (me.citizen_din) router.replace("/admin/citizens/wallet")
+        if (me.citizen_din) router.replace("/citizens/wallet")
         else setGuardDone(true)
       })
       .catch(() => setGuardDone(true))

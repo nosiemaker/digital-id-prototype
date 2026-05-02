@@ -11,13 +11,11 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { tokenStore, digitalIdApi, qrApi, authApi, citizenApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type CitizenResponse } from "@/lib/axios"
-import { QRCodeCanvas as QRCode } from "qrcode.react"
+import { tokenStore, digitalIdApi, qrApi, authApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse } from "@/lib/axios"
 import {
   Shield,
   CheckCircle2,
   Download,
-  Share2,
   QrCode as QrCodeIcon,
   User,
   Users,
@@ -43,6 +41,7 @@ import {
 } from "lucide-react"
 import { useMe } from "@/hooks/useMe"
 import { EnrollmentBanner } from "@/components/enrollment/enrollmentBanner"
+import DigitalIDCard from "@/components/DigitalIDCard"
 
 
 interface QRPayload extends ApiQRPayload {}
@@ -60,7 +59,7 @@ const sidebarLinks = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "partners", label: "Partners", icon: Link2 },
   { id: "settings", label: "Settings", icon: Settings },
-  { id: "notice-of-death", label: "Submit Notice of Death", icon: FileText, href: "/admin/citizens/notice-of-death" },
+  { id: "notice-of-death", label: "Submit Notice of Death", icon: FileText, href: "/citizens/notice-of-death" },
 ]
 
 const recentActivity = [
@@ -112,392 +111,6 @@ function getPageSubtitle(tab: string) {
     default: return ""
   }
 }
-
-/* ------------------------------------------------------------------ */
-// Digital ID Card Component (ported from HTML)
-/* ------------------------------------------------------------------ */
-
-function DigitalIDCard({
-  me,
-  digitalID,
-  qrPayload,
-  loading,
-  onFlip,
-  flipped,
-  onGenerateQR,
-  qrLoading,
-}: {
-  me: any
-  digitalID: ApiDigitalIDPayload | null
-  qrPayload: QRPayload | null
-  loading: boolean
-  onFlip: () => void
-  flipped: boolean
-  onGenerateQR: () => void
-  qrLoading: boolean
-}) {
-  const qrData = qrPayload ? JSON.stringify({
-    din: qrPayload.din,
-    name: qrPayload.name,
-    nonce: qrPayload.nonce,
-    exp: qrPayload.exp,
-    sig: qrPayload.sig,
-  }) : ""
-
-  // Helper function to calculate age from date of birth
-  const calculateAge = (dob: string): number => {
-    const birthDate = new Date(dob)
-    const today = new Date()
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--
-    }
-    return age
-  }
-
-  // Determine citizen type based on age
-  const getCitizenType = (dob: string, citizenType?: string): string => {
-    if (citizenType) return citizenType
-    
-    const age = calculateAge(dob)
-    if (age < 16) return "CHILD_UNDER_16"
-    if (age < 18) return "CHILD_ABOVE_16"
-    if (age < 65) return "ADULT"
-    return "SENIOR"
-  }
-
-  // Format citizen type for display
-  const formatCitizenType = (type: string): string => {
-    switch (type) {
-      case "CHILD_UNDER_16": return "Child (Under 16)"
-      case "CHILD_ABOVE_16": return "Child (16-17)"
-      case "ADULT": return "Adult"
-      case "SENIOR": return "Senior Citizen"
-      default: return type
-    }
-  }
-
-  const initials = me?.name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "EC"
-  const displayName = me?.name || digitalID?.full_name
-  const din = me?.citizen_din || digitalID?.din 
-  const status = digitalID?.status
-  const province = digitalID?.province
-  const gender = digitalID?.gender
-  const faceImageUrl = digitalID?.face_image_url
-  const dob = digitalID?.dob || ""
-  const citizenType = getCitizenType(dob, digitalID?.citizen_type)
-  const formattedCitizenType = formatCitizenType(citizenType)
-
-  return (
-    <div className="w-full max-w-xl mx-auto">
-      {/* Stats Strip */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="bg-[#141414] border border-[#1e3830] rounded-xl p-3">
-          <div className="text-[9px] text-[#4a6a5a] uppercase tracking-widest mb-1">Status</div>
-          <div className="text-sm font-semibold text-[#00c98d] flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00c98d] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00c98d]"></span>
-            </span>
-            Active
-          </div>
-        </div>
-        <div className="bg-[#141414] border border-[#1e3830] rounded-xl p-3">
-          <div className="text-[9px] text-[#4a6a5a] uppercase tracking-widest mb-1">Verifications</div>
-          <div className="text-sm font-semibold text-[#e0e0e0]">14</div>
-        </div>
-        <div className="bg-[#141414] border border-[#1e3830] rounded-xl p-3">
-          <div className="text-[9px] text-[#4a6a5a] uppercase tracking-widest mb-1">Citizen Type</div>
-          <div className="text-sm font-semibold text-[#00c98d]">{formattedCitizenType}</div>
-        </div>
-      </div>
-
-      {/* Flip Hint */}
-      <div className="text-center mb-2">
-        <span className="text-[9px] text-[#3a5a4a] uppercase tracking-widest">Tap card to flip</span>
-      </div>
-
-      {/* Vault Housing */}
-      <div className="relative w-full bg-[#1a1a1a] rounded-[22px] border-[1.5px] border-[#2a2a2a] p-2.5">
-        {/* Top emboss */}
-        <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-[120px] h-[3px] rounded-b-md bg-[#2e5a46]" />
-        
-        {/* Crest row */}
-        <div className="flex items-center justify-center gap-2 mb-2 mt-1">
-          <div className="h-px flex-1 bg-[#1e3828] rounded-full" />
-          <div className="w-9 h-9 rounded-full border-2 border-[#2e5a46] bg-[#0d1f18] flex items-center justify-center text-lg shadow-[0_0_0_1px_#1a3a2a]">
-            <Crown className="h-4 w-4 text-[#2e6a4e]" />
-          </div>
-          <span className="text-[9px] text-[#2e6a4e] uppercase tracking-[0.12em] font-semibold">Republic of Zambia</span>
-          <div className="h-px flex-1 bg-[#1e3828] rounded-full" />
-        </div>
-
-        {/* Card container with sheen */}
-        <div className="relative rounded-2xl overflow-hidden">
-          {/* Oil-slick sheen bands */}
-          <div className="absolute inset-0 pointer-events-none z-10 rounded-2xl overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#2e6a4e] opacity-50 rounded-t-2xl" />
-            <div className="absolute top-0.5 left-0 right-0 h-px bg-[#60a5fa] opacity-[0.12]" />
-            <div className="absolute top-[3px] left-0 right-0 h-px bg-[#a78bfa] opacity-[0.10]" />
-            <div className="absolute top-1 left-0 right-0 h-px bg-[#f59e0b] opacity-[0.08]" />
-          </div>
-
-          {/* Flip wrapper */}
-          <div
-            className="w-full cursor-pointer"
-            style={{ perspective: "1400px" }}
-            onClick={onFlip}
-          >
-            <div
-              className="relative w-full"
-              style={{
-                paddingBottom: "59%",
-                transformStyle: "preserve-3d",
-                transition: "transform 0.8s cubic-bezier(0.4, 0.2, 0.2, 1)",
-                transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-              }}
-            >
-              {/* FRONT */}
-              <div
-                className="absolute inset-0 rounded-2xl overflow-hidden"
-                style={{
-                  backfaceVisibility: "hidden",
-                  WebkitBackfaceVisibility: "hidden",
-                  background: "#071310",
-                  border: "1px solid #1a4030",
-                }}
-              >
-                {/* Brushed titanium lines */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-                  {[18, 34, 52, 70, 86].map((top) => (
-                    <div
-                      key={top}
-                      className="absolute w-full h-px bg-white opacity-[0.018]"
-                      style={{ top: `${top}%` }}
-                    />
-                  ))}
-                </div>
-
-                {/* Chitenge corner motif */}
-                <div className="absolute bottom-0 right-0 w-20 h-20 overflow-hidden rounded-br-2xl opacity-[0.06] pointer-events-none">
-                  <svg viewBox="0 0 80 80" className="w-full h-full">
-                    <path d="M80 0 L0 80" stroke="#00c98d" strokeWidth="1" fill="none" />
-                    <path d="M80 20 L20 80" stroke="#00c98d" strokeWidth="0.7" fill="none" />
-                    <path d="M80 40 L40 80" stroke="#00c98d" strokeWidth="0.5" fill="none" />
-                    <circle cx="70" cy="70" r="18" fill="none" stroke="#00c98d" strokeWidth="0.8" />
-                    <circle cx="70" cy="70" r="10" fill="none" stroke="#00c98d" strokeWidth="0.5" />
-                  </svg>
-                </div>
-
-                {/* Front content */}
-                <div className="absolute inset-0 p-5 flex flex-col justify-between">
-                  {/* Top */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-[30px] h-[30px] rounded-full bg-[#003a2e] border border-[#005a44] flex items-center justify-center">
-                        <Crown className="h-5 w-5 text-[#00c98d]" />
-                      </div>
-                      <div>
-                        <div className="text-[7px] text-[#00c98d] uppercase tracking-[0.14em] font-semibold">Republic of Zambia</div>
-                        <div className="text-[6px] text-[#2a5a46] uppercase tracking-[0.08em]">National Digital Identity Authority</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 bg-[rgba(0,201,141,0.1)] border border-[rgba(0,201,141,0.25)] rounded-full px-2 py-1">
-                      <span className="relative flex h-[5px] w-[5px]">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00c98d] opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-[5px] w-[5px] bg-[#00c98d]"></span>
-                      </span>
-                      <span className="text-[8px] text-[#00c98d] font-bold uppercase tracking-wider">Active · Verified</span>
-                    </div>
-                  </div>
-
-                  {/* Middle */}
-                  <div className="flex items-center gap-3.5">
-                    {/* Profile */}
-                    <div className="relative w-[66px] h-[66px] shrink-0">
-                      <div
-                        className="absolute -inset-[3px] rounded-full border-2 border-[#00c98d]"
-                        style={{ animation: "ringpulse 2.5s ease-in-out infinite" }}
-                      />
-                      <div className="absolute inset-[3px] rounded-full bg-[#0d2a1e] border border-[#005a44] overflow-hidden flex items-center justify-center">
-                        {faceImageUrl ? (
-                          <img 
-                            src={faceImageUrl} 
-                            alt={displayName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xl font-bold text-[#00c98d] tracking-tight">
-                            {initials}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[15px] font-bold text-[#f0f0f0] uppercase tracking-wide leading-tight">
-                        {displayName}
-                      </div>
-                      <div className="text-[9px] text-[#3a6a52] mt-0.5 tracking-wide">
-                        {formattedCitizenType} · {status === "ACTIVE" ? "Registered" : status} · {province}
-                      </div>
-                      <div className="text-[7px] text-[#3a6a52] uppercase tracking-[0.12em] mt-2">Digital ID Number (DIN)</div>
-                      <div className="text-xs font-semibold text-[#00c98d] font-mono tracking-wide mt-px">{din}</div>
-                    </div>
-                  </div>
-
-                  {/* Bottom */}
-                  <div className="flex justify-between items-end">
-                    <div className="flex gap-3.5">
-                      <div>
-                        <div className="text-[6px] text-[#2e5a42] uppercase tracking-[0.12em]">Date of Birth</div>
-                        <div className="text-[9px] text-[#8ab8a0] font-medium mt-px">
-                          {digitalID?.dob ? new Date(digitalID.dob).toLocaleDateString("en-GB") : "—— ·· ····"}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[6px] text-[#2e5a42] uppercase tracking-[0.12em]">Gender</div>
-                        <div className="text-[9px] text-[#8ab8a0] font-medium mt-px">{gender}</div>
-                      </div>
-                      <div>
-                        <div className="text-[6px] text-[#2e5a42] uppercase tracking-[0.12em]">Province</div>
-                        <div className="text-[9px] text-[#8ab8a0] font-medium mt-px">{digitalID?.province}</div>
-                      </div>
-                    </div>
-                    {/* Chip */}
-                    <div className="w-[26px] h-5 rounded border border-[#1e4a36] bg-[#0a1e14] grid grid-cols-2 gap-0.5 p-[3px]">
-                      <div className="bg-[#1e4a36] rounded-[1px]" />
-                      <div className="bg-[#1e4a36] rounded-[1px]" />
-                      <div className="bg-[#1e4a36] rounded-[1px]" />
-                      <div className="bg-[#1e4a36] rounded-[1px]" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* BACK */}
-              <div
-                className="absolute inset-0 rounded-2xl overflow-hidden"
-                style={{
-                  backfaceVisibility: "hidden",
-                  WebkitBackfaceVisibility: "hidden",
-                  transform: "rotateY(180deg)",
-                  background: "#060e0b",
-                  border: "1px solid #162a20",
-                }}
-              >
-                <div className="absolute inset-0 p-3.5 flex flex-col gap-2">
-                  {/* Header */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-[7px] text-[#1e4030] uppercase tracking-[0.12em]">ZM-GOV-DID · Secure Document</span>
-                    <span className="text-[7px] text-[#1e4030] tracking-wide">v2.4.1</span>
-                  </div>
-
-                  {/* Magstripe */}
-                  <div className="w-full h-8 bg-[#0a0a0a] rounded relative overflow-hidden">
-                    <div className="absolute left-[20%] top-0 bottom-0 w-[30%] bg-[#111] opacity-50" />
-                  </div>
-
-                  {/* QR + Info */}
-                  <div className="flex gap-3.5 items-start">
-                    <div>
-                      <div className="text-[7px] text-[#2e5a42] uppercase tracking-[0.1em] mb-1">Scan to verify identity</div>
-                      {qrPayload ? (
-                        <QRCode
-                          value={qrData}
-                          size={88}
-                          level="H"
-                          includeMargin={true}
-                          bgColor="#ffffff"
-                          fgColor="#111111"
-                          className="rounded-lg border border-[#1a4030]"
-                        />
-                      ) : (
-                        <div className="w-[88px] h-[88px] bg-white rounded-lg border border-[#1a4030] flex items-center justify-center">
-                          <Loader2 className="h-6 w-6 animate-spin text-[#00c98d]" />
-                        </div>
-                      )}
-                      {qrPayload && (
-                        <div className="text-[6px] text-[#2e5a42] mt-1 font-mono truncate w-[88px]">
-                          Exp: {new Date(qrPayload.exp * 1000).toLocaleTimeString()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 flex flex-col gap-1.5">
-                      <div>
-                        <div className="text-[7px] text-[#2e5a42] uppercase tracking-[0.1em]">Issued by</div>
-                        <div className="text-[11px] text-[#8ab8a0] font-medium mt-px">Dept. of National Registration</div>
-                      </div>
-                      <div>
-                        <div className="text-[7px] text-[#2e5a42] uppercase tracking-[0.1em]">Issue date</div>
-                        <div className="text-[11px] text-[#8ab8a0] font-medium mt-px">
-                          {digitalID?.issued_at
-                            ? new Date(digitalID.issued_at).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" }).replace("/", " / ")
-                            : "04 / 2023"}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[7px] text-[#2e5a42] uppercase tracking-[0.1em]">Expiration</div>
-                        <div className="text-[11px] text-[#00c98d] font-medium mt-px">{formattedCitizenType}</div>
-                      </div>
-                      <div className="w-[42px] h-[42px] rounded-full border border-[rgba(0,201,141,0.25)] bg-[rgba(0,77,64,0.25)] flex items-center justify-center">
-                        <Crown className="h-5 w-5 text-[#00c98d]" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="border-t border-[#162a20] pt-1.5 flex justify-between items-center mt-auto">
-                    <span className="text-[7px] text-[#1e4030] uppercase tracking-[0.1em]">Cryptographically sealed · ECDSA P-256</span>
-                    <span className="text-[7px] text-[#1e4030] uppercase tracking-[0.1em]">Tamper-evident · ZM-NDIA</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-4 gap-2 mt-4">
-        <button className="bg-[#141414] border border-[#1e3828] rounded-xl py-3 px-1.5 text-center hover:bg-[#1a2e22] transition-colors">
-          <div className="mb-1 flex justify-center"><Link2 className="h-4 w-4 text-[#6a8a7a]" /></div>
-          <div className="text-[9px] text-[#6a8a7a]">Share ID</div>
-        </button>
-        <button
-          onClick={() => navigator.clipboard?.writeText(din)}
-          className="bg-[#141414] border border-[#1e3828] rounded-xl py-3 px-1.5 text-center hover:bg-[#1a2e22] transition-colors"
-        >
-          <div className="mb-1 flex justify-center"><Copy className="h-4 w-4 text-[#6a8a7a]" /></div>
-          <div className="text-[9px] text-[#6a8a7a]">Copy DIN</div>
-        </button>
-        <button className="bg-[#141414] border border-[#1e3828] rounded-xl py-3 px-1.5 text-center hover:bg-[#1a2e22] transition-colors">
-          <div className="mb-1 flex justify-center"><Download className="h-4 w-4 text-[#6a8a7a]" /></div>
-          <div className="text-[9px] text-[#6a8a7a]">Download</div>
-        </button>
-        <button
-          onClick={onGenerateQR}
-          disabled={qrLoading}
-          className="bg-[#141414] border border-[#1e3828] rounded-xl py-3 px-1.5 text-center hover:bg-[#1a2e22] transition-colors disabled:opacity-50"
-        >
-          <div className="mb-1 flex justify-center">
-            {qrLoading ? <RefreshCw className="h-4 w-4 text-[#6a8a7a] animate-spin" /> : <QrCodeIcon className="h-4 w-4 text-[#6a8a7a]" />}
-          </div>
-          <div className="text-[9px] text-[#6a8a7a]">{qrPayload ? "Refresh QR" : "Generate QR"}</div>
-        </button>
-      </div>
-
-      {/* Keyframes injection */}
-      <style jsx>{`
-        @keyframes ringpulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
-    </div>
-  )
-}
-
 /* ------------------------------------------------------------------ */
 // Main Page
 /* ------------------------------------------------------------------ */
@@ -802,13 +415,6 @@ export default function WalletPage() {
                             <Crown className="h-4 w-4 text-[#00c98d]" />
                           </div>
                           <span className="text-[13px] font-semibold text-[#e8e8e8] tracking-wide flex-1">My Digital ID Wallet</span>
-                          <div className="relative">
-                            <div className="bg-[#181818] border border-[#252525] rounded-full px-3.5 py-1.5 text-[11px] text-[#555] pl-7">
-                              Search records...
-                            </div>
-                            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 border-[1.5px] border-[#444] rounded-full" />
-                            <div className="absolute left-[18px] top-[56%] w-[3px] h-[1.5px] bg-[#444] rotate-45" />
-                          </div>
                           <button className="w-8 h-8 bg-[#181818] border border-[#252525] rounded-lg flex items-center justify-center text-sm relative">
                             <Bell className="h-4 w-4 text-[#444]" />
                             <span className="absolute top-1.5 right-1.5 w-[5px] h-[5px] bg-[#00c98d] rounded-full border border-[#111]" />
@@ -835,21 +441,6 @@ export default function WalletPage() {
                             onGenerateQR={handleGenerateQR}
                             qrLoading={qrLoading}
                           />
-                        )}
-
-                        {/* Server Key Info (dev/debug visibility) */}
-                        {serverPublicKey && (
-                          <div className="mt-4 rounded-lg border border-[#1e3828] bg-[#141414] px-3 py-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Lock className="h-3 w-3 text-[#2e6a4e]" />
-                              <span className="text-[9px] text-[#3a5a4a] uppercase tracking-wider">
-                                {serverPublicKey.algorithm} · Cached
-                              </span>
-                            </div>
-                            <span className="text-[9px] text-[#2e6a4e] font-mono truncate max-w-[200px]">
-                              {serverPublicKey.public_key_pem.slice(0, 40)}...
-                            </span>
-                          </div>
                         )}
                       </div>
                     </div>

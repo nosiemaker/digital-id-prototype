@@ -75,7 +75,7 @@ export const sidebarRoutes: RouteConfig[] = [
 
   // REGISTRAR ONLY
   {
-    path: "/admin/dashboard",
+    path: "/admin/registrar",
     label: "Dashboard",
     icon: "LayoutDashboard",
     allowedRoles: ["REGISTRAR", "SUPERVISOR"],
@@ -103,14 +103,14 @@ export const sidebarRoutes: RouteConfig[] = [
     description: "View, search, and reissue approved birth and death certificates",
   },
   {
-    path: "/admin/reports",
+    path: "/admin/registrar/reports",
     label: "Reports",
     icon: "BarChart3",
     allowedRoles: ["REGISTRAR"],
     description: "Generate system reports and analytics",
   },
   {
-    path: "/admin/staff",
+    path: "/admin/registrar/staff",
     label: "Staff Management",
     icon: "UserCog",
     allowedRoles: ["REGISTRAR"],

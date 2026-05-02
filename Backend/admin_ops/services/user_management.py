@@ -3,6 +3,7 @@
 # Handles creation and activation of system users, third-party institution
 # enrollment requests, and role/permission management for existing users.
 
+import threading
 import datetime
 from django.db import transaction
 from fastapi import HTTPException
@@ -17,6 +18,7 @@ from citizens.utilities.id_generation import generate_id
 from dependencies.auth import UserRole
 from kyc.models import ThirdPartyInstitution, InstitutionStatus
 from registration.models import EnrollmentStatus
+from Utils.email_sender import send_staff_credentials_email
 
 
 # Creates a new system user record after checking for duplicate DINs.
@@ -374,6 +376,8 @@ def create_registration_officer(request_body: dict) -> dict:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="System user not found for this citizen",
         )
+
+    employee_id = request_body.get("employee_id") or f"RO-{secrets.token_hex(4).upper()}"
     
     # Add the role to the system user
     old_perms = list(temp_serializer.data.get("role", ""))
@@ -413,16 +417,26 @@ def create_registration_officer(request_body: dict) -> dict:
     
     officer = RegistrationOfficer.objects.create(
         citizen_id=citizen.id,
-        employee_id=request_body.get("employee_id"),
+        employee_id=employee_id,
         station_name=request_body.get("station_name"),
         district=district,
         is_active=True
     )
+
+    temp_password = f"ZDID@{secrets.token_urlsafe(4)}"
+    system_user.set_password(temp_password)
+    system_user.save()
+
+    threading.Thread(
+        target=send_staff_credentials_email,
+        args=(system_user.email, employee_id, temp_password),
+        daemon=True
+    ).start()
     
     return {
         "details": "RegistrationOfficer created successfully",
         "officer_id": officer.id,
-        "employee_id": officer.employee_id
+        "employee_id": employee_id
     }
 
 
@@ -605,7 +619,8 @@ def create_health_worker(request_body: dict) -> dict:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="System user not found for this citizen",
         )
-    
+
+    employee_id = request_body.get("employee_id") or f"HW-{secrets.token_hex(4).upper()}"
     # Add the role to the system user
     old_perms = list(temp_serializer.data.get("role", ""))
     old_perms.append(UserRole.HEALTH_WORKER)
@@ -633,16 +648,26 @@ def create_health_worker(request_body: dict) -> dict:
     
     health_worker = HealthWorker.objects.create(
         citizen_id=citizen.id,
-        employee_id=request_body.get("employee_id"),
+        employee_id=employee_id,
         facility_name=request_body.get("facility_name"),
         department=request_body.get("department"),
         is_active=True
     )
+    # Generate & set default password
+    temp_password = f"ZDID@{secrets.token_urlsafe(4)}"
+    system_user.set_password(temp_password)
+    system_user.save()
+
+    threading.Thread(
+        target=send_staff_credentials_email,
+        args=(system_user.email, employee_id, temp_password),
+        daemon=True
+    ).start()
     
     return {
         "details": "HealthWorker created successfully",
         "health_worker_id": health_worker.id,
-        "employee_id": health_worker.employee_id
+        "employee_id": employee_id
     }
 
 # -------------------------------------------------------------------

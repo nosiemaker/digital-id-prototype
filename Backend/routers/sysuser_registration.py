@@ -3,6 +3,9 @@
 # Split into two sub-routers: user_router for system user operations and
 # third_party_router for third-party institution enrollment and review.
 
+from django.db.models import Q
+from admin_ops.models import SystemUser
+from admin_ops.serializers import SystemUserSerializer
 from asgiref.sync import sync_to_async
 from fastapi import APIRouter, Request, Depends
 from dependencies.auth import require_groups, UserRole
@@ -24,6 +27,17 @@ from kyc.schema import ThirdPartyInstitutionBase, ThirdPartyApprovalRequest, Rej
 
 user_router = APIRouter()
 third_party_router = APIRouter()
+
+
+@user_router.get("/staff")
+async def list_staff(request: Request, user=Depends(require_groups([UserRole.SUPERVISOR, UserRole.REGISTRAR]))):
+    """Returns all Health worker and Registration officers."""
+    staff = SystemUser.objects.filter(
+        Q(role_contains=UserRole.HEALTH_WORKER) | Q(role_contains=UserRole.REGISTRAR)
+    ).order_by("-date_joined")
+    serializer = SystemUserSerializer(staff, many=True)
+    return {"details": "staff list retrieved", "staff": serializer.data}
+
 
 # Retrieves a system user by their citizen DIN.
 # Only accessible to users with the REGISTRAR or SUPERVISOR role.
@@ -109,7 +123,7 @@ async def list_active(request: Request):
 # Creates a new RegistrationOfficer linked to a Citizen.
 # Only accessible to users with the REGISTRAR or SUPERVISOR role.
 @user_router.put("add_permission/registration-officer")
-async def create_registration_officer_endpoint(body: RegistrationOfficerCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+async def create_registration_officer_endpoint(body: RegistrationOfficerCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR, UserRole.HEALTH_WORKER]))):
     result = await sync_to_async(create_registration_officer)(body.model_dump())
     return result
 
@@ -133,14 +147,14 @@ async def create_supervisor_endpoint(body: SupervisorCreate, request: Request, u
 # Creates a new HealthWorker linked to a Citizen.
 # Only accessible to users with the REGISTRAR or SUPERVISOR role.
 @user_router.put("add_permission/health-worker")
-async def create_health_worker_endpoint(body: HealthWorkerCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+async def create_health_worker_endpoint(body: HealthWorkerCreate, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR, UserRole.REGISTRAR]))):
     result = await sync_to_async(create_health_worker)(body.model_dump())
     return result
 
 # Deactivates a RegistrationOfficer role instance linked to a system user.
 # Only accessible to users with the SUPERVISOR role.
 @user_router.put("remove_permission/registration-officer")
-async def remove_registration_officer_endpoint(body: RegistrationOfficerRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+async def remove_registration_officer_endpoint(body: RegistrationOfficerRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR, UserRole.REGISTRAR]))):
     result = await sync_to_async(remove_registration_officer)(body.model_dump())
     return result
 
@@ -164,6 +178,6 @@ async def remove_supervisor_endpoint(body: SupervisorRemove, request: Request, u
 # Deactivates a HealthWorker role instance linked to a system user.
 # Only accessible to users with the SUPERVISOR role.
 @user_router.put("remove_permission/health-worker")
-async def remove_health_worker_endpoint(body: HealthWorkerRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR]))):
+async def remove_health_worker_endpoint(body: HealthWorkerRemove, request: Request, user=Depends(require_groups([UserRole.SUPERVISOR, UserRole.REGISTRAR]))):
     result = await sync_to_async(remove_health_worker)(body.model_dump())
     return result
