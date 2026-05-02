@@ -600,7 +600,12 @@ class DeathRecords(models.Model):
 
     class Meta:
         db_table = "death_registration_request"
-        ordering = ["-submitted_at"]             # Most recent submissions appear first in queries
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["submitted_at"]),
+        ]
+        # Most recent submissions appear first in queries
 
     def __str__(self):
         return f"DeathRegistrationRequest #{self.pk} [{self.status}]"

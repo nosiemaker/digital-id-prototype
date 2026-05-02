@@ -134,6 +134,63 @@ export type RelationshipType =
   | "SPOUSE"
   | "GUARDIAN";
 
+export interface StaffMember {
+  id: number
+  email: string
+  name: string
+  role: string
+  citizen_din: string | null
+  employee_id?: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface HealthWorkerPayload {
+  citizen_din: string
+  employee_id?: string
+  facility_name?: string
+  department?: string
+}
+
+export interface RegistrationOfficerPayload {
+  citizen_din: string
+  employee_id?: string
+  station_name?: string
+  district_id?: number
+}
+
+export interface ReportsSummaryParams {
+  date_from?: string
+  date_to?: string
+  district?: string
+}
+
+export interface ReportsSummaryResponse {
+  kpi: {
+    total: number
+    approved: number
+    pending: number
+    rejected: number
+    approval_rate: number
+    avg_processing_hours: number
+  }
+  monthly_trends: {
+    births: { date: string; count: number }[]
+    deaths: { date: string; count: number }[]
+  }
+  demographics: {
+    births_by_sex: Record<string, number>
+    births_by_place: Record<string, number>
+    deaths_by_place: Record<string, number>
+    top_death_causes: { cause: string; count: number }[]
+  }
+}
+
+export interface LogExportRequest {
+  export_type: "births" | "deaths" | "all"
+  record_count: number
+}
+
 // ===== Citizens ======
 
 export interface CitizenBase {

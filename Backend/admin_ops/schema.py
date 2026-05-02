@@ -240,7 +240,7 @@ class HealthWorkerRemove(BaseModel):
 
 class RegistrationOfficerCreate(BaseModel):
     citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
-    employee_id: str = Field(..., max_length=50, description="Unique employee ID")
+    employee_id: Optional[str] = Field(None, max_length=50, description="Unique employee ID")
     station_name: Optional[str] = Field(None, max_length=200, description="Registration station name")
     district_id: Optional[int] = Field(None, description="District ID where stationed")
 
@@ -254,14 +254,14 @@ class RegistrarCreate(BaseModel):
 
 class SupervisorCreate(BaseModel):
     citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
-    employee_id: str = Field(..., max_length=50, description="Unique employee ID")
+    employee_id: Optional[str] = Field(None, max_length=50, description="Unique employee ID")
     department: Optional[str] = Field(None, max_length=100, description="Department name")
     district_id: Optional[int] = Field(None, description="District ID where stationed")
 
 
 class HealthWorkerCreate(BaseModel):
     citizen_din: str = Field(..., max_length=20, description="DIN of the citizen to link")
-    employee_id: str = Field(..., max_length=50, description="Unique employee ID")
+    employee_id: Optional[str] = Field(None, max_length=50, description="Unique employee ID")
     facility_name: Optional[str] = Field(None, max_length=200, description="Health facility name")
     department: Optional[str] = Field(None, max_length=100, description="Department name")
 
