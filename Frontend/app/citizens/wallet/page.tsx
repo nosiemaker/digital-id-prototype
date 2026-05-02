@@ -15,7 +15,6 @@ import { tokenStore, digitalIdApi, qrApi, authApi, type DigitalIDPayload as ApiD
 import {
   Shield,
   CheckCircle2,
-  Download,
   QrCode as QrCodeIcon,
   User,
   Users,
@@ -33,9 +32,6 @@ import {
   Smartphone,
   Loader2,
   UserCircle,
-  Lock,
-  Copy,
-  RefreshCw,
   Crown,
   Building2,
 } from "lucide-react"
@@ -410,17 +406,6 @@ export default function WalletPage() {
 
                       <div className="relative z-10">
                         {/* Topbar inside card area */}
-                        <div className="flex items-center gap-3 mb-6">
-                          <div className="w-[26px] h-[26px] rounded-full bg-[#004D40] border border-[#00c98d] flex items-center justify-center text-[13px]">
-                            <Crown className="h-4 w-4 text-[#00c98d]" />
-                          </div>
-                          <span className="text-[13px] font-semibold text-[#e8e8e8] tracking-wide flex-1">My Digital ID Wallet</span>
-                          <button className="w-8 h-8 bg-[#181818] border border-[#252525] rounded-lg flex items-center justify-center text-sm relative">
-                            <Bell className="h-4 w-4 text-[#444]" />
-                            <span className="absolute top-1.5 right-1.5 w-[5px] h-[5px] bg-[#00c98d] rounded-full border border-[#111]" />
-                          </button>
-                        </div>
-
                         {/* Digital ID Card */}
                         {digitalIDLoading ? (
                           <div className="flex items-center justify-center py-12">
