@@ -789,7 +789,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
     """
     # Verify the registrar account exists and load their Citizen profile (for the cert)
     try:
-        registrar = SystemUser.objects.select_related("citizen").get(id=registrar_id)
+        registrar = SystemUser.objects.select_related("profile").get(id=registrar_id)
     except SystemUser.DoesNotExist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registrar Not Found")
 
@@ -866,19 +866,17 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
 
         if mother:
             try:
-                mother_system_user = SystemUser.objects.select_related(
-                    "System_user_to_citizen"
-                ).get(citizen=mother)
+                mother_system_user = SystemUser.objects.select_related("profile").get(profile=mother)
             except SystemUser.DoesNotExist:
                 pass  # Certificate can still be created; FK will be null
 
         if father:
             try:
-                father_system_user = SystemUser.objects.get(citizen=father)
+                father_system_user = SystemUser.objects.get(profile=father)
             except SystemUser.DoesNotExist:
                 pass
 
-        mother_citizen = mother_system_user.citizen  # Used for informant address on the certificate
+        mother_citizen = mother_system_user.profile if mother_system_user else None  # Used for informant address on the certificate
 
         # Create the BirthCertificate, populating all fields from the Notice of Birth
         birth_certificate = BirthCertificate.objects.create(
