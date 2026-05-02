@@ -74,10 +74,17 @@ export default function RegistrarBirthRecordsPage() {
   const [viewerEndpoint, setViewerEndpoint] = useState<any>(null)
   const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('zdid_access_token') || '' : ''
+  const [token, setToken] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('zdid_access_token') || ''
+    }
+    return ''
+  })
 
   useEffect(() => {
     fetchData()
+    const stored = localStorage.getItem('zdid_access_token')
+    if (stored) setToken(stored)
   }, [])
 
   async function fetchData() {

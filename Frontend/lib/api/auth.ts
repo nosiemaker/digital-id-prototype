@@ -35,6 +35,12 @@ export const authApi = {
     return data;
   },
 
+  updateMe: async (body: { name?: string; phone?: string; language?: string }): Promise<MeResponse> => {
+    const { data } = await axiosInstance.put<MeResponse>('/auth/me', body);
+    if (data.name) tokenStore.setName(data.name);
+    return data;
+  },
+
   logout: async (): Promise<void> => {
     await axiosInstance.post('/auth/logout');
     tokenStore.clear();

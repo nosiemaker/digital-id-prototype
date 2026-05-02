@@ -23,7 +23,11 @@ from datetime import datetime
 from asgiref.sync import sync_to_async
 
 from audit.models import AuditLog
+from citizens.models import Citizen
 from dependencies.auth import UserRole, require_groups, get_current_user
+from django.db.models import Q
+
+
 
 router = APIRouter()
 
@@ -77,9 +81,8 @@ async def _paginate(queryset, page: int, page_size: int) -> tuple[int, list]:
     response_model=PaginatedAuditLogs,
     summary="View my audit trail",
     description=(
-        "Returns audit log entries where the authenticated citizen is either "
-        "the actor or the subject (target_id matches their DIN). "
-        "Sensitive system fields are excluded."
+        "Returns audit log entries where the authenticated user is the "
+        "actor or the subject of an action. Works for all roles."
     ),
 )
 async def get_my_audit_logs(
@@ -87,19 +90,36 @@ async def get_my_audit_logs(
         page_size: int = Query(20, ge=1, le=100),
         action: Optional[str] = Query(None, description="Filter by action, e.g. KYC_CONSENT_GRANTED"),
         outcome: Optional[str] = Query(None, description="Filter by outcome: SUCCESS or FAILURE"),
-        user: dict = Depends(require_groups([UserRole.CITIZEN])),
+        user: dict = Depends(get_current_user),
 ):
-    din: str = user.get("din") or user.get("citizen_din")
-    if not din:
-        raise HTTPException(status_code=400, detail="No DIN associated with your account.")
+    # Get user_id as both string (for actor_id char match) and int (for DB FK lookup)
+    raw_id = user.get("id")
+    if not raw_id:
+        return PaginatedAuditLogs(total=0, page=page, page_size=page_size, results=[])
 
-    # Show entries where the citizen was the actor OR the subject
-    qs = AuditLog.objects.filter(
-            actor_id=din
-    ) | AuditLog.objects.filter(
-            target_type="CITIZEN", target_id=din
-    )
-    qs = qs.order_by("-timestamp")
+    user_id_str = str(raw_id)
+
+    # Try to get the citizen's DIN using user_id
+    din = None
+    try:
+        user_id_int = int(raw_id)
+        citizen = await sync_to_async(
+            lambda: Citizen.objects.filter(user_id=user_id_int).first()
+        )()
+        if citizen and citizen.din:
+            din = citizen.din
+    except (ValueError, TypeError):
+        pass
+
+    # Build queryset: logs where this user is the actor (by user_id string)
+    from django.db.models import Q
+    query = Q(actor_id=user_id_str)
+    if din:
+        # Also include logs where they acted as citizen DIN, or are the subject
+        query |= Q(actor_id=din)
+        query |= Q(target_type="CITIZEN", target_id=din)
+
+    qs = AuditLog.objects.filter(query).distinct().order_by("-timestamp")
 
     if action:
         qs = qs.filter(action__iexact=action)
@@ -108,7 +128,7 @@ async def get_my_audit_logs(
 
     total, records = await _paginate(qs, page, page_size)
 
-    # Strip ip_address and metastamp from citizen-facing output for privacy
+    # Strip sensitive fields from citizen-facing output
     results = []
     for log in records:
         results.append(AuditLogOut(
@@ -125,6 +145,7 @@ async def get_my_audit_logs(
         ))
 
     return PaginatedAuditLogs(total=total, page=page, page_size=page_size, results=results)
+
 
 @router.get(
     "/citizens/{din}",

@@ -81,7 +81,7 @@ class Citizen(models.Model):
     nrc = models.CharField(max_length=15, unique=True, null=True)
     full_name = models.CharField(max_length=255)
     residential_address = models.CharField(max_length=255, null=True)
-    maiden_name = models.CharField(max_length=255, null=True)
+    maiden_name = models.CharField(max_length=255, null=True,blank=True)
     dob = models.DateField()
     phone = models.CharField(max_length=20, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)

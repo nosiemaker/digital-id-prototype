@@ -37,9 +37,18 @@ export default function HealthWorkerDashboard() {
   const [viewerEndpoint, setViewerEndpoint] = useState<StreamingEndpoint | null>(null)
   const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
   const [viewerRecordName, setViewerRecordName] = useState('')
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
+  const [token, setToken] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('zdid_access_token') || ''
+    }
+    return ''
+  })
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+    const stored = localStorage.getItem('zdid_access_token')
+    if (stored) setToken(stored)
+  }, [])
 
   async function fetchData() {
     setLoading(true)
