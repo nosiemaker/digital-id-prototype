@@ -87,8 +87,7 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         HTTPException 400 — informant_din missing, Citizen not found, serialiser invalid.
         HTTPException 400 — SystemUser not found for resolved Citizen.
     """
-    if not request_body.get("medical_no"):
-        request_body["medical_no"] = f"MED-{datetime.now(timezone.utc)}{secrets.token_hex(3).upper()}"
+    request_body["medical_no"] = f"MED-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{secrets.token_hex(3).upper()}"
     if not request_body.get("witness_date"):
         request_body["witness_date"] = datetime.now(timezone.utc)
 
@@ -125,6 +124,8 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
             detail=f"Informant with DIN '{informant_din}' not found in system registry",
         )
 
+
+
     # Validate and persist the MCCD
     mccd_serializer = MedicalCertificateCauseOfDeathSerializer(data=enriched_data)
     if not mccd_serializer.is_valid():
@@ -142,12 +143,13 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         status=RegistrationStatusChoices.PENDING,
     )
 
+    notice_of_death_url = f'http://localhost:3000/submit-notice/{informant_sys.id}'
+
     audit.death_record_submitted(health_worker_id, death_records.id)
 
     return {
         "details": "MCCD Submitted",
-        "death_records_id": death_records.id,
-        "mccd_id": mccd.id,
+        "notice_of_death_url": death_records.id,
         "status": status.HTTP_201_CREATED,
     }
 
@@ -217,26 +219,87 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
             detail="Notice of Death already linked to this record",
         )
 
-    informant_din = request_body.get("informant_din")
-    deceased_din  = request_body.get("deceased_din")
-
-    if not informant_din:
+    # Fetch the linked MCCD to auto-populate Section B (cause of death) fields
+    mccd = death_records.medical_certificate_of_death
+    if not mccd:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="informant_din is required",
+            detail="No MCCD linked to this death record. MCCD must be submitted first.",
         )
 
-    # Resolve informant DIN → Citizen and enrich the notice data
+    # Resolve the authenticated Citizen instance via the linked DIN on the informant field.
+    # The informant is already validated to be the same as death_records.informant.
     try:
-        informant = Citizen.objects.get(din=informant_din)
+        informant = Citizen.objects.get(din=death_records.informant.din)
     except Citizen.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Informant with DIN '{informant_din}' not found in citizen registry",
+            detail="Informant Citizen record not found in registry",
         )
 
+    deceased_din = request_body.get("deceased_din")
+
     enriched_data = request_body.copy()
-    # Split full_name into surname (last part) and other_names (everything before the last part)
+    # Auto-generate unique serial_number and application_no
+    from citizens.utilities.id_generation import generate_id
+    enriched_data["serial_number"] = generate_id(f"nod_{death_record_id}", "NOD")
+    enriched_data["application_no"] = generate_id(f"death_app_{death_record_id}", "DEATH_APP")
+
+    # Auto-populate Section A (Details of Deceased) from MCCD
+    enriched_data["place_of_death"]      = "HEALTH_FACILITY"
+    enriched_data["date_of_death"]       = mccd.death_date
+    hw_profile = getattr(death_records.health_worker, 'health_worker_profile', None)
+    enriched_data["place_of_death_name"] = hw_profile.facility_name if hw_profile else ""
+    enriched_data["place_of_death_other"] = None
+    import re as _re
+    _age_match = _re.search(r'\d+', mccd.age_stated or "")
+    enriched_data["age_at_death"] = int(_age_match.group()) if _age_match else None
+
+    # Auto-populate Section B (Cause of Death) from MCCD
+    enriched_data["immediate_cause"]         = mccd.cause_a or ""
+    enriched_data["immediate_cause_icd"]     = mccd.cause_a_icd_code or ""
+    enriched_data["antecedent_cause"]        = mccd.cause_b or ""
+    enriched_data["antecedent_cause_icd"]    = mccd.cause_b_icd_code or ""
+    enriched_data["underlying_cause"]        = mccd.cause_c or ""
+    enriched_data["underlying_cause_icd"]    = mccd.cause_c_icd_code or ""
+
+    # Auto-populate Section C (Police / Brought-in-Dead) from Section A and MCCD
+    enriched_data["deceased_surname_police"]     = enriched_data.get("surname", "")
+    enriched_data["deceased_other_names_police"] = enriched_data.get("other_names", "")
+    enriched_data["deceased_age_police"]         = enriched_data.get("age_at_death")
+    enriched_data["passed_away_date"]            = enriched_data.get("date_of_death")
+    enriched_data["passed_away_time"]            = mccd.death_time
+    enriched_data["passed_away_place"]           = enriched_data.get("place_of_death_name", "")
+    enriched_data["suddenly_suffering_from"]     = mccd.cause_a or ""
+    enriched_data["treatment_was_at"]            = enriched_data.get("place_of_death_name", "")
+
+    # Auto-set Section C sign-off and doctor remarks to None
+    enriched_data["police_certifier_name"]             = None
+    enriched_data["police_certifier_residence"]        = None
+    enriched_data["police_certifier_relationship"]     = None
+    enriched_data["is_natural_death"]                  = None
+    enriched_data["is_sudden_death_postmortem_required"] = None
+    enriched_data["police_no_and_rank"]                = None
+    enriched_data["police_formation"]                  = None
+    enriched_data["police_officer_name"]               = None
+    enriched_data["police_officer_signed"]             = None
+    enriched_data["police_officer_date"]               = None
+    enriched_data["doctors_remarks"]                   = None
+    enriched_data["pupils_dilated_and_fixed"]          = None
+    enriched_data["certifying_doctor_name"]            = None
+    enriched_data["certifying_doctor_signature"]       = None
+    enriched_data["certifying_doctor_date"]            = None
+
+    # Auto-populate Section E (Appendices checklist) and Informant's Declaration
+    enriched_data["has_mccd"] = True
+    enriched_data["has_informant_national_id"] = bool(informant.nrc)
+    death_type = request_body.get("death_type", "")
+    enriched_data["has_coroner_report"] = death_type in ("SUDDEN", "UNNATURAL")
+    enriched_data["informant_declaration_name"]      = informant.full_name
+    enriched_data["informant_declaration_signature"] = None
+    enriched_data["informant_declaration_date"]      = datetime.date.today()
+
+    # Auto-populate Section D (Informant Details) from authenticated Citizen
     enriched_data["informant_surname"]            = informant.full_name.split()[-1] if informant.full_name else ""
     enriched_data["informant_other_names"]        = " ".join(informant.full_name.split()[:-1]) if informant.full_name else ""
     enriched_data["informant_contact_no"]         = informant.phone
@@ -246,13 +309,13 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     enriched_data["informant_postal_address"]     = (
         getattr(informant, 'postal_address', None) or informant.residential_address
     )
-    # Remove sentinel DIN fields; the model stores resolved values instead
+    enriched_data["date_of_registration"]         = datetime.date.today()
+
+    # Remove sentinel DIN fields
     enriched_data.pop("informant_din", None)
     enriched_data.pop("deceased_din", None)
 
-    # If the deceased is a registered Citizen, auto-populate Section A from their profile.
-    # If the DIN cannot be resolved, we silently continue — the caller must have
-    # provided the manual deceased detail fields instead.
+    # Auto-populate Section A from Citizen if deceased_din resolves
     if deceased_din:
         try:
             deceased = Citizen.objects.get(din=deceased_din)
