@@ -19,6 +19,7 @@ import {
   Clock,
   Briefcase,
 } from "lucide-react"
+import { Logo } from "@/components/Logo"
 
 export default function InstitutionsPage() {
   const [loading, setLoading] = useState(false)
@@ -59,14 +60,8 @@ export default function InstitutionsPage() {
       {/* Simple Header */}
       <header className="border-b border-border bg-card/90 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Shield className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold text-foreground">Zambia</span>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID</span>
-            </div>
+          <Link href="/" className="hover:opacity-90 transition-opacity">
+            <Logo variant="full" width={36} height={36} />
           </Link>
           <Link href="/institutions/dashboard" className="text-sm font-medium text-primary hover:underline flex items-center gap-1">
             Institution Dashboard <ArrowUpRight className="h-3 w-3" />

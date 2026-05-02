@@ -45,6 +45,15 @@ class LoginResponse(BaseModel):
     is_email_verified: bool
     citizen_din: Optional[str] = None
     citizen_status: Optional[str] = None
+    phone: Optional[str] = None
+    language: Optional[str] = None
+
+class UpdateMeRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    language: Optional[str] = None
+    # Add other fields if needed, like first_name, last_name, but 'name' is what's used in UI
+
 
 class LogoutResponse(BaseModel):
     detail: str = "Logged out successfully"
@@ -94,6 +103,8 @@ async def login(body: LoginRequest, request: Request):
     citizen_record = await _get_citizen_by_user_id(user.id)
     c_din = citizen_record.din if citizen_record else None
     c_status = citizen_record.status if citizen_record else None
+    c_phone = citizen_record.phone if citizen_record else None
+    c_lang = citizen_record.language if citizen_record else "en"
     
     # Log successful login
     await audit.user_login(user.id, user.role, ip=ip)
@@ -107,6 +118,8 @@ async def login(body: LoginRequest, request: Request):
         is_email_verified=user.is_email_verified,
         citizen_din=c_din,
         citizen_status=c_status,
+        phone=c_phone,
+        language=c_lang,
     )
 
 
@@ -167,6 +180,8 @@ async def get_current_user_info(
     citizen_record = await _get_citizen_by_user_id(user_id)
     c_din = citizen_record.din if citizen_record else None
     c_status = citizen_record.status if citizen_record else None
+    c_phone = citizen_record.phone if citizen_record else None
+    c_lang = citizen_record.language if citizen_record else "en"
 
     return LoginResponse(
         access_token="",
@@ -177,7 +192,70 @@ async def get_current_user_info(
         is_email_verified=user.is_email_verified,
         citizen_din=c_din,
         citizen_status=c_status,
+        phone=c_phone,
+        language=c_lang,
     )
+
+
+@router.put("/me", response_model=LoginResponse)
+async def update_current_user_info(
+    body: UpdateMeRequest,
+    current_user: dict = Depends(require_groups([UserRole.CITIZEN, UserRole.REGISTRATION_OFFICER,
+                                                 UserRole.HEALTH_WORKER, UserRole.REGISTRAR, UserRole.SUPERVISOR])),
+):
+    """
+    Update current user's profile information.
+    """
+    user_id = int(current_user.get("id", 0))
+    user = await _get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if body.name:
+        # Split name into first and last name if possible
+        parts = body.name.strip().split(" ")
+        if len(parts) >= 2:
+            user.first_name = parts[0]
+            user.last_name = " ".join(parts[1:])
+        else:
+            user.first_name = body.name
+            user.last_name = ""
+        
+        await sync_to_async(user.save)()
+
+    citizen_record = await _get_citizen_by_user_id(user_id)
+    
+    if citizen_record:
+        if body.phone:
+            citizen_record.phone = body.phone
+        if body.language:
+            citizen_record.language = body.language
+        
+        if body.phone or body.language:
+            await sync_to_async(citizen_record.save)()
+
+    citizen_record = await _get_citizen_by_user_id(user_id)
+    c_din = citizen_record.din if citizen_record else None
+    c_status = citizen_record.status if citizen_record else None
+    c_phone = citizen_record.phone if citizen_record else None
+    c_lang = citizen_record.language if citizen_record else "en"
+
+    return LoginResponse(
+        access_token="",
+        refresh_token="",
+        user_id=user.id,
+        role=user.role,
+        name=user.get_full_name() or user.username,
+        is_email_verified=user.is_email_verified,
+        citizen_din=c_din,
+        citizen_status=c_status,
+        phone=c_phone,
+        language=c_lang,
+    )
+
 
 
 @router.post("/logout", response_model=LogoutResponse, status_code=status.HTTP_200_OK)

@@ -157,7 +157,7 @@ export default function RegistrationsPage() {
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <Link
-                            href={`/admin/citizens/${req.id}`}
+                            href={`/citizens/${req.id}`}
                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
                           >
                             <Eye className="h-3.5 w-3.5" /> Review

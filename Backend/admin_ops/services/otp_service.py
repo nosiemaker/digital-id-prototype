@@ -3,9 +3,12 @@ import secrets
 import logging
 from datetime import datetime, timedelta, timezone
 from django.contrib.auth.hashers import make_password, check_password
+from django.core.mail import send_mail
+from django.conf import settings
 from fastapi import HTTPException, status
 from admin_ops.models import SystemUser
 from Utils.audit_logger import audit
+from Utils.email_service import send_account_verified_email
 
 logger = logging.getLogger(__name__)
 
@@ -19,32 +22,47 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _deliver_otp_console(email: str, otp: str) -> None:
+def _deliver_otp_email(email: str, otp: str) -> None:
     """
-    Prototype delivery: log the OTP to the console.
-    Replace with real email sending before going to production.
+    Delivers the OTP via email using Django's send_mail.
+    """
+    subject = "Your ZAMREN Digital ID Verification Code"
+    message = f"""
+Hello,
 
-    Example production swap (SendGrid):
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail
-        sg = SendGridAPIClient(api_key=settings.SENDGRID_KEY)
-        msg = Mail(from_email="noreply@zdid.gov.zm",
-                   to_emails=email,
-                   subject="Your ZDID Verification Code",
-                   plain_text_content=f"Your code is: {otp}")
-        sg.send(msg)
+Your verification code for the ZAMREN Digital ID system is:
+
+{otp}
+
+This code will expire in {OTP_TTL_MINUTES} minutes.
+
+If you did not request this code, please ignore this email.
+
+Regards,
+ZAMREN Digital ID Team
     """
+    
+    # Also log to console for development visibility
     border = "=" * 50
-    logger.info(border)
-    logger.info(f"  📧  OTP EMAIL (dev mode — not sent)")
-    logger.info(f"  To : {email}")
-    logger.info(f"  Code: {otp}")
-    logger.info(f"  Expires in {OTP_TTL_MINUTES} minutes")
-    logger.info(border)
-    # Also print to stdout so it's visible without log config:
     print(f"\n{border}")
-    print(f"  OTP for {email}:  {otp}  (expires {OTP_TTL_MINUTES} min)")
+    print(f"  📧  OTP EMAIL SENT TO: {email}")
+    print(f"  Code: {otp}")
     print(f"{border}\n")
+
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send OTP email to {email}: {str(e)}")
+        # In development, we might not want to crash if email fails, 
+        # but in production this should be handled carefully.
+        # For now, we log and continue if in debug, but here we just log.
+
 
 
 # ===== Public API ======
@@ -68,9 +86,9 @@ def issue_otp(user: SystemUser) -> None:
     user.is_email_verified = False
     user.save(update_fields=["otp_code", "otp_expires_at", "is_email_verified"])
 
-    _deliver_otp_console(user.email, raw_otp)
+    _deliver_otp_email(user.email, raw_otp)
 
-    audit.alog(
+    audit.log(
         actor_id=user.id,
         actor_role=user.role,
         action="OTP_ISSUED",
@@ -132,7 +150,7 @@ def verify_otp(email: str, raw_otp: str) -> SystemUser:
     user.is_active = True
     user.save(update_fields=["is_email_verified", "otp_code", "otp_expires_at", "is_active"])
 
-    audit.alog(
+    audit.log(
         actor_id=user.id,
         actor_role=user.role,
         action="OTP_ISSUED",
@@ -140,5 +158,8 @@ def verify_otp(email: str, raw_otp: str) -> SystemUser:
         target_id=user.id,
         meta={"email": user.email}
     )
+
+    # Send welcome email
+    send_account_verified_email(user)
 
     return user

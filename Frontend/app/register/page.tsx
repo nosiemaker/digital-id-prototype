@@ -16,6 +16,7 @@ import {
     Lock,
 } from "lucide-react"
 import { authApi } from "@/lib/axios"
+import { Logo } from "@/components/Logo"
 
 // ── Validation Schema ─────────────────────────────────────────────────────────
 const signUpSchema = z
@@ -118,17 +119,7 @@ export default function SignUpPage() {
 
             {/* Left panel – branding */}
             <div className="hidden lg:flex w-[420px] shrink-0 flex-col justify-between bg-card border-r border-border p-10">
-                <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-                        <Shield className="h-5 w-5 text-primary-foreground" />
-                    </div>
-                    <div className="leading-tight">
-                        <p className="text-sm font-bold text-foreground">Zambia Digital ID</p>
-                        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                            Republic of Zambia
-                        </p>
-                    </div>
-                </div>
+                <Logo variant="full" width={48} height={48} />
 
                 <div>
                     <div className="mb-8 space-y-4">
@@ -154,11 +145,8 @@ export default function SignUpPage() {
                 <div className="w-full max-w-md">
 
                     {/* Mobile logo */}
-                    <div className="flex lg:hidden items-center gap-2.5 mb-8">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                            <Shield className="h-4 w-4 text-primary-foreground" />
-                        </div>
-                        <span className="text-sm font-bold text-foreground">Zambia Digital ID</span>
+                    <div className="flex lg:hidden mb-8">
+                        <Logo variant="full" width={32} height={32} />
                     </div>
 
                     <div className="mb-8">

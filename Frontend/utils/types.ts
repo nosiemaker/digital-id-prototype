@@ -14,6 +14,8 @@ export interface LoginResponse {
   is_email_verified: boolean;
   citizen_din: string | null;
   citizen_status: CitizenStatus | null;
+  phone?: string;
+  language?: string;
 }
 
 export interface RefreshResponse {
