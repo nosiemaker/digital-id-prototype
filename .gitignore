@@ -31,8 +31,8 @@ yarn-error.log*
 .env.*
 !.env.example
 **/.env
-Frontend/.env
-!Frontend/.env
+Frontend/.env.example
+!Frontend/.env.example
 
 # python
 __pycache__/

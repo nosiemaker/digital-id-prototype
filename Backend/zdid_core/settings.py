@@ -44,7 +44,7 @@ ALLOWED_HOSTS = []
 #   openssl ecparam -name prime256v1 -genkey -noout -out zdid_signing.pem
 #   openssl ec -in zdid_signing.pem -pubout -out zdid_signing_pub.pem
 #
-# Then paste the contents into .env — newlines replaced with \n:
+# Then paste the contents into .env.example — newlines replaced with \n:
 #   ZDID_SIGNING_PRIVATE_KEY="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
 #   ZDID_SIGNING_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 

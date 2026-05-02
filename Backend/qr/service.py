@@ -29,7 +29,7 @@ Why a dot-delimited string instead of JSON for the signed bytes:
 QR lifetime:
     Default 5 minutes (300 seconds). Short enough to prevent replay attacks,
     long enough for a verifier to scan in a real-world scenario.
-    Configurable via ZDID_QR_TTL_SECONDS in .env.
+    Configurable via ZDID_QR_TTL_SECONDS in .env.example.
 
 Offline verification flow (mobile verifier):
     1. Scan QR → decode JSON
