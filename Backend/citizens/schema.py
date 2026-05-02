@@ -101,9 +101,9 @@ class CitizenUpdate(BaseModel):
 class CitizenSummary(BaseModel):
     """Used in lists, family trees, lookups — lightweight."""
     model_config = ConfigDict(from_attributes=True)
-    din: str
+    din: Optional[str] = None
     full_name: str
-    nrc: str
+    nrc: Optional[str] = None
     status: CitizenStatus
 
 
@@ -128,7 +128,7 @@ class CitizenResponse(CitizenBase):
 class CitizenLookupResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    din: str
+    din: Optional[str] = None
     full_name: str
     phone: Optional[str] = None
     residential_address: Optional[str] = None
