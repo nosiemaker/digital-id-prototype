@@ -10,8 +10,12 @@
  */
 
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+
 import { useState, useEffect, useCallback } from "react"
-import { tokenStore, digitalIdApi, qrApi, authApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse } from "@/lib/axios"
+import { tokenStore, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, type AuditLog, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse } from "@/lib/axios"
+
+
 import {
   Shield,
   CheckCircle2,
@@ -34,10 +38,16 @@ import {
   UserCircle,
   Crown,
   Building2,
+  ArrowRight,
+  Share2,
+  ScanLine,
 } from "lucide-react"
+
 import { useMe } from "@/hooks/useMe"
 import { EnrollmentBanner } from "@/components/enrollment/enrollmentBanner"
 import DigitalIDCard from "@/components/DigitalIDCard"
+import { ShareIDModal } from "@/components/ShareIDModal"
+import { ScanIDModal } from "@/components/ScanIDModal"
 
 
 interface QRPayload extends ApiQRPayload {}
@@ -116,6 +126,7 @@ export default function WalletPage() {
   const { me, enrollmentState, loading: meLoading, error: meError } = useMe()
   const [activeTab, setActiveTab] = useState("wallet")
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [scanModalOpen, setScanModalOpen] = useState(false)
   
   // Backend integration state
   const [digitalID, setDigitalID] = useState<ApiDigitalIDPayload | null>(null)
@@ -130,6 +141,11 @@ export default function WalletPage() {
 
   const [activeInstitutions, setActiveInstitutions] = useState<any[]>([])
   const [institutionsLoading, setInstitutionsLoading] = useState(false)
+
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [logsTotal, setLogsTotal] = useState(0)
+
 
   /* -------------------- Helper Functions -------------------- */
 
@@ -166,6 +182,24 @@ export default function WalletPage() {
       default: return type
     }
   }
+
+  const formatAction = (action: string) => {
+    return action.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+  }
+
+  const getRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return "just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    
+    return date.toLocaleDateString();
+  }
+
 
   /* -------------------- API Calls (via axios.ts) -------------------- */
 
@@ -210,21 +244,42 @@ export default function WalletPage() {
   const fetchActiveInstitutions = useCallback(async () => {
     setInstitutionsLoading(true)
     try {
-      // TODO: Implement third-party API when available
-      // const data = await thirdPartyApi.getActive()
-      // setActiveInstitutions(data)
-      setActiveInstitutions([]) // Temporary empty array
+      const data = await thirdPartyApi.getActive()
+      // API returns either an array directly or wrapped in a key
+      const list = Array.isArray(data) ? data : (data as any)?.results ?? (data as any)?.institutions ?? []
+      setActiveInstitutions(list)
     } catch (err: any) {
       console.error("Failed to fetch active institutions", {
         message: err.message,
         detail: err.detail,
         status: err.status,
-        response: err.response?.data
       })
+      setActiveInstitutions([])
     } finally {
       setInstitutionsLoading(false)
     }
   }, [])
+
+
+  const fetchLogs = useCallback(async (page = 1) => {
+    setLogsLoading(true)
+    try {
+      const data = await auditApi.getMyLogs(page)
+      setLogs(data.results)
+      setLogsTotal(data.total)
+    } catch (err: any) {
+      console.error("Failed to fetch logs", {
+        message: err?.message,
+        detail: err?.detail,
+        status: err?.status,
+        error: err
+      })
+    } finally {
+      setLogsLoading(false)
+    }
+
+  }, [])
+
 
   /* -------------------- Effects -------------------- */
 
@@ -247,7 +302,11 @@ export default function WalletPage() {
     if (activeTab === "partners") {
       fetchActiveInstitutions()
     }
-  }, [activeTab, fetchActiveInstitutions])
+    if (activeTab === "activity" || activeTab === "wallet") {
+      fetchLogs()
+    }
+  }, [activeTab, fetchActiveInstitutions, fetchLogs])
+
 
   /* -------------------- Handlers -------------------- */
 
@@ -477,22 +536,56 @@ export default function WalletPage() {
                     </div>
                   )}
 
+                  {/* Share ID Action Row */}
+                  {enrollmentState === "ACTIVE" && me?.citizen_din && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <button
+                        onClick={() => setShareModalOpen(true)}
+                        className="group flex items-center justify-center gap-2.5 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all duration-150 shadow-lg shadow-primary/20"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Share My ID
+                      </button>
+                      <button
+                        onClick={() => setScanModalOpen(true)}
+                        className="group flex items-center justify-center gap-2.5 rounded-xl bg-secondary border border-border px-4 py-3 text-sm font-bold text-foreground hover:border-primary/40 hover:bg-secondary/80 active:scale-[0.98] transition-all duration-150"
+                      >
+                        <ScanLine className="h-4 w-4 text-primary" />
+                        Scan QR Code
+                      </button>
+                      <button
+                        onClick={handleGenerateQR}
+                        disabled={qrLoading}
+                        className="group flex items-center justify-center gap-2.5 rounded-xl bg-secondary border border-border px-4 py-3 text-sm font-bold text-foreground hover:border-primary/40 hover:bg-secondary/80 active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
+                      >
+                        {qrLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCodeIcon className="h-4 w-4 text-primary" />}
+                        {qrPayload ? "Refresh QR" : "Generate QR"}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Recent Activity */}
                   <div className="rounded-2xl border border-border bg-card p-6">
-                    <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                      <History className="h-4 w-4 text-primary" /> Recent Activity
-                    </h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <History className="h-4 w-4 text-primary" /> Recent Activity
+                      </h2>
+                      {logsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    </div>
                     <div className="space-y-3">
-                      {recentActivity.slice(0, 4).map((item, i) => (
-                        <div key={i} className="flex items-center justify-between rounded-lg bg-secondary/40 px-4 py-3 hover:bg-secondary/60 transition-colors cursor-default">
+                      {!logsLoading && logs.length === 0 && (
+                        <p className="text-xs text-muted-foreground py-4 text-center">No recent activity found.</p>
+                      )}
+                      {logs.slice(0, 4).map((item, i) => (
+                        <div key={item.id} className="flex items-center justify-between rounded-lg bg-secondary/40 px-4 py-3 hover:bg-secondary/60 transition-colors cursor-default">
                           <div className="flex items-center gap-3">
-                            <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                            <div className={`h-2 w-2 rounded-full shrink-0 ${item.outcome === 'SUCCESS' ? 'bg-primary' : 'bg-destructive'}`} />
                             <div>
-                              <p className="text-sm font-medium text-foreground">{item.action}</p>
-                              <p className="text-xs text-muted-foreground">{item.location}</p>
+                              <p className="text-sm font-medium text-foreground">{formatAction(item.action)}</p>
+                              <p className="text-xs text-muted-foreground">{item.actor_role === 'CITIZEN' ? 'Performed by you' : `Action by ${item.actor_role}`}</p>
                             </div>
                           </div>
-                          <span className="text-xs text-muted-foreground">{item.time}</span>
+                          <span className="text-xs text-muted-foreground">{getRelativeTime(item.timestamp)}</span>
                         </div>
                       ))}
                       <button
@@ -503,11 +596,37 @@ export default function WalletPage() {
                       </button>
                     </div>
                   </div>
+
                 </div>
               )}
 
               {activeTab === "profile" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* Complete Profile CTA */}
+                  {enrollmentState === "NOT_STARTED" && (
+                    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-card p-1 shadow-lg">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent opacity-50" />
+                      <div className="relative flex flex-col items-center justify-between gap-4 p-4 sm:flex-row sm:p-6">
+                        <div className="flex items-center gap-4 text-center sm:text-left">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                            <Shield className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-foreground">Complete Your Registration</h3>
+                            <p className="text-sm text-muted-foreground">Unlock your Digital ID and access all government services online.</p>
+                          </div>
+                        </div>
+                        <Link
+                          href="/registration/identity"
+                          className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 sm:w-auto"
+                        >
+                          Complete Now
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Profile Header */}
                   <div className="rounded-2xl border border-border bg-card overflow-hidden">
                     <div className="h-32 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
@@ -526,9 +645,21 @@ export default function WalletPage() {
                             <CheckCircle2 className="h-4 w-4 text-primary" /> {enrollmentState === "ACTIVE" ? "Verified Citizen" : "Enrollment Pending"}
                           </p>
                         </div>
-                        <button className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors">
-                          Edit Profile
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          {enrollmentState === "NOT_STARTED" && (
+                            <Link
+                              href="/registration/identity"
+                              className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
+                            >
+                              <Shield className="h-4 w-4" />
+                              Complete Profile
+                            </Link>
+                          )}
+                          <button className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors">
+                            Edit Profile
+                          </button>
+                        </div>
+
                       </div>
                     </div>
                   </div>
@@ -662,29 +793,59 @@ export default function WalletPage() {
               {activeTab === "activity" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="rounded-2xl border border-border bg-card p-6">
-                    <h2 className="text-xl font-bold text-foreground mb-6">Full Activity Log</h2>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-bold text-foreground">Full Activity Log</h2>
+                      <div className="flex items-center gap-2">
+                        {logsLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                        <span className="text-xs text-muted-foreground">{logsTotal} total events</span>
+                      </div>
+                    </div>
+                    
                     <div className="space-y-4">
-                      {recentActivity.map((item, i) => (
-                        <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-border bg-secondary/20">
-                          <div className="mt-1 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <History className="h-4 w-4 text-primary" />
+                      {!logsLoading && logs.length === 0 && (
+                        <div className="text-center py-12 bg-secondary/20 rounded-2xl border border-dashed border-border">
+                          <History className="h-10 w-10 text-muted-foreground mx-auto mb-4 opacity-20" />
+                          <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+                        </div>
+                      )}
+                      
+                      {logs.map((item) => (
+                        <div key={item.id} className="flex items-start gap-4 p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/30 transition-colors">
+                          <div className={`mt-1 h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${item.outcome === 'SUCCESS' ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                            <History className={`h-4 w-4 ${item.outcome === 'SUCCESS' ? 'text-primary' : 'text-destructive'}`} />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-1">
-                              <p className="text-sm font-bold text-foreground">{item.action}</p>
-                              <span className="text-[10px] font-medium text-muted-foreground">{item.time}</span>
+                              <p className="text-sm font-bold text-foreground">{formatAction(item.action)}</p>
+                              <span className="text-[10px] font-medium text-muted-foreground">{getRelativeTime(item.timestamp)}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">{item.location}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.actor_role === 'CITIZEN' ? 'You initiated this action' : `This action was performed by a ${item.actor_role}`} 
+                              {item.target_type !== 'CITIZEN' && ` on ${item.target_type.toLowerCase()}`}
+                            </p>
                             <div className="mt-2 flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-primary uppercase tracking-tight">Status: {item.status}</span>
+                              <span className={`text-[10px] font-bold uppercase tracking-tight ${item.outcome === 'SUCCESS' ? 'text-primary' : 'text-destructive'}`}>
+                                Status: {item.outcome}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">•</span>
+                              <span className="text-[10px] text-muted-foreground">{new Date(item.timestamp).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
+
+                    {logsTotal > 20 && (
+                      <div className="mt-6 flex items-center justify-center gap-2">
+                         <button className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">Previous</button>
+                         <button className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg">1</button>
+                         <button className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">Next</button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
+
 
               {activeTab === "notifications" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -862,22 +1023,22 @@ export default function WalletPage() {
       </main>
 
       {/* Share Modal */}
-      {shareModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={() => setShareModalOpen(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-foreground mb-1">Share Digital ID</h3>
-            <p className="text-sm text-muted-foreground mb-5">Choose how you want to share your digital identity.</p>
-            <div className="space-y-3">
-              {["Share via Link", "Send via Email", "Generate QR Code", "Share to NFC"].map((opt) => (
-                <button key={opt} onClick={() => setShareModalOpen(false)} className="w-full flex items-center gap-3 rounded-xl border border-border bg-secondary/40 px-4 py-3 text-sm font-medium text-foreground hover:bg-secondary hover:border-primary/30 transition-all text-left">
-                  <ChevronRight className="h-4 w-4 text-primary" /> {opt}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setShareModalOpen(false)} className="mt-4 w-full rounded-lg border border-border py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">Cancel</button>
-          </div>
-        </div>
-      )}
+      {/* Share ID Modal */}
+      <ShareIDModal
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        qrPayload={qrPayload}
+        qrLoading={qrLoading}
+        onGenerateQR={handleGenerateQR}
+        din={me?.citizen_din ?? null}
+        name={me?.name ?? ""}
+      />
+
+      {/* Scan ID Modal */}
+      <ScanIDModal
+        open={scanModalOpen}
+        onClose={() => setScanModalOpen(false)}
+      />
     </div>
   )
 }
