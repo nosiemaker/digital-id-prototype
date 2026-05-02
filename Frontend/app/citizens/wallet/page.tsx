@@ -48,6 +48,7 @@ import { EnrollmentBanner } from "@/components/enrollment/enrollmentBanner"
 import DigitalIDCard from "@/components/DigitalIDCard"
 import { ShareIDModal } from "@/components/ShareIDModal"
 import { ScanIDModal } from "@/components/ScanIDModal"
+import { EditProfileModal } from "@/components/EditProfileModal"
 
 
 interface QRPayload extends ApiQRPayload {}
@@ -127,6 +128,7 @@ export default function WalletPage() {
   const [activeTab, setActiveTab] = useState("wallet")
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [scanModalOpen, setScanModalOpen] = useState(false)
+  const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
   
   // Backend integration state
   const [digitalID, setDigitalID] = useState<ApiDigitalIDPayload | null>(null)
@@ -655,7 +657,10 @@ export default function WalletPage() {
                               Complete Profile
                             </Link>
                           )}
-                          <button className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors">
+                          <button 
+                            onClick={() => setEditProfileModalOpen(true)}
+                            className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors"
+                          >
                             Edit Profile
                           </button>
                         </div>
@@ -1038,6 +1043,23 @@ export default function WalletPage() {
       <ScanIDModal
         open={scanModalOpen}
         onClose={() => setScanModalOpen(false)}
+      />
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        open={editProfileModalOpen}
+        onClose={() => setEditProfileModalOpen(false)}
+        currentData={{
+          name: me?.name ?? "",
+          phone: (me as any)?.phone ?? "",
+          language: (me as any)?.language ?? "en"
+        }}
+        onSuccess={(newData) => {
+          // You might want to refresh 'me' data or manually update it in the tokenStore
+          // Since tokenStore is updated inside the API call, we just need the UI to reflect it.
+          // Re-fetching 'me' is the most reliable way.
+          window.location.reload() // Simplest way to refresh all state
+        }}
       />
     </div>
   )
