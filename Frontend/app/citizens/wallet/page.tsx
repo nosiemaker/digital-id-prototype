@@ -69,7 +69,6 @@ const sidebarLinks = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "partners", label: "Partners", icon: Link2 },
   { id: "settings", label: "Settings", icon: Settings },
-  { id: "notice-of-death", label: "Submit Notice of Death", icon: FileText, href: "/citizens/notice-of-death" },
 ]
 
 const recentActivity = [

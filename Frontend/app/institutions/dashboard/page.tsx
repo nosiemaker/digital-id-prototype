@@ -29,6 +29,7 @@ import {
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { useMe } from "@/hooks/useMe"
 import { kycApi } from "@/lib/api/kyc"
+import { authApi } from "@/lib/api/auth"
 import type { InstitutionLinkedCitizenResponse } from "@/utils/types"
 import { CitizenProfileModal } from "@/components/CitizenProfileModal"
 
@@ -216,9 +217,15 @@ export default function InstitutionDashboard() {
           })}
         </nav>
         <div className="border-t border-border p-4">
-          <Link href="/institutions" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              try { await authApi.logout(); } catch (e) {}
+              window.location.href = "/";
+            }}
+            className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          >
             <LogOut className="h-4 w-4" /><span>Exit Portal</span>
-          </Link>
+          </button>
         </div>
       </aside>
 
