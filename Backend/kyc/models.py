@@ -126,3 +126,33 @@ class ConsentRecord(models.Model):
 
     def __str__(self):
         return f"Consent {self.decision} by {self.citizen} for {self.kyc_request}"
+
+
+class PartnerLink(models.Model):
+    """
+    Represents an active connection between a citizen and a service partner.
+    Allows citizens to 'link' their Digital ID to third-party accounts.
+    """
+    citizen = models.ForeignKey(
+        Citizen,
+        on_delete=models.CASCADE,
+        related_name="partner_links",
+        to_field="din"
+    )
+    institution = models.ForeignKey(
+        ThirdPartyInstitution,
+        on_delete=models.CASCADE,
+        related_name="linked_citizens"
+    )
+    linked_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "partner_links"
+        unique_together = ("citizen", "institution")
+        indexes = [
+            models.Index(fields=["citizen", "institution"]),
+        ]
+
+    def __str__(self):
+        return f"{self.citizen} linked to {self.institution}"

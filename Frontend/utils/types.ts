@@ -671,3 +671,70 @@ export interface ThirdPartyRegistrationRequest {
   email: string;
   password: string;
 }
+
+export interface VerifiedPartnerResponse {
+  id: number;
+  name: string;
+  institution_type?: string | null;
+  email: string;
+}
+
+export interface PartnerLinkResponse {
+  id: number;
+  institution_id: number;
+  institution_name: string;
+  institution_type?: string | null;
+  linked_at: string;
+  is_active: boolean;
+}
+
+export interface InstitutionLinkedCitizenResponse {
+  link_id: number;
+  citizen_din: string;
+  citizen_name: string;
+  citizen_nrc: string;
+  linked_at: string;
+  is_active: boolean;
+}
+
+export interface KYCRequestCreate {
+  citizen_din: string;
+  fields_requested: string[];
+}
+
+export interface KYCRequestResponse {
+  id: number;
+  institution_id: number;
+  citizen_din: string;
+  fields_requested: string[];
+  fields_granted?: string[] | null;
+  status: string;
+  requested_at: string;
+  responded_at?: string | null;
+  expires_at?: string | null;
+}
+
+export interface KYCCitizenResponse {
+  decision: "APPROVED" | "DENIED";
+  fields_granted?: string[] | null;
+}
+
+export interface ConsentRecordResponse {
+  id: number;
+  kyc_request_id: number;
+  citizen_id: number;
+  decision: "APPROVED" | "DENIED";
+  fields_shared?: string[] | null;
+  timestamp: string;
+}
+
+export interface ApprovedCitizenDataResponse {
+  [key: string]: any;
+}
+
+export interface StatisticsResponse {
+  total_requests: number;
+  approved_requests: number;
+  denied_requests: number;
+  pending_requests: number;
+}

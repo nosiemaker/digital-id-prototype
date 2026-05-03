@@ -65,7 +65,13 @@ app.add_middleware(
 
 app.mount("/media", StaticFiles(directory="media"), name="media")
 
-
 @app.get("/")
 async def root():
     return {"message": "ZDID Backend is live"}
+
+# Mount Django app at the root to handle /admin and /static
+from django.core.wsgi import get_wsgi_application
+from fastapi.middleware.wsgi import WSGIMiddleware
+
+django_app = get_wsgi_application()
+app.mount("/", WSGIMiddleware(django_app))

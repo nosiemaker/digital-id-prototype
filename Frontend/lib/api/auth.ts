@@ -42,8 +42,11 @@ export const authApi = {
   },
 
   logout: async (): Promise<void> => {
-    await axiosInstance.post('/auth/logout');
-    tokenStore.clear();
+    try {
+      await axiosInstance.post('/auth/logout');
+    } finally {
+      tokenStore.clear();
+    }
   },
 
   createAccount: async (body: AccountCreateRequest): Promise<AccountCreateResponse> => {

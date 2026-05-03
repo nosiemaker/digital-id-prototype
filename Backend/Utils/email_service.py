@@ -212,3 +212,52 @@ def send_notice_of_death_link_email(informant_email: str, informant_name: str, d
     ZAMREN Digital ID Team
     """
     _send_email(subject, message, [informant_email])
+
+def send_partner_link_email(citizen_name: str, citizen_email: str, partner_name: str, permitted_scopes: list):
+    """Notify the citizen that their account has been linked to a partner."""
+    subject = f"ZAMREN Digital ID - Account Linked to {partner_name}"
+    
+    scopes_formatted = "\n".join([f"- {scope.replace('_', ' ').title()}" for scope in permitted_scopes])
+    if not scopes_formatted:
+        scopes_formatted = "- Basic Identity Verification"
+        
+    message = f"""
+Hello {citizen_name},
+
+This email is to confirm that your ZAMREN Digital ID has been successfully linked to:
+**{partner_name}**
+
+By linking your account, you allow this partner to request identity verification. When you use their services, they may request access to the following details from your profile:
+
+{scopes_formatted}
+
+Please note: Linking an account does not share your data immediately. It establishes a secure connection so you can choose what to share when you use their specific services.
+
+If you did not authorize this action, please log in to your Digital ID Wallet immediately and unlink the partner from the 'Partners' tab.
+
+Regards,
+ZAMREN Digital ID Team
+    """
+    _send_email(subject, message, [citizen_email])
+
+def send_kyc_request_email(citizen_name: str, citizen_email: str, partner_name: str, requested_fields: list):
+    """Notify the citizen that a third-party is requesting KYC data."""
+    subject = f"Action Required: ZAMREN Digital ID Data Request from {partner_name}"
+    
+    fields_formatted = "\n".join([f"- {field.replace('_', ' ').title()}" for field in requested_fields])
+    
+    message = f"""
+Hello {citizen_name},
+
+An institution partner, **{partner_name}**, has submitted a request to access specific information from your ZAMREN Digital ID profile.
+
+They are requesting the following details:
+{fields_formatted}
+
+No data has been shared yet. Your explicit consent is required. 
+Please log in to your Digital ID Wallet to review this request. You can choose to APPROVE or REJECT the request from your Identity Checks / Notifications dashboard.
+
+Regards,
+ZAMREN Digital ID Team
+    """
+    _send_email(subject, message, [citizen_email])

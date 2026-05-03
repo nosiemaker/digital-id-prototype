@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Count, Q
 from citizens.models import Citizen, CitizenStatus, Gender, Province
-from ..models import KYCRequest, ConsentRecord, ThirdPartyInstitution, KYCRequestStatus
+from ..models import KYCRequest, ConsentRecord, ThirdPartyInstitution, KYCRequestStatus, PartnerLink, InstitutionStatus
 from ..schema import KYCRequestResponse, ConsentRecordResponse, ConsentDecision
 import logging
 
@@ -100,9 +100,19 @@ class KYCService:
                 expires_at=timezone.now() + timedelta(hours=24)
             )
             
+            # Send notification email to citizen
+            citizen_user = getattr(citizen, 'user', None)
+            if citizen_user and citizen_user.email:
+                from Utils.email_service import send_kyc_request_email
+                send_kyc_request_email(
+                    citizen_name=citizen.full_name,
+                    citizen_email=citizen_user.email,
+                    partner_name=institution.name,
+                    requested_fields=fields_requested
+                )
+
             logger.info(f"KYC request created: {institution.name} -> {citizen_din}")
             return kyc_request
-            
         except ThirdPartyInstitution.DoesNotExist:
             logger.error(f"Institution with ID {institution_id} not found")
             raise
@@ -332,3 +342,138 @@ class StatisticsService:
             'total': total_requests,
             'approval_rate': round(approval_rate, 2)
         }
+
+
+class PartnerLinkService:
+    """Service for managing connections between citizens and service partners."""
+
+    @staticmethod
+    def get_verified_partners() -> list:
+        """Returns all active third-party institutions."""
+        return list(ThirdPartyInstitution.objects.filter(
+            status=InstitutionStatus.ACTIVE
+        ).order_by('name'))
+
+    @staticmethod
+    def link_account(system_user_id: int, institution_id: int) -> Any:
+        """
+        Creates (or reactivates) an active link between a citizen and an institution.
+        """
+        try:
+            citizen = Citizen.objects.select_related('user').get(user_id=system_user_id)
+            institution = ThirdPartyInstitution.objects.get(
+                id=institution_id,
+                status=InstitutionStatus.ACTIVE
+            )
+
+            link, created = PartnerLink.objects.get_or_create(
+                citizen=citizen,
+                institution=institution,
+                defaults={'is_active': True}
+            )
+
+            if not created and not link.is_active:
+                link.is_active = True
+                link.save(update_fields=['is_active'])
+
+            # Send email notification to citizen
+            if citizen.user and citizen.user.email:
+                from Utils.email_service import send_partner_link_email
+                send_partner_link_email(
+                    citizen_name=citizen.full_name,
+                    citizen_email=citizen.user.email,
+                    partner_name=institution.name,
+                    permitted_scopes=institution.permitted_scope
+                )
+
+            return link
+
+        except ThirdPartyInstitution.DoesNotExist:
+            logger.error(f"Active institution with ID {institution_id} not found")
+            raise ValueError("Institution not found or is not active")
+        except Citizen.DoesNotExist:
+            logger.error(f"Citizen associated with user ID {system_user_id} not found")
+            raise ValueError("Citizen not found")
+
+    @staticmethod
+    def get_linked_partners(system_user_id: int) -> list:
+        """Returns all active links for a specific citizen by their user ID."""
+        return list(
+            PartnerLink.objects.filter(
+                citizen__user_id=system_user_id,
+                is_active=True
+            ).select_related('institution').order_by('-linked_at')
+        )
+
+    @staticmethod
+    def get_institution_linked_citizens(system_user_id: int) -> list:
+        """Returns all citizens actively linked to the third-party institution associated with the user."""
+        from admin_ops.models import SystemUser
+        try:
+            user = SystemUser.objects.get(id=system_user_id)
+            if not user.institution_din:
+                raise ValueError("User is not associated with any institution")
+                
+            institution = ThirdPartyInstitution.objects.get(institution_id=user.institution_din)
+            return list(
+                PartnerLink.objects.filter(
+                    institution=institution,
+                    is_active=True
+                ).select_related('citizen').order_by('-linked_at')
+            )
+        except SystemUser.DoesNotExist:
+            raise ValueError("User not found")
+        except ThirdPartyInstitution.DoesNotExist:
+            raise ValueError("Institution not found")
+
+    @staticmethod
+    def get_linked_citizen_profile(system_user_id: int, citizen_din: str) -> dict:
+        """
+        Returns the citizen's data restricted to the institution's permitted_scope.
+        Verifies that an active PartnerLink exists between the citizen and the institution.
+        """
+        from admin_ops.models import SystemUser
+        try:
+            user = SystemUser.objects.get(id=system_user_id)
+            if not user.institution_din:
+                raise ValueError("User is not associated with any institution")
+                
+            institution = ThirdPartyInstitution.objects.get(institution_id=user.institution_din)
+            
+            # Check if active link exists
+            link = PartnerLink.objects.select_related('citizen').get(
+                institution=institution,
+                citizen__din=citizen_din,
+                is_active=True
+            )
+            
+            citizen = link.citizen
+            permitted_scopes = institution.permitted_scope or []
+            
+            profile_data = {}
+            # Map standard scopes to model fields
+            scope_map = {
+                "full_name": citizen.full_name,
+                "nrc": citizen.nrc,
+                "dob": str(citizen.dob) if citizen.dob else None,
+                "gender": citizen.gender,
+                "phone": citizen.phone,
+                "residential_address": citizen.residential_address,
+                "nationality": citizen.nationality,
+                "occupation": citizen.occupation,
+                "education_level": citizen.education_level,
+                "face_image_url": citizen.face_image_url
+            }
+            
+            for scope in permitted_scopes:
+                if scope in scope_map:
+                    profile_data[scope] = scope_map[scope]
+                    
+            return profile_data
+            
+        except SystemUser.DoesNotExist:
+            raise ValueError("User not found")
+        except ThirdPartyInstitution.DoesNotExist:
+            raise ValueError("Institution not found")
+        except PartnerLink.DoesNotExist:
+            raise ValueError("No active link found between your institution and this citizen")

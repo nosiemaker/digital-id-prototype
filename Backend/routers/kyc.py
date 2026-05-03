@@ -5,13 +5,16 @@ from pydantic import BaseModel
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 
-from kyc.service.services import KYCService, StatisticsService
+from kyc.service.services import KYCService, StatisticsService, PartnerLinkService
 from kyc.models import KYCRequest
 from kyc.schema import (
     KYCRequestCreate as KYCRequestInitiate,
     KYCRequestCitizenAction as CitizenResponse,
     KYCRequestResponse,
     ConsentRecordResponse,
+    VerifiedPartnerResponse,
+    PartnerLinkResponse,
+    InstitutionLinkedCitizenResponse,
 )
 from Utils.rbac import (
     get_permission_dependency,
@@ -304,6 +307,119 @@ async def get_kyc_statistics(
         kyc_metrics=kyc_metrics
     )
 
+
+@router.get("/partners/verified", response_model=list[VerifiedPartnerResponse])
+async def list_verified_partners(
+    current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
+):
+    """List all active third-party institutions."""
+    partners = await sync_to_async(PartnerLinkService.get_verified_partners)()
+    return [
+        VerifiedPartnerResponse(
+            id=p.id,
+            name=p.name,
+            institution_type=p.institution_type,
+            email=p.email
+        ) for p in partners
+    ]
+
+
+@router.post("/partners/{institution_id}/link", response_model=PartnerLinkResponse)
+async def link_partner_account(
+    institution_id: int,
+    current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
+):
+    """Link the current citizen account to a verified partner."""
+    system_user_id = current_user.get("id")
+    try:
+        link = await sync_to_async(PartnerLinkService.link_account)(
+            system_user_id=system_user_id,
+            institution_id=institution_id
+        )
+        return PartnerLinkResponse(
+            id=link.id,
+            institution_id=link.institution.id,
+            institution_name=link.institution.name,
+            institution_type=link.institution.institution_type,
+            linked_at=link.linked_at,
+            is_active=link.is_active
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/partners/linked", response_model=list[PartnerLinkResponse])
+async def list_linked_partners(
+    current_user: dict = Depends(get_permission_dependency(Permission.CITIZEN_READ_OWN_PROFILE)),
+):
+    """List all institutions linked to the current citizen."""
+    system_user_id = current_user.get("id")
+    links = await sync_to_async(PartnerLinkService.get_linked_partners)(system_user_id=system_user_id)
+    return [
+        PartnerLinkResponse(
+            id=l.id,
+            institution_id=l.institution.id,
+            institution_name=l.institution.name,
+            institution_type=l.institution.institution_type,
+            linked_at=l.linked_at,
+            is_active=l.is_active
+        ) for l in links
+    ]
+
+
+@router.get("/institution/linked-citizens", response_model=list[InstitutionLinkedCitizenResponse])
+async def list_institution_linked_citizens(
+    current_user: dict = Depends(get_permission_dependency(Permission.THIRD_PARTY_VERIFY_CITIZEN_ID)),
+):
+    """List all citizens linked to the current institution."""
+    system_user_id = current_user.get("id")
+    try:
+        links = await sync_to_async(PartnerLinkService.get_institution_linked_citizens)(system_user_id=system_user_id)
+        return [
+            InstitutionLinkedCitizenResponse(
+                link_id=l.id,
+                citizen_din=l.citizen.din,
+                citizen_name=l.citizen.full_name,
+                citizen_nrc=l.citizen.nrc,
+                linked_at=l.linked_at,
+                is_active=l.is_active
+            ) for l in links
+        ]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/institution/linked-citizens/{din}/profile", response_model=dict)
+async def get_institution_linked_citizen_profile(
+    din: str,
+    current_user: dict = Depends(get_permission_dependency(Permission.THIRD_PARTY_VERIFY_CITIZEN_ID)),
+):
+    """Get the profile data of a linked citizen, restricted by the institution's permitted scope."""
+    system_user_id = current_user.get("id")
+    try:
+        profile_data = await sync_to_async(PartnerLinkService.get_linked_citizen_profile)(
+            system_user_id=system_user_id,
+            citizen_din=din
+        )
+        return profile_data
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+@router.get("/citizen-lookup/{din}", response_model=dict)
+async def lookup_citizen_name(
+    din: str,
+    current_user: dict = Depends(get_permission_dependency(Permission.THIRD_PARTY_INITIATE_TRANSACTION)),
+):
+    """Lookup a citizen's basic info (name) by DIN. Restricted to Third Parties."""
+    try:
+        from citizens.models import Citizen
+        citizen = await sync_to_async(Citizen.objects.get)(din=din)
+        return {
+            "din": citizen.din,
+            "full_name": citizen.full_name,
+            "nrc": citizen.nrc
+        }
+    except Citizen.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Citizen not found")
 
 # ============================================================================
 # Integration Example: Cascading Updates & Real-Time Statistics
