@@ -387,8 +387,9 @@ def approve_citizen_registration(request_id: int, ro_id: int) -> dict:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Enrollment request not found.",
         )
+    valid_statuses = [EnrollmentStatus.REJECTED, EnrollmentStatus.PENDING]
 
-    if enrollment.status != EnrollmentStatus.PENDING:
+    if enrollment.status not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Request is not PENDING (current status: {enrollment.status}).",
@@ -494,6 +495,7 @@ def reject_citizen_registration(request_id: int, ro_id: int, rejection_reason: s
             actor_role=UserRole.REGISTRATION_OFFICER,
             action="ENROLLMENT_REJECTED",
             target_id=enrollment.id,
+            target_type="CITIZEN_REGISTRATION",
             meta={
                 "enrollment_request_id": enrollment.id,
                 "rejection_reason": rejection_reason,

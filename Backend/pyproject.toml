@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.136.0",
     "passlib[bcrypt]>=1.7.4",
     "pillow>=12.2.0",
+    "psycopg[binary]>=3.3.4",
     "pydantic[email]>=2.13.3",
     "python-decouple>=3.8",
     "python-dotenv>=1.2.2",

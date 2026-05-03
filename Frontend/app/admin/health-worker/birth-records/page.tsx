@@ -164,7 +164,7 @@ export default function BirthRecordsPage() {
 
       await birthRecordApi.submit(payload as any)
       toast.success("Birth record submitted. Awaiting Registrar review.")
-      router.push('/admin/health-worker')
+      router.push('/admin/health-worker/dashboard')
     } catch (err: any) {
       toast.error(err.response?.data?.detail || err.detail || "Submission failed")
     } finally {

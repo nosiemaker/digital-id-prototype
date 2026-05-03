@@ -195,12 +195,6 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
         HTTPException 404 — SystemUser or DeathRecords not found.
         HTTPException 400 — Informant mismatch, Notice already linked, or serialiser errors.
     """
-    # Verify the authenticated user is a valid SystemUser
-    try:
-        citizen_sys = SystemUser.objects.get(id=citizen_id)
-    except SystemUser.DoesNotExist:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
     # Fetch the DeathRecords entry, including the informant relation for the ownership check
     try:
         death_records = DeathRecords.objects.select_related(
@@ -618,7 +612,7 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
         record_data = {
             "serial_number":   f'RB-{secrets.token_hex(4).upper()}',
             "file_number":     request_body.get("file_number"),
-            "place_of_birth":  request_body.get("place_of_birth"),
+            "place_of_birth":  str(request_body.get("place_of_birth")),
             "child_surname":   request_body.get("child_surname"),
             "child_other_names": request_body.get("child_other_names"),
             "sex":             request_body.get("sex"),
@@ -733,119 +727,120 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
         return full_name or user.username or "Unknown"
 
     # Lock the row to prevent concurrent approval attempts on the same submission
-    try:
-        death_records = (
-            DeathRecords.objects
-            .select_for_update()
-            .select_related("notice_of_death", "medical_certificate_of_death")
-            .get(id=request_id)
-        )
-    except DeathRecords.DoesNotExist:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request Not Found")
-
-    # Guard: only transition from PENDING
-    if death_records.status != RegistrationStatusChoices.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Request is not pending",
-        )
-
-    # A Notice of Death must be attached before the case can be approved
-    if not death_records.notice_of_death:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Notice of Death is required for approval",
-        )
-
-    notice = death_records.notice_of_death
-    mccd   = death_records.medical_certificate_of_death
-
-    # Derive deceased's full name and place of death for the output documents
-    deceased_full_name = f"{notice.other_names} {notice.surname}".strip()
-    place_of_death     = notice.place_of_death_name or notice.place_of_death_other or "Unknown"
-
-    # Build multi-line cause of death string from the MCCD's Part I chain
-    cause_of_death = ""
-    if mccd:
-        cause_of_death = mccd.cause_a
-        if mccd.cause_b:
-            cause_of_death += f"\n{mccd.cause_b}"
-        if mccd.cause_c:
-            cause_of_death += f"\n{mccd.cause_c}"
-
-    # Generate a unique registration number for the death certificate
-    def _seed(s: str) -> bytes:
-        return hashlib.sha256(s.encode()).digest()
-    
-    death_cert_no = generate_id(_seed(f"death_{request_id}"), "DEATH_CERT")
-
-    # Assemble Death Certificate payload from the notice and MCCD data
-    death_certificate_data = {
-        "notice_of_death": notice.id,
-        "mccd":            mccd.id if mccd else None,
-        "registration_no": death_cert_no,
-        "date_of_death":   notice.date_of_death,
-        "district":        notice.district,
-        "place_of_death":  place_of_death,
-        "deceased_names_and_surname": deceased_full_name,
-        "sex":             notice.sex,
-        "age":             str(notice.age_at_death) if notice.age_at_death else "Unknown",
-        "nationality":     notice.nationality,
-        "occupation":      notice.occupation,
-        "napsa_social_security_no": notice.social_security_no,
-        "national_identity_no":     notice.national_identity_no,
-        "cause_of_death":  cause_of_death,
-        "informant_name":  f"{notice.informant_other_names} {notice.informant_surname}".strip(),
-        "informant_relationship": notice.informant_relationship,
-        "date_of_registration":   date.today(),
-        "register_kept_at":       f"{notice.district} District Registry",
-        "issued_date":            date.today(),
-        "registrar_general_name": "Registrar",
-    }
-
-    death_cert_serializer = DeathCertificateSerializer(data=death_certificate_data)
-    if not death_cert_serializer.is_valid():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=death_cert_serializer.errors,
-        )
-
-    # Assemble Burial Permit payload — minimal data needed for the Form XI
-    burial_permit_data = {
-        "notice_of_death":  notice.id,
-        "deceased_name":    deceased_full_name,
-        "place_of_death":   place_of_death,
-        "date_of_death":    notice.date_of_death,
-        "issuing_authority": "REGISTRAR",
-        "issued_date":      date.today(),
-        "authorised_by_name": "Registrar",
-    }
-
-    burial_permit_serializer = BurialPermitSerializer(data=burial_permit_data)
-    if not burial_permit_serializer.is_valid():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=burial_permit_serializer.errors,
-        )
-
-    # If the deceased is a registered Citizen, update their status to DECEASED
-    # and retire their DIN. Failures here are non-blocking (e.g. unregistered persons).
-    deceased_din = notice.deceased_din
-    if deceased_din:
+    with transaction.atomic():
         try:
-            deceased_citizen = Citizen.objects.get(din=deceased_din)
-            citizen_serializer = CitizenSerializer(
-                instance=deceased_citizen,
-                data={"status": CitizenStatus.DECEASED},
-                partial=True,
+            death_records = (
+                DeathRecords.objects
+                .select_for_update(of=("self",))
+                .select_related("notice_of_death", "medical_certificate_of_death")
+                .get(id=request_id)
             )
-            if citizen_serializer.is_valid():
-                citizen_serializer.save()
-        except Citizen.DoesNotExist:
-            pass  # Deceased not in registry; proceed without updating citizen status
+        except DeathRecords.DoesNotExist:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request Not Found")
+
+        # Guard: only transition from PENDING
+        if death_records.status != RegistrationStatusChoices.PENDING:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Request is not pending",
+            )
+
+        # A Notice of Death must be attached before the case can be approved
+        if not death_records.notice_of_death:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Notice of Death is required for approval",
+            )
+
+        notice = death_records.notice_of_death
+        mccd   = death_records.medical_certificate_of_death
+
+        # Derive deceased's full name and place of death for the output documents
+        deceased_full_name = f"{notice.other_names} {notice.surname}".strip()
+        place_of_death     = notice.place_of_death_name or notice.place_of_death_other or "Unknown"
+
+        # Build multi-line cause of death string from the MCCD's Part I chain
+        cause_of_death = ""
+        if mccd:
+            cause_of_death = mccd.cause_a
+            if mccd.cause_b:
+                cause_of_death += f"\n{mccd.cause_b}"
+            if mccd.cause_c:
+                cause_of_death += f"\n{mccd.cause_c}"
+
+        # Generate a unique registration number for the death certificate
+        def _seed(s: str) -> bytes:
+            return hashlib.sha256(s.encode()).digest()
+
+        death_cert_no = generate_id(_seed(f"death_{request_id}"), "DEATH_CERT")
+
+        # Assemble Death Certificate payload from the notice and MCCD data
+        death_certificate_data = {
+            "notice_of_death": notice.id,
+            "mccd":            mccd.id if mccd else None,
+            "registration_no": death_cert_no,
+            "date_of_death":   notice.date_of_death,
+            "district":        notice.district,
+            "place_of_death":  place_of_death,
+            "deceased_names_and_surname": deceased_full_name,
+            "sex":             notice.sex,
+            "age":             str(notice.age_at_death) if notice.age_at_death else "Unknown",
+            "nationality":     notice.nationality,
+            "occupation":      notice.occupation,
+            "napsa_social_security_no": notice.social_security_no,
+            "national_identity_no":     notice.national_identity_no,
+            "cause_of_death":  cause_of_death,
+            "informant_name":  f"{notice.informant_other_names} {notice.informant_surname}".strip(),
+            "informant_relationship": notice.informant_relationship,
+            "date_of_registration":   date.today(),
+            "register_kept_at":       f"{notice.district} District Registry",
+            "issued_date":            date.today(),
+            "registrar_general_name": "Registrar",
+        }
+
+        death_cert_serializer = DeathCertificateSerializer(data=death_certificate_data)
+        if not death_cert_serializer.is_valid():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=death_cert_serializer.errors,
+            )
+
+        # Assemble Burial Permit payload — minimal data needed for the Form XI
+        burial_permit_data = {
+            "notice_of_death":  notice.id,
+            "deceased_name":    deceased_full_name,
+            "place_of_death":   place_of_death,
+            "date_of_death":    notice.date_of_death,
+            "issuing_authority": "REGISTRAR",
+            "issued_date":      date.today(),
+            "authorised_by_name": "Registrar",
+        }
+
+        burial_permit_serializer = BurialPermitSerializer(data=burial_permit_data)
+        if not burial_permit_serializer.is_valid():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=burial_permit_serializer.errors,
+            )
+
+        # If the deceased is a registered Citizen, update their status to DECEASED
+        # and retire their DIN. Failures here are non-blocking (e.g. unregistered persons).
+        deceased_din = notice.deceased_din
+        if deceased_din:
+            try:
+                deceased_citizen = Citizen.objects.get(din=deceased_din)
+                citizen_serializer = CitizenSerializer(
+                    instance=deceased_citizen,
+                    data={"status": CitizenStatus.DECEASED},
+                    partial=True,
+                )
+                if citizen_serializer.is_valid():
+                    citizen_serializer.save()
+            except Citizen.DoesNotExist:
+                pass  # Deceased not in registry; proceed without updating citizen status
 
     # Atomically save all documents and update the DeathRecords status
-    with transaction.atomic():
+
         death_certificate = death_cert_serializer.save()
         burial_permit     = burial_permit_serializer.save()
         death_records.death_certificate = death_certificate
@@ -947,70 +942,70 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registrar Not Found")
 
     # Lock the row to prevent concurrent approval attempts
-    try:
-        submission_request = (
-            BirthRecords.objects
-            .select_for_update()
-            .select_related("notice_of_birth", "record_of_birth")
-            .get(id=request_id)
+    with transaction.atomic():
+        try:
+            submission_request = (
+                BirthRecords.objects
+                .select_for_update(of=('self',))
+                .select_related("notice_of_birth", "record_of_birth")
+                .get(id=request_id)
+            )
+        except BirthRecords.DoesNotExist:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record Request Not Found")
+
+        # Guard: only PENDING submissions can be approved
+        if submission_request.status != RecordStatus.PENDING:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Request is not pending")
+
+        notice_of_birth = submission_request.notice_of_birth
+        record_of_birth = submission_request.record_of_birth
+
+        # Both sub-documents are required
+        if not notice_of_birth or not record_of_birth:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Notice of Birth or Record of Birth not found for this submission",
+            )
+
+        mother = submission_request.mother
+        father = submission_request.father
+
+        # If the mother Citizen no longer exists, auto-reject and surface the error
+        if not mother:
+            details = birth_record_rejection(request_id, registrar_id, "Mother ID Not Found")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=details)
+
+        # Extract child details from the notice for DIN generation and certificate fields
+        child_full_name = f"{notice_of_birth.child_given_name} {notice_of_birth.child_surname}"
+        child_dob       = notice_of_birth.date_of_birth
+        born_at         = notice_of_birth.date_and_time
+        sex             = notice_of_birth.sex
+        birth_weight    = notice_of_birth.birth_weight_kg
+        place_of_birth  = (
+            notice_of_birth.health_facility_name
+            or notice_of_birth.home_address
+            or notice_of_birth.other_place_specified
+            or notice_of_birth.place_of_birth
+            or "Unknown"
         )
-    except BirthRecords.DoesNotExist:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record Request Not Found")
 
-    # Guard: only PENDING submissions can be approved
-    if submission_request.status != RecordStatus.PENDING:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Request is not pending")
-
-    notice_of_birth = submission_request.notice_of_birth
-    record_of_birth = submission_request.record_of_birth
-
-    # Both sub-documents are required
-    if not notice_of_birth or not record_of_birth:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Notice of Birth or Record of Birth not found for this submission",
+        # Generate a deterministic DIN for the child based on identity + mother's DIN
+        child_id = generate_id(
+            child_seed_generation(child_full_name, child_dob, born_at, mother.din),
+            "CHILD",
         )
 
-    mother = submission_request.mother
-    father = submission_request.father
-
-    # If the mother Citizen no longer exists, auto-reject and surface the error
-    if not mother:
-        details = birth_record_rejection(request_id, registrar_id, "Mother ID Not Found")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=details)
-
-    # Extract child details from the notice for DIN generation and certificate fields
-    child_full_name = f"{notice_of_birth.child_given_name} {notice_of_birth.child_surname}"
-    child_dob       = notice_of_birth.date_of_birth
-    born_at         = notice_of_birth.date_and_time
-    sex             = notice_of_birth.sex
-    birth_weight    = notice_of_birth.birth_weight_kg
-    place_of_birth  = (
-        notice_of_birth.health_facility_name
-        or notice_of_birth.home_address
-        or notice_of_birth.other_place_specified
-        or notice_of_birth.place_of_birth
-        or "Unknown"
-    )
-
-    # Generate a deterministic DIN for the child based on identity + mother's DIN
-    child_id = generate_id(
-        child_seed_generation(child_full_name, child_dob, born_at, mother.din),
-        "CHILD",
-    )
-
-    # Prevent duplicate certificates: check if a cert with this reg_no already exists
-    try:
-        BirthCertificate.objects.get(reg_no=child_id)
-    except BirthCertificate.DoesNotExist:
-        pass  # No existing certificate — safe to proceed
-    else:
-        # A certificate already exists; auto-reject to clean up and surface the conflict
-        details = birth_record_rejection(request_id, registrar_id, "Certificate Already Exists")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=details)
+        # Prevent duplicate certificates: check if a cert with this reg_no already exists
+        try:
+            BirthCertificate.objects.get(reg_no=child_id)
+        except BirthCertificate.DoesNotExist:
+            pass  # No existing certificate — safe to proceed
+        else:
+            # A certificate already exists; auto-reject to clean up and surface the conflict
+            details = birth_record_rejection(request_id, registrar_id, "Certificate Already Exists")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=details)
 
     # Atomic block: create all downstream records together or roll back entirely
-    with transaction.atomic():
 
         # Resolve SystemUser accounts for the mother and father (for certificate FK linking)
         mother_system_user = None
@@ -1060,7 +1055,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
             informant_address=mother_citizen.residential_address if mother_citizen else " ",
             postal_address=" ",
             date_of_registration=submission_request.submitted_at.date(),
-            registrar_name=registrar.profile.full_name,
+            registrar_name=get_user_display_name(registrar),
         )
 
         # Update the BirthRecords submission to APPROVED and link the new certificate
@@ -2479,7 +2474,7 @@ def get_hw_birth_submission(user_id: int) -> dict:
     """Returns all birth submissions created by this health worker"""
     records = BirthRecords.objects.filter(health_worker_id=user_id).order_by("-submitted_at")
     serializer = BirthRecordRequestSerializer(records, many=True)
-    return {"details": "Submission Found", "record": serializer.data}
+    return {"details": "Submission Found", "records": serializer.data}
 
 def get_hw_death_submission(user_id: int) -> dict:
     """Returns all death submissions created by this health worker."""
