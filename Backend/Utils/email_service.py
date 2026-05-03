@@ -239,3 +239,25 @@ Regards,
 ZAMREN Digital ID Team
     """
     _send_email(subject, message, [citizen_email])
+
+def send_kyc_request_email(citizen_name: str, citizen_email: str, partner_name: str, requested_fields: list):
+    """Notify the citizen that a third-party is requesting KYC data."""
+    subject = f"Action Required: ZAMREN Digital ID Data Request from {partner_name}"
+    
+    fields_formatted = "\n".join([f"- {field.replace('_', ' ').title()}" for field in requested_fields])
+    
+    message = f"""
+Hello {citizen_name},
+
+An institution partner, **{partner_name}**, has submitted a request to access specific information from your ZAMREN Digital ID profile.
+
+They are requesting the following details:
+{fields_formatted}
+
+No data has been shared yet. Your explicit consent is required. 
+Please log in to your Digital ID Wallet to review this request. You can choose to APPROVE or REJECT the request from your Identity Checks / Notifications dashboard.
+
+Regards,
+ZAMREN Digital ID Team
+    """
+    _send_email(subject, message, [citizen_email])

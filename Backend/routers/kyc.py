@@ -388,6 +388,38 @@ async def list_institution_linked_citizens(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/institution/linked-citizens/{din}/profile", response_model=dict)
+async def get_institution_linked_citizen_profile(
+    din: str,
+    current_user: dict = Depends(get_permission_dependency(Permission.THIRD_PARTY_VERIFY_CITIZEN_ID)),
+):
+    """Get the profile data of a linked citizen, restricted by the institution's permitted scope."""
+    system_user_id = current_user.get("id")
+    try:
+        profile_data = await sync_to_async(PartnerLinkService.get_linked_citizen_profile)(
+            system_user_id=system_user_id,
+            citizen_din=din
+        )
+        return profile_data
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+@router.get("/citizen-lookup/{din}", response_model=dict)
+async def lookup_citizen_name(
+    din: str,
+    current_user: dict = Depends(get_permission_dependency(Permission.THIRD_PARTY_INITIATE_TRANSACTION)),
+):
+    """Lookup a citizen's basic info (name) by DIN. Restricted to Third Parties."""
+    try:
+        from citizens.models import Citizen
+        citizen = await sync_to_async(Citizen.objects.get)(din=din)
+        return {
+            "din": citizen.din,
+            "full_name": citizen.full_name,
+            "nrc": citizen.nrc
+        }
+    except Citizen.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Citizen not found")
 
 # ============================================================================
 # Integration Example: Cascading Updates & Real-Time Statistics

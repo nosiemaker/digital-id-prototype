@@ -100,9 +100,19 @@ class KYCService:
                 expires_at=timezone.now() + timedelta(hours=24)
             )
             
+            # Send notification email to citizen
+            citizen_user = getattr(citizen, 'user', None)
+            if citizen_user and citizen_user.email:
+                from Utils.email_service import send_kyc_request_email
+                send_kyc_request_email(
+                    citizen_name=citizen.full_name,
+                    citizen_email=citizen_user.email,
+                    partner_name=institution.name,
+                    requested_fields=fields_requested
+                )
+
             logger.info(f"KYC request created: {institution.name} -> {citizen_din}")
             return kyc_request
-            
         except ThirdPartyInstitution.DoesNotExist:
             logger.error(f"Institution with ID {institution_id} not found")
             raise
@@ -414,4 +424,56 @@ class PartnerLinkService:
         except SystemUser.DoesNotExist:
             raise ValueError("User not found")
         except ThirdPartyInstitution.DoesNotExist:
-            raise ValueError("Institution not found")
+            raise ValueError("Institution not found")
+
+    @staticmethod
+    def get_linked_citizen_profile(system_user_id: int, citizen_din: str) -> dict:
+        """
+        Returns the citizen's data restricted to the institution's permitted_scope.
+        Verifies that an active PartnerLink exists between the citizen and the institution.
+        """
+        from admin_ops.models import SystemUser
+        try:
+            user = SystemUser.objects.get(id=system_user_id)
+            if not user.institution_din:
+                raise ValueError("User is not associated with any institution")
+                
+            institution = ThirdPartyInstitution.objects.get(institution_id=user.institution_din)
+            
+            # Check if active link exists
+            link = PartnerLink.objects.select_related('citizen').get(
+                institution=institution,
+                citizen__din=citizen_din,
+                is_active=True
+            )
+            
+            citizen = link.citizen
+            permitted_scopes = institution.permitted_scope or []
+            
+            profile_data = {}
+            # Map standard scopes to model fields
+            scope_map = {
+                "full_name": citizen.full_name,
+                "nrc": citizen.nrc,
+                "dob": str(citizen.dob) if citizen.dob else None,
+                "gender": citizen.gender,
+                "phone": citizen.phone,
+                "residential_address": citizen.residential_address,
+                "nationality": citizen.nationality,
+                "occupation": citizen.occupation,
+                "education_level": citizen.education_level,
+                "face_image_url": citizen.face_image_url
+            }
+            
+            for scope in permitted_scopes:
+                if scope in scope_map:
+                    profile_data[scope] = scope_map[scope]
+                    
+            return profile_data
+            
+        except SystemUser.DoesNotExist:
+            raise ValueError("User not found")
+        except ThirdPartyInstitution.DoesNotExist:
+            raise ValueError("Institution not found")
+        except PartnerLink.DoesNotExist:
+            raise ValueError("No active link found between your institution and this citizen")

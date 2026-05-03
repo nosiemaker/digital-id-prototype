@@ -51,4 +51,14 @@ export const kycApi = {
     const { data } = await axiosInstance.get<InstitutionLinkedCitizenResponse[]>('/kyc/institution/linked-citizens');
     return data;
   },
+
+  getLinkedCitizenProfile: async (din: string): Promise<Record<string, any>> => {
+    const { data } = await axiosInstance.get<Record<string, any>>(`/kyc/institution/linked-citizens/${din}/profile`);
+    return data;
+  },
+
+  lookupCitizen: async (din: string): Promise<{ full_name: string; nrc: string; din: string }> => {
+    const { data } = await axiosInstance.get(`/kyc/citizen-lookup/${din}`);
+    return data;
+  },
 };

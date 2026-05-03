@@ -23,17 +23,20 @@ import {
   Lock,
   Smartphone,
   Loader2,
-  Link2
+  Link2,
+  User
 } from "lucide-react"
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { useMe } from "@/hooks/useMe"
 import { kycApi } from "@/lib/api/kyc"
 import type { InstitutionLinkedCitizenResponse } from "@/utils/types"
+import { CitizenProfileModal } from "@/components/CitizenProfileModal"
 
 const sidebarLinks = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "verifications", label: "Identity Checks", icon: Users },
   { id: "linked-accounts", label: "Linked Accounts", icon: Link2 },
+  { id: "kyc-request", label: "Submit KYC Request", icon: Shield },
   { id: "api", label: "API & Keys", icon: Key },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
@@ -66,6 +69,90 @@ export default function InstitutionDashboard() {
   const [copied, setCopied] = useState(false)
   const [linkedCitizens, setLinkedCitizens] = useState<InstitutionLinkedCitizenResponse[]>([])
   const [loadingCitizens, setLoadingCitizens] = useState(false)
+  
+  // Profile Modal State
+  const [selectedProfileDin, setSelectedProfileDin] = useState<string | null>(null)
+  const [profileData, setProfileData] = useState<Record<string, any> | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(false)
+
+  const handleViewProfile = async (din: string) => {
+    setSelectedProfileDin(din)
+    setLoadingProfile(true)
+    try {
+      const data = await kycApi.getLinkedCitizenProfile(din)
+      setProfileData(data)
+    } catch (err: any) {
+      console.error("Failed to load profile", err)
+      alert(err?.detail || "Failed to load profile data.")
+      setSelectedProfileDin(null)
+    } finally {
+      setLoadingProfile(false)
+    }
+  }
+
+  // KYC Request State
+  const [kycDin, setKycDin] = useState("")
+  const [kycFields, setKycFields] = useState<string[]>([])
+  const [kycLoading, setKycLoading] = useState(false)
+  const [kycSuccess, setKycSuccess] = useState(false)
+
+  // Citizen Lookup State
+  const [kycCitizenName, setKycCitizenName] = useState<string | null>(null)
+  const [kycCitizenLoading, setKycCitizenLoading] = useState(false)
+  const [kycCitizenError, setKycCitizenError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!kycDin || kycDin.length < 5) {
+        setKycCitizenName(null)
+        setKycCitizenError(null)
+        return
+      }
+
+      setKycCitizenLoading(true)
+      setKycCitizenError(null)
+      try {
+        const citizen = await kycApi.lookupCitizen(kycDin)
+        setKycCitizenName(citizen.full_name)
+      } catch (err: any) {
+        setKycCitizenName(null)
+        setKycCitizenError(err?.detail || "Citizen not found")
+      } finally {
+        setKycCitizenLoading(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [kycDin])
+
+  const handleKycSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!kycDin || kycFields.length === 0) return
+    
+    setKycLoading(true)
+    try {
+      await kycApi.initiateRequest({
+        citizen_din: kycDin,
+        fields_requested: kycFields
+      })
+      setKycSuccess(true)
+      setKycDin("")
+      setKycFields([])
+      setTimeout(() => setKycSuccess(false), 5000)
+    } catch (err: any) {
+      console.error(err)
+      alert(err?.detail || "Failed to submit request.")
+    } finally {
+      setKycLoading(false)
+    }
+  }
+
+  const toggleKycField = (field: string) => {
+    setKycFields(prev => 
+      prev.includes(field) ? prev.filter(f => f !== field) : [...prev, field]
+    )
+  }
+
   useEffect(() => {
     if (activeTab === "linked-accounts") {
       const fetchLinked = async () => {
@@ -421,7 +508,11 @@ export default function InstitutionDashboard() {
                               </span>
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <button className="text-xs font-bold text-primary hover:underline" disabled={!citizen.is_active}>
+                              <button 
+                                onClick={() => handleViewProfile(citizen.citizen_din)}
+                                className="text-xs font-bold text-primary hover:underline" 
+                                disabled={!citizen.is_active}
+                              >
                                 View Profile Data
                               </button>
                             </td>
@@ -431,6 +522,119 @@ export default function InstitutionDashboard() {
                     </table>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "kyc-request" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-3xl">
+              <div className="rounded-xl border border-border bg-card p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground">Initiate KYC Verification</h2>
+                    <p className="text-xs text-muted-foreground">Request explicit consent from a citizen to access their identity fields.</p>
+                  </div>
+                </div>
+
+                {kycSuccess && (
+                  <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-emerald-500">Request Sent Successfully</p>
+                      <p className="text-xs text-emerald-500/80">The citizen will receive a notification to review and approve your data request.</p>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleKycSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-foreground">Citizen DIN</label>
+                    <input 
+                      type="text" 
+                      value={kycDin}
+                      onChange={(e) => setKycDin(e.target.value.toUpperCase())}
+                      placeholder="e.g. ZM-2024-..."
+                      className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      required
+                    />
+                    
+                    {/* Dynamic Citizen Lookup Display */}
+                    <div className="mt-2 min-h-[40px]">
+                      {kycCitizenLoading && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                          Looking up citizen...
+                        </div>
+                      )}
+                      {!kycCitizenLoading && kycCitizenName && (
+                        <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2">
+                          <div className="h-6 w-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                            <User className="h-3 w-3 text-emerald-500" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-foreground">{kycCitizenName}</span>
+                            <span className="text-[10px] text-emerald-500 font-medium">Valid Digital ID Found</span>
+                          </div>
+                        </div>
+                      )}
+                      {!kycCitizenLoading && kycCitizenError && kycDin.length >= 5 && (
+                        <div className="flex items-center gap-2 rounded-lg bg-red-400/10 border border-red-400/20 p-2">
+                          <AlertCircle className="h-4 w-4 text-red-400" />
+                          <span className="text-xs font-medium text-red-400">{kycCitizenError}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-foreground">Requested Data Fields</label>
+                    <p className="text-[10px] text-muted-foreground mb-2">Select the fields you need. You can only request fields included in your approved institution scope.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        { id: "full_name", label: "Full Name" },
+                        { id: "dob", label: "Date of Birth" },
+                        { id: "nrc", label: "NRC Number" },
+                        { id: "phone", label: "Phone Number" },
+                        { id: "residential_address", label: "Residential Address" },
+                        { id: "gender", label: "Gender" },
+                      ].map((field) => (
+                        <div 
+                          key={field.id}
+                          onClick={() => toggleKycField(field.id)}
+                          className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                            kycFields.includes(field.id) 
+                              ? "border-primary bg-primary/5" 
+                              : "border-border bg-secondary/10 hover:bg-secondary/30"
+                          }`}
+                        >
+                          <div className={`h-4 w-4 rounded border flex items-center justify-center ${
+                            kycFields.includes(field.id) ? "border-primary bg-primary" : "border-muted-foreground/40"
+                          }`}>
+                            {kycFields.includes(field.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                          </div>
+                          <span className={`text-xs font-medium ${kycFields.includes(field.id) ? "text-primary font-bold" : "text-foreground"}`}>
+                            {field.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={kycLoading || !kycDin || kycFields.length === 0}
+                    className="w-full py-3.5 rounded-xl bg-primary text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {kycLoading ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Submitting Request...</>
+                    ) : (
+                      <><Shield className="h-4 w-4" /> Submit KYC Request</>
+                    )}
+                  </button>
+                </form>
               </div>
             </div>
           )}
@@ -448,6 +652,16 @@ export default function InstitutionDashboard() {
           )}
         </div>
       </main>
+
+      <CitizenProfileModal 
+        open={!!selectedProfileDin}
+        onClose={() => {
+          setSelectedProfileDin(null)
+          setProfileData(null)
+        }}
+        profileData={profileData}
+        loading={loadingProfile}
+      />
     </div>
   )
 }
