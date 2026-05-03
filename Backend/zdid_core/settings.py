@@ -29,9 +29,13 @@ SECRET_KEY = config(
     default="TZE9KfgO7sl6sdGkQBN8t0LK3Da03Kxbqv4T1dTJL8g_hjMt3x6iJ3lR8aH2MrMZysw",
 )
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default='True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+
+# Also allow all subdomains of onrender.com automatically
+if not DEBUG:
+    ALLOWED_HOSTS += ['.onrender.com']
 
 
 # ============================================================================
