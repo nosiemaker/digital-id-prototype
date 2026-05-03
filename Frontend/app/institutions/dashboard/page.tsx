@@ -16,14 +16,16 @@ import {
   AlertCircle,
   Clock,
   ArrowUpRight,
-  Filter,
   Eye,
   Copy,
   Zap,
   Globe,
   Lock,
   Smartphone,
+  Loader2
 } from "lucide-react"
+import { useRoleGuard } from "@/hooks/use-role-guard"
+import { useMe } from "@/hooks/useMe"
 
 const sidebarLinks = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -52,6 +54,10 @@ const dataPermissions = [
 ]
 
 export default function InstitutionDashboard() {
+  // Only allow THIRD_PARTY role
+  useRoleGuard(["THIRD_PARTY"])
+  const { me, loading } = useMe()
+  
   const [activeTab, setActiveTab] = useState("overview")
   const [copied, setCopied] = useState(false)
 
@@ -60,6 +66,16 @@ export default function InstitutionDashboard() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  const institutionName = me?.name || "Institution"
 
   return (
     <div className="min-h-screen bg-background font-sans flex">
@@ -71,7 +87,7 @@ export default function InstitutionDashboard() {
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-bold text-foreground">Partner Portal</span>
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Zanaco Bank</span>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">{institutionName}</span>
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -260,7 +276,7 @@ export default function InstitutionDashboard() {
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl border border-border bg-secondary/20 opacity-60 grayscale">
+                  <div className="p-4 rounded-xl border border-border bg-secondary/20 opacity-6 grayscale">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-foreground">Test Sandbox Key</span>

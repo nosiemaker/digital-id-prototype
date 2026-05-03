@@ -30,6 +30,7 @@ export default function InstitutionsPage() {
     reg_number: "",
     type: "Financial Institution",
     email: "",
+    password: "",
     phone: "",
     address: "",
     purpose: "",
@@ -45,6 +46,10 @@ export default function InstitutionsPage() {
         name: form.name,
         reg_number: form.reg_number,
         email: form.email,
+        password: form.password,
+        phone: form.phone,
+        type: form.type,
+        purpose: form.purpose,
       })
       setLoading(false)
       setSubmitted(true)
@@ -201,18 +206,34 @@ export default function InstitutionsPage() {
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Login Password</label>
                       <div className="relative">
-                        <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input 
-                          type="tel" 
+                          type="password" 
                           required 
-                          placeholder="+260..."
+                          minLength={8}
+                          placeholder="••••••••"
                           className="w-full rounded-lg border border-border bg-input pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none transition-colors"
-                          value={form.phone}
-                          onChange={(e) => setForm({...form, phone: e.target.value})}
+                          value={form.password}
+                          onChange={(e) => setForm({...form, password: e.target.value})}
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                    <div className="relative">
+                      <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input 
+                        type="tel" 
+                        required 
+                        placeholder="+260..."
+                        className="w-full rounded-lg border border-border bg-input pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none transition-colors"
+                        value={form.phone}
+                        onChange={(e) => setForm({...form, phone: e.target.value})}
+                      />
                     </div>
                   </div>
 

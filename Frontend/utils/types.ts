@@ -669,4 +669,5 @@ export interface ThirdPartyRegistrationRequest {
   name: string;
   reg_number: string;
   email: string;
+  password: string;
 }

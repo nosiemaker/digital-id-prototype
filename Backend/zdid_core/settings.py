@@ -169,3 +169,5 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='')
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
+
+# DATABASE_URL='postgres://postgres.oflccsjshbkuksuacfge:hamusonde11.@aws-0-eu-west-1.pooler.supabase.com:5432/postgres'

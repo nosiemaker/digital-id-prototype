@@ -88,14 +88,14 @@ async def register_third_party(body: ThirdPartyInstitutionBase,request: Request,
 # Returns all third-party enrollment requests currently in PENDING status.
 # Only accessible to users with the REGISTRAR or SUPERVISOR role.
 @third_party_router.get("/pending")
-async def list_pending(request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.SUPERVISOR]))):
+async def list_pending(request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.SUPERVISOR, UserRole.REGISTRATION_OFFICER]))):
     result = await sync_to_async(get_all_pending)()
     return result
 
 # Returns a single third-party enrollment request by its ID.
 # Only accessible to users with the REGISTRAR or SUPERVISOR role.
 @third_party_router.get("/pending/{request_id}")
-async def get_pending(request_id: int,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.SUPERVISOR]))):
+async def get_pending(request_id: int,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.SUPERVISOR, UserRole.REGISTRATION_OFFICER]))):
     result = await sync_to_async(get_single_pending)(request_id)
     return result
 
@@ -103,7 +103,7 @@ async def get_pending(request_id: int,request: Request,user=Depends(require_grou
 # Expects the permitted data scope in the request body.
 # Only accessible to users with the REGISTRAR role.
 @third_party_router.put("/{request_id}/approve")
-async def approve_third_party(request_id: int,body: ThirdPartyApprovalRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR]))):
+async def approve_third_party(request_id: int,body: ThirdPartyApprovalRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.REGISTRATION_OFFICER]))):
     result = await sync_to_async(approve_third_party_registration)(request_id, user["id"], body.permitted_scope)
     return result
 
@@ -111,7 +111,7 @@ async def approve_third_party(request_id: int,body: ThirdPartyApprovalRequest,re
 # Requires a rejection reason in the request body.
 # Only accessible to users with the REGISTRAR role.
 @third_party_router.put("/{request_id}/reject")
-async def reject_third_party(request_id: int,body: RejectionRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR]))):
+async def reject_third_party(request_id: int,body: RejectionRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.REGISTRATION_OFFICER]))):
     result = await sync_to_async(reject_third_party_registration)(
         request_id, user["id"], body.rejection_reason
     )
