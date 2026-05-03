@@ -3,6 +3,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from jose import jwt, JWTError
 import os
+import re
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 ALGORITHM = "HS256"
@@ -23,7 +24,7 @@ PUBLIC_ROUTES = [
     "/users/set-password",
     "/districts/provinces",
     "/districts/",
-    "deaths/submit/{death_record_id}/notice_of_death"
+    "/deaths/submit/{death_record_id}/notice_of_death"
 ]
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -34,10 +35,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path.rstrip("/")
         if not path: path = "/"
-        
-        # Check if the path (without trailing slash) is in PUBLIC_ROUTES
-        # Note: PUBLIC_ROUTES should also be stripped of trailing slashes for comparison
-        is_public = any(path == p.rstrip("/") for p in PUBLIC_ROUTES)
+
+        is_public = False
+        for route in PUBLIC_ROUTES:
+            route = route.rstrip("/")
+            pattern = "^" + re.sub(r"\{[^}]+}", r"[^/]+", route) + "$"
+
+            if re.match(pattern, path):
+                is_public = True
+                break
         
         if is_public:
             return await call_next(request)

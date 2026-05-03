@@ -133,7 +133,7 @@ export default function DeathRecordsPage() {
 
       await deathRecordApi.submit(payload as any)
       toast.success("MCCD submitted successfully. Informant must now attach the Notice of Death.")
-      router.push('/admin/health-worker')
+      router.push('/admin/health-worker/dashboard')
     } catch (err: any) {
       toast.error(err.response?.data?.detail || err.detail || "Submission failed")
     } finally {
