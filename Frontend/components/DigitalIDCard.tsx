@@ -158,7 +158,7 @@ export default function DigitalIDCard({
       </div>
 
       <div className="text-center">
-        <span className="text-[11px] uppercase tracking-widest" style={{ color: c.muted }}>Tap card to flip</span>
+        <span className="text-[11px] uppercase tracking-widest font-bold animate-pulse" style={{ color: c.accent }}>Tap card to flip</span>
       </div>
 
       {/* Vault Housing */}
@@ -194,48 +194,78 @@ export default function DigitalIDCard({
               {/* FRONT FACE */}
               <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ backfaceVisibility: "hidden", background: c.bg, border: `1px solid ${c.border}` }}>
                 
-                {/* NEW: Watermark added behind content */}
+                {/* Chitenge Watermark */}
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                   <svg width="100%" height="100%">
+                      <pattern id="card-chitenge" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                         <path d="M0 20 L10 0 L20 20 L10 40 Z" fill="none" stroke={c.accent} strokeWidth="0.5" />
+                         <circle cx="10" cy="20" r="3" fill="none" stroke={c.accent} strokeWidth="0.3" />
+                      </pattern>
+                      <rect width="100%" height="100%" fill="url(#card-chitenge)" />
+                   </svg>
+                </div>
                 <CoatOfArmsWatermark />
 
                 <div className="h-full flex flex-col justify-between p-4 relative z-10">
                   {/* Header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      {/* UPDATED: Seal in card header as well */}
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center border overflow-hidden" style={{ background: "#0d1410", borderColor: c.border }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center border overflow-hidden shadow-sm" style={{ background: "#0d1410", borderColor: c.border }}>
                         <ZambiaOfficialSeal className="w-full h-full" />
                       </div>
                       <div>
-                        <div className="text-[11px] uppercase tracking-[0.14em] font-semibold" style={{ color: c.accent }}>Republic of Zambia</div>
-                        <div className="text-[9px] uppercase tracking-[0.08em]" style={{ color: c.muted }}>National Digital Identity Authority</div>
+                        <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: c.accent }}>Republic of Zambia</div>
+                        <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.08em]" style={{ color: c.muted }}>National Digital Identity Authority</div>
                       </div>
+                    </div>
+                    {/* Contactless symbol */}
+                    <div className="flex flex-col gap-0.5 opacity-40">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="h-4 w-4 rounded-full border-r-2 border-t-2" style={{ borderColor: c.muted, transform: `rotate(${45 + i*10}deg)` }} />
+                      ))}
                     </div>
                   </div>
 
-                  {/* Main Info */}
-                  <div className="flex items-center gap-3.5 mt-1">
-                    <div className="relative w-[70px] h-[70px] shrink-0">
-                      <div className="absolute -inset-[2px] rounded-full border-2 animate-pulse" style={{ borderColor: c.accent, animationDuration: "3s" }} />
-                      <div className="absolute inset-[2px] rounded-full overflow-hidden flex items-center justify-center" style={{ background: "#0d1410", border: `1px solid ${c.border}` }}>
-                        {faceImageUrl ? (
-                          <img src={faceImageUrl} alt={displayName} className="w-full h-full object-cover" loading="eager" decoding="async" />
-                        ) : (
-                          <span className="text-2xl font-bold tracking-tight" style={{ color: c.accent }}>{initials}</span>
-                        )}
+                  {/* Chip & Photo Row */}
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-3">
+                      {/* EMV Chip Simulation */}
+                      <div className="w-10 h-8 rounded-md bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 p-[1px] relative overflow-hidden shadow-inner">
+                        <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-[1px]">
+                          {[...Array(6)].map((_, i) => <div key={i} className="border-[0.5px] border-black/10" />)}
+                        </div>
+                      </div>
+                      
+                      <div className="relative w-[60px] h-[60px] sm:w-[70px] h-[70px] shrink-0">
+                        <div className="absolute -inset-[2px] rounded-full border-2 animate-pulse" style={{ borderColor: c.accent, animationDuration: "3s" }} />
+                        <div className="absolute inset-[2px] rounded-full overflow-hidden flex items-center justify-center" style={{ background: "#0d1410", border: `1px solid ${c.border}` }}>
+                          {faceImageUrl ? (
+                            <img src={faceImageUrl} alt={displayName} className="w-full h-full object-cover" loading="eager" decoding="async" />
+                          ) : (
+                            <span className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: c.accent }}>{initials}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-2xl font-bold uppercase tracking-wide leading-tight" style={{ color: c.text }}>{displayName}</div>
-                      <div className="text-[11px] mt-0.5 tracking-wide" style={{ color: c.muted }}>
-                        {formattedCitizenType} · {province}
-                      </div>
+                    
+                    <div className="text-right">
+                       <div className="text-[9px] uppercase tracking-[0.1em]" style={{ color: c.label }}>Status</div>
+                       <div className="text-[11px] font-bold text-primary flex items-center justify-end gap-1">
+                          <div className="h-1 w-1 rounded-full bg-primary animate-ping" />
+                          {status}
+                       </div>
                     </div>
                   </div>
 
-                  {/* Hero DIN & Meta */}
+                  {/* Name and DIN */}
                   <div className="mt-2">
-                    <div className="text-[10px] uppercase tracking-[0.12em] mb-1" style={{ color: c.label }}>Digital ID Number (DIN)</div>
-                    <div className="text-xl font-semibold tracking-wider font-mono" style={{ color: c.accent }}>{din}</div>
+                    <div className="text-lg sm:text-xl font-bold uppercase tracking-wide text-foreground truncate" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{displayName}</div>
+                    <div className="flex items-center justify-between mt-1">
+                      <div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] mb-0.5" style={{ color: c.label }}>Digital ID Number (DIN)</div>
+                        <div className="text-lg sm:text-xl font-bold tracking-wider font-mono" style={{ color: c.accent, textShadow: "0 1px 1px rgba(0,0,0,0.8)" }}>{din}</div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-end mt-auto">
@@ -245,9 +275,9 @@ export default function DigitalIDCard({
                         { label: "Gender", val: gender },
                         { label: "Issue Date", val: digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—" }
                       ].map((field, i) => (
-                        <div key={i}>
-                          <div className="text-[10px] uppercase tracking-[0.12em]" style={{ color: c.label }}>{field.label}</div>
-                          <div className="text-[11px] font-medium mt-px" style={{ color: c.text }}>{field.val}</div>
+                        <div key={i} className="min-w-0">
+                          <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>{field.label}</div>
+                          <div className="text-[10px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{field.val}</div>
                         </div>
                       ))}
                     </div>
@@ -260,40 +290,72 @@ export default function DigitalIDCard({
               </div>
 
               {/* BACK FACE */}
-              <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "#0a0c0b", border: `1px solid ${c.border}` }}>
-                <div className="h-full flex flex-col p-4 gap-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: c.muted }}>ZM-GOV-DID · Secure Document</span>
-                    <span className="text-[10px] tracking-wide" style={{ color: c.muted }}>v2.4.1</span>
+              <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-inner" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "#0a0c0b", border: `1px solid ${c.border}` }}>
+                <div className="h-full flex flex-col p-4 sm:p-5">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <ZambiaOfficialSeal className="h-4 w-4" />
+                      <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: c.muted }}>ZM-GOV-DID · Secure Payload</span>
+                    </div>
+                    <span className="text-[9px] tracking-wide" style={{ color: c.muted }}>v2.4.1</span>
                   </div>
                   
                   <div className="flex gap-4 items-start flex-1">
-                    <div className="shrink-0">
-                      <div className="text-[11px] uppercase tracking-[0.1em] mb-2" style={{ color: c.muted }}>Scan to verify identity</div>
+                    <div className="shrink-0 flex flex-col items-center">
+                      <div className="text-[9px] uppercase tracking-[0.1em] mb-1.5" style={{ color: c.muted }}>Scan to verify</div>
                       {qrPayload ? (
-                        <QRCode value={qrData} size={100} level="H" includeMargin={true} bgColor="#ffffff" fgColor="#0F1110" className="rounded-lg border-2" style={{ borderColor: c.border }} />
+                        <div className="p-1 bg-white rounded-lg border shadow-lg" style={{ borderColor: c.border }}>
+                          <QRCode value={qrData} size={90} level="H" includeMargin={false} bgColor="#ffffff" fgColor="#0F1110" />
+                        </div>
                       ) : (
-                        <div className="w-[100px] h-[100px] bg-[#E2E8E4] rounded-lg border flex items-center justify-center" style={{ borderColor: c.border }}>
+                        <div className="w-[90px] h-[90px] bg-[#E2E8E4] rounded-lg border flex items-center justify-center" style={{ borderColor: c.border }}>
                           <Loader2 className="h-6 w-6 animate-spin" style={{ color: c.accent }} />
                         </div>
                       )}
                       {qrPayload && (
-                        <div className="text-[9px] font-mono truncate w-[100px] mt-1" style={{ color: c.muted }}>
-                          Exp: {new Date(qrPayload.exp * 1000).toLocaleTimeString()}
+                        <div className="text-[8px] font-mono mt-1 opacity-50" style={{ color: c.muted }}>
+                          TTL: {Math.floor((qrPayload.exp - Date.now()/1000))}s
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 flex flex-col gap-2 justify-center">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-[0.1em]" style={{ color: c.muted }}>Issued by</div>
-                        <div className="text-sm font-medium mt-px" style={{ color: c.text }}>Dept. of National Registration</div>
+                    
+                    <div className="flex-1 grid grid-cols-1 gap-2">
+                      <div className="space-y-2">
+                        <div>
+                          <div className="text-[9px] uppercase tracking-[0.12em]" style={{ color: c.label }}>Full Legal Name</div>
+                          <div className="text-xs font-semibold text-foreground truncate">{displayName}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-[9px] uppercase tracking-[0.12em]" style={{ color: c.label }}>NRC Number</div>
+                            <div className="text-[11px] font-medium text-foreground">{digitalID?.nrc || "—"}</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] uppercase tracking-[0.12em]" style={{ color: c.label }}>Gender</div>
+                            <div className="text-[11px] font-medium text-foreground">{gender}</div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase tracking-[0.12em]" style={{ color: c.label }}>Place of Issue</div>
+                          <div className="text-[11px] font-medium text-foreground">{province} Province, ZM</div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t pt-2 flex justify-between items-center mt-auto" style={{ borderColor: `${c.border}30` }}>
-                    <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: c.muted }}>Tamper-evident</span>
-                    <ZambiaOfficialSeal className="h-4 w-4 opacity-80" />
+                  <div className="border-t pt-2 mt-auto flex flex-col gap-1.5" style={{ borderColor: `${c.border}30` }}>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <div className="text-[8px] uppercase tracking-[0.1em] mb-0.5" style={{ color: c.muted }}>Secure Signature Hash</div>
+                        <div className="text-[8px] font-mono truncate max-w-[200px]" style={{ color: c.accent }}>
+                          {digitalID?.signature}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                         <span className="text-[8px] uppercase tracking-[0.1em]" style={{ color: c.muted }}>Tamper-evident</span>
+                         <div className="h-2 w-2 rounded-full bg-primary/20 animate-pulse" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
