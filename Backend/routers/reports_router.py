@@ -19,6 +19,7 @@ from Utils.audit_logger import audit
 from citizens.models import Citizen, CitizenStatus
 from registration.models import EnrollmentRequest, EnrollmentStatus
 from admin_ops.models import SystemUser, UserRole as AdminUserRole
+from hospital.models import BirthRecords, DeathRecords
 
 router = APIRouter()
 
@@ -261,4 +262,4 @@ async def log_export_action(
 
 @router.get("/health")
 async def reports_health():
-    return {"status": "ok", "message": "Reports router is active"}
+    return {"status": "ok", "message": "Reports router is active"}
