@@ -218,24 +218,11 @@ export default function DigitalIDCard({
                         <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.08em]" style={{ color: c.muted }}>National Digital Identity Authority</div>
                       </div>
                     </div>
-                    {/* Contactless symbol */}
-                    <div className="flex flex-col gap-0.5 opacity-40">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="h-4 w-4 rounded-full border-r-2 border-t-2" style={{ borderColor: c.muted, transform: `rotate(${45 + i*10}deg)` }} />
-                      ))}
-                    </div>
                   </div>
 
-                  {/* Chip & Photo Row */}
+                  {/* Photo & NFC Row */}
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-3">
-                      {/* EMV Chip Simulation */}
-                      <div className="w-10 h-8 rounded-md bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 p-[1px] relative overflow-hidden shadow-inner">
-                        <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-[1px]">
-                          {[...Array(6)].map((_, i) => <div key={i} className="border-[0.5px] border-black/10" />)}
-                        </div>
-                      </div>
-                      
                       <div className="relative w-[60px] h-[60px] sm:w-[70px] h-[70px] shrink-0">
                         <div className="absolute -inset-[2px] rounded-full border-2 animate-pulse" style={{ borderColor: c.accent, animationDuration: "3s" }} />
                         <div className="absolute inset-[2px] rounded-full overflow-hidden flex items-center justify-center" style={{ background: "#0d1410", border: `1px solid ${c.border}` }}>
@@ -254,6 +241,16 @@ export default function DigitalIDCard({
                           <div className="h-1 w-1 rounded-full bg-primary animate-ping" />
                           {status}
                        </div>
+                       
+                       {/* NFC Icon below status using the provided image */}
+                       <div className="flex items-center justify-end mt-2 opacity-80">
+                         <img 
+                           src="/assets/nfc_icon.png" 
+                           alt="NFC" 
+                           className="h-10 w-auto grayscale invert brightness-200"
+                           style={{ opacity: 0.9 }}
+                         />
+                      </div>
                     </div>
                   </div>
 
@@ -268,24 +265,18 @@ export default function DigitalIDCard({
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-end mt-auto">
-                    <div className="grid grid-cols-3 gap-4">
-                      {[
-                        { label: "Date of Birth", val: dob ? new Date(dob).toLocaleDateString("en-GB") : "—" },
-                        { label: "Gender", val: gender },
-                        { label: "Issue Date", val: digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—" }
-                      ].map((field, i) => (
-                        <div key={i} className="min-w-0">
-                          <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>{field.label}</div>
-                          <div className="text-[10px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{field.val}</div>
+                    <div className="flex justify-between items-end mt-auto">
+                      <div className="flex gap-6">
+                        <div>
+                          <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>Issue Date</div>
+                          <div className="text-[10px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—"}</div>
                         </div>
-                      ))}
+                        <div>
+                           <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>Document Type</div>
+                           <div className="text-[10px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>Identity Card</div>
+                        </div>
+                      </div>
                     </div>
-                    {/* Security Micro-strip */}
-                    <div className="w-8 h-4 rounded border flex gap-0.5 p-1" style={{ borderColor: `${c.border}50`, background: "#0a0c0b" }}>
-                      {[0, 1, 2, 3].map(i => <div key={i} className="w-1.5 h-2 rounded-[1px]" style={{ background: c.border }} />)}
-                    </div>
-                  </div>
                 </div>
               </div>
 

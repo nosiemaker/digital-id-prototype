@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Menu,
   X,
+  Smartphone,
+  Download,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -152,6 +154,84 @@ export default function LandingPage() {
                   <div key={i} className={`h-1.5 w-1.5 rounded-sm ${i % 3 === 0 ? "bg-primary/60" : "bg-foreground/15"}`} />
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Mobile App Section */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-primary/5 relative overflow-hidden">
+        <div className="mx-auto max-w-7xl relative">
+          <div className="flex flex-col lg:flex-row items-center gap-16">
+            <div className="flex-1 order-2 lg:order-1">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary mb-4 uppercase tracking-wider">
+                Mobile Experience
+              </div>
+              <h2 className="text-3xl font-bold text-foreground mb-6">Carry your Identity <br/><span className="text-primary">Everywhere you go</span></h2>
+              <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
+                Download the official ZDID Wallet to manage your digital ID, verify service partners via NFC, and share your identity securely—all from your Android device.
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
+                <div className="flex gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                  <p className="text-sm text-muted-foreground">Offline ID verification</p>
+                </div>
+                <div className="flex gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                  <p className="text-sm text-muted-foreground">Contactless NFC support</p>
+                </div>
+                <div className="flex gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                  <p className="text-sm text-muted-foreground">Biometric login</p>
+                </div>
+                <div className="flex gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                  <p className="text-sm text-muted-foreground">Instant sharing</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <a 
+                  href="/Digital_ID.apk" 
+                  download="Digital_ID.apk"
+                  className="inline-flex items-center justify-center gap-3 rounded-xl bg-foreground text-background px-8 py-4 text-sm font-bold hover:opacity-90 transition-opacity shadow-lg"
+                >
+                  <Smartphone className="h-5 w-5" />
+                  Download APK for Android
+                </a>
+                <div className="flex flex-col justify-center">
+                  <p className="text-xs font-bold text-foreground">Direct Download</p>
+                  <p className="text-[10px] text-muted-foreground">Version 1.0.0 • 15.4 MB</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 order-1 lg:order-2 relative flex justify-center">
+              <div className="relative w-64 h-[500px] bg-black rounded-[3rem] border-[8px] border-card shadow-2xl overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-card rounded-b-2xl z-10" />
+                <div className="absolute inset-0 bg-primary/20 flex flex-col p-6 pt-12">
+                   <div className="h-32 w-full rounded-2xl bg-card/80 border border-white/10 mb-4 flex flex-col p-4">
+                      <div className="h-2 w-12 bg-primary/20 rounded-full mb-2" />
+                      <div className="h-4 w-32 bg-primary/30 rounded-full mb-auto" />
+                      <div className="flex justify-between items-end">
+                         <div className="h-10 w-10 bg-primary/20 rounded-lg" />
+                         <div className="h-6 w-16 bg-primary rounded-full" />
+                      </div>
+                   </div>
+                   <div className="flex-1 rounded-2xl bg-card/40 border border-white/5 p-4 flex flex-col gap-3">
+                      {Array.from({length: 4}).map((_, i) => (
+                        <div key={i} className="h-12 w-full rounded-xl bg-card/60 flex items-center px-3 gap-3">
+                           <div className="h-6 w-6 rounded bg-primary/10" />
+                           <div className="h-2 w-24 bg-primary/20 rounded-full" />
+                        </div>
+                      ))}
+                   </div>
+                </div>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-full" />
+              </div>
+              {/* Background Glow */}
+              <div className="absolute inset-0 bg-primary/20 blur-[120px] rounded-full -z-10" />
             </div>
           </div>
         </div>

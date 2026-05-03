@@ -31,11 +31,7 @@ SECRET_KEY = config(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default='True') == 'True'
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
-
-# Also allow all subdomains of onrender.com automatically
-if not DEBUG:
-    ALLOWED_HOSTS += ['.onrender.com']
+ALLOWED_HOSTS = ['*']
 
 
 # ============================================================================
@@ -116,7 +112,7 @@ import dj_database_url
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
-        conn_max_age=600,
+        conn_max_age=0,
         conn_health_checks=True,
     )
 }
@@ -157,6 +153,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
