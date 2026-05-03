@@ -261,11 +261,52 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     _age_match = _re.search(r'\d+', mccd.age_stated or "")
     enriched_data["age_at_death"] = int(_age_match.group()) if _age_match else None
     
-    # Required fields: use MCCD data or fallbacks
+    # Required fields: use request body or MCCD data as fallback
     enriched_data["date_and_time"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-    enriched_data["surname"] = mccd.attended_name.split()[-1] if mccd.attended_name else ""
-    enriched_data["other_names"] = " ".join(mccd.attended_name.split()[:-1]) if mccd.attended_name else ""
-    enriched_data["sex"] = "MALE"  # TODO: resolve from deceased Citizen DIN
+    
+    # Try to resolve from deceased Citizen if deceased_din provided
+    if deceased_din:
+        try:
+            deceased_citizen = Citizen.objects.get(din=deceased_din)
+            # Fill any missing fields from Citizen record
+            if not enriched_data.get("surname"):
+                enriched_data["surname"] = deceased_citizen.full_name.split()[-1] if deceased_citizen.full_name else ""
+            if not enriched_data.get("other_names"):
+                enriched_data["other_names"] = " ".join(deceased_citizen.full_name.split()[:-1]) if deceased_citizen.full_name else ""
+            if not enriched_data.get("occupation"):
+                enriched_data["occupation"] = deceased_citizen.occupation
+            if not enriched_data.get("residential_address"):
+                enriched_data["residential_address"] = deceased_citizen.residential_address
+            if not enriched_data.get("date_of_birth"):
+                enriched_data["date_of_birth"] = deceased_citizen.dob
+            if not enriched_data.get("sex"):
+                enriched_data["sex"] = deceased_citizen.sex
+            if not enriched_data.get("nationality"):
+                enriched_data["nationality"] = deceased_citizen.nationality
+            if not enriched_data.get("national_identity_no"):
+                enriched_data["national_identity_no"] = deceased_citizen.nrc
+            if not enriched_data.get("social_security_no"):
+                enriched_data["social_security_no"] = deceased_citizen.social_id
+            if not enriched_data.get("education_level"):
+                enriched_data["education_level"] = deceased_citizen.education_level
+        except Citizen.DoesNotExist:
+            pass
+    
+    # Use MCCD data for name if still not provided
+    if not enriched_data.get("surname") and mccd.attended_name:
+        enriched_data["surname"] = mccd.attended_name.split()[-1]
+    if not enriched_data.get("other_names") and mccd.attended_name:
+        enriched_data["other_names"] = " ".join(mccd.attended_name.split()[:-1])
+    
+    # Ensure required fields have values with NIL fallback
+    if not enriched_data.get("sex"):
+        enriched_data["sex"] = "MALE"
+    
+    # Set NIL as fallback for optional fields not provided (excluding choice fields)
+    nil_fields = ["occupation", "residential_address", "nationality", "national_identity_no", "social_security_no"]
+    for field in nil_fields:
+        if not enriched_data.get(field):
+            enriched_data[field] = "NIL"
 
     # Auto-populate Section B (Cause of Death) from MCCD
     enriched_data["immediate_cause"]         = mccd.cause_a or ""
@@ -527,6 +568,15 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
             "mother_consent_date":             request_body.get("mother_consent_date"),
         }
 
+        # Set NIL as fallback for optional fields not provided (excluding choice fields)
+        nil_fields = [
+            "father_village_of_origin", "father_chief", "father_district", "father_tribe",
+            "father_national_id", "father_occupation", "father_social_id", "father_nationality",
+        ]
+        for field in nil_fields:
+            if not notice_data.get(field):
+                notice_data[field] = "NIL"
+
         notice_serializer = NoticeOfBirthSerializer(data=notice_data)
         if not notice_serializer.is_valid():
             raise HTTPException(
@@ -575,6 +625,14 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
             "official_stamp_ref": request_body.get("official_stamp_ref"),
             "date_signed":        request_body.get("date_signed"),
         }
+
+        # Set NIL as fallback for optional fields not provided
+        if not record_data.get("father_name"):
+            record_data["father_name"] = "NIL"
+        if not record_data.get("father_occupation"):
+            record_data["father_occupation"] = "NIL"
+        if not record_data.get("father_present_address"):
+            record_data["father_present_address"] = "NIL"
 
         record_serializer = RecordOfBirthSerializer(data=record_data)
         if not record_serializer.is_valid():
