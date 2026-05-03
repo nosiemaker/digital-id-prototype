@@ -14,6 +14,7 @@ from kyc.schema import (
     ConsentRecordResponse,
     VerifiedPartnerResponse,
     PartnerLinkResponse,
+    InstitutionLinkedCitizenResponse,
 )
 from Utils.rbac import (
     get_permission_dependency,
@@ -364,6 +365,28 @@ async def list_linked_partners(
             is_active=l.is_active
         ) for l in links
     ]
+
+
+@router.get("/institution/linked-citizens", response_model=list[InstitutionLinkedCitizenResponse])
+async def list_institution_linked_citizens(
+    current_user: dict = Depends(get_permission_dependency(Permission.THIRD_PARTY_VERIFY_CITIZEN_ID)),
+):
+    """List all citizens linked to the current institution."""
+    system_user_id = current_user.get("id")
+    try:
+        links = await sync_to_async(PartnerLinkService.get_institution_linked_citizens)(system_user_id=system_user_id)
+        return [
+            InstitutionLinkedCitizenResponse(
+                link_id=l.id,
+                citizen_din=l.citizen.din,
+                citizen_name=l.citizen.full_name,
+                citizen_nrc=l.citizen.nrc,
+                linked_at=l.linked_at,
+                is_active=l.is_active
+            ) for l in links
+        ]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ============================================================================

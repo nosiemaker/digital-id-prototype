@@ -686,4 +686,13 @@ export interface PartnerLinkResponse {
   institution_type?: string | null;
   linked_at: string;
   is_active: boolean;
+}
+
+export interface InstitutionLinkedCitizenResponse {
+  link_id: number;
+  citizen_din: string;
+  citizen_name: string;
+  citizen_nrc: string;
+  linked_at: string;
+  is_active: boolean;
 }

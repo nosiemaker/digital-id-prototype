@@ -393,4 +393,25 @@ class PartnerLinkService:
                 citizen__user_id=system_user_id,
                 is_active=True
             ).select_related('institution').order_by('-linked_at')
-        )
+        )
+
+    @staticmethod
+    def get_institution_linked_citizens(system_user_id: int) -> list:
+        """Returns all citizens actively linked to the third-party institution associated with the user."""
+        from admin_ops.models import SystemUser
+        try:
+            user = SystemUser.objects.get(id=system_user_id)
+            if not user.institution_din:
+                raise ValueError("User is not associated with any institution")
+                
+            institution = ThirdPartyInstitution.objects.get(institution_id=user.institution_din)
+            return list(
+                PartnerLink.objects.filter(
+                    institution=institution,
+                    is_active=True
+                ).select_related('citizen').order_by('-linked_at')
+            )
+        except SystemUser.DoesNotExist:
+            raise ValueError("User not found")
+        except ThirdPartyInstitution.DoesNotExist:
+            raise ValueError("Institution not found")

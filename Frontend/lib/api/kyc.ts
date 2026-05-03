@@ -8,6 +8,7 @@ import type {
   StatisticsResponse,
   VerifiedPartnerResponse,
   PartnerLinkResponse,
+  InstitutionLinkedCitizenResponse,
 } from '../../utils/types';
 
 export const kycApi = {
@@ -43,6 +44,11 @@ export const kycApi = {
 
   getLinkedPartners: async (): Promise<PartnerLinkResponse[]> => {
     const { data } = await axiosInstance.get<PartnerLinkResponse[]>('/kyc/partners/linked');
+    return data;
+  },
+
+  getInstitutionLinkedCitizens: async (): Promise<InstitutionLinkedCitizenResponse[]> => {
+    const { data } = await axiosInstance.get<InstitutionLinkedCitizenResponse[]>('/kyc/institution/linked-citizens');
     return data;
   },
 };

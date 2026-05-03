@@ -176,3 +176,12 @@ class PartnerLinkResponse(BaseModel):
     institution_type: Optional[str] = None
     linked_at: datetime
     is_active: bool
+
+class InstitutionLinkedCitizenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    link_id: int
+    citizen_din: str
+    citizen_name: str
+    citizen_nrc: str
+    linked_at: datetime
+    is_active: bool

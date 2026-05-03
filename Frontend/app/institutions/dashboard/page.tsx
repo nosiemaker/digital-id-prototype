@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Shield,
   LayoutDashboard,
@@ -22,14 +22,18 @@ import {
   Globe,
   Lock,
   Smartphone,
-  Loader2
+  Loader2,
+  Link2
 } from "lucide-react"
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { useMe } from "@/hooks/useMe"
+import { kycApi } from "@/lib/api/kyc"
+import type { InstitutionLinkedCitizenResponse } from "@/utils/types"
 
 const sidebarLinks = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "verifications", label: "Identity Checks", icon: Users },
+  { id: "linked-accounts", label: "Linked Accounts", icon: Link2 },
   { id: "api", label: "API & Keys", icon: Key },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
@@ -60,6 +64,24 @@ export default function InstitutionDashboard() {
   
   const [activeTab, setActiveTab] = useState("overview")
   const [copied, setCopied] = useState(false)
+  const [linkedCitizens, setLinkedCitizens] = useState<InstitutionLinkedCitizenResponse[]>([])
+  const [loadingCitizens, setLoadingCitizens] = useState(false)
+  useEffect(() => {
+    if (activeTab === "linked-accounts") {
+      const fetchLinked = async () => {
+        setLoadingCitizens(true)
+        try {
+          const res = await kycApi.getInstitutionLinkedCitizens()
+          setLinkedCitizens(res)
+        } catch (error) {
+          console.error("Failed to fetch linked citizens", error)
+        } finally {
+          setLoadingCitizens(false)
+        }
+      }
+      fetchLinked()
+    }
+  }, [activeTab])
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -322,6 +344,93 @@ export default function InstitutionDashboard() {
                     <button className="text-xs font-bold text-primary hover:underline">Edit Auth Config →</button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "linked-accounts" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-secondary/10">
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                      <Link2 className="h-5 w-5 text-primary" /> Linked Citizen Accounts
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      These citizens have securely linked their Digital ID to your institution. You have persistent access to the fields defined in your Data Access Scope.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20">
+                      {linkedCitizens.length} Active Links
+                    </span>
+                  </div>
+                </div>
+                
+                {loadingCitizens ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Loading linked accounts...</p>
+                  </div>
+                ) : linkedCitizens.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                    <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center">
+                      <Users className="h-8 w-8 text-muted-foreground opacity-30" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">No Linked Accounts</h3>
+                      <p className="text-xs text-muted-foreground mt-1">No citizens have linked their accounts to your institution yet.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-secondary/40 border-b border-border text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                        <tr>
+                          <th className="px-6 py-4 text-left">Citizen Details</th>
+                          <th className="px-6 py-4 text-left">DIN / NRC</th>
+                          <th className="px-6 py-4 text-left">Linked On</th>
+                          <th className="px-6 py-4 text-left">Status</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {linkedCitizens.map((citizen) => (
+                          <tr key={citizen.link_id} className="hover:bg-secondary/20 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                  {citizen.citizen_name.charAt(0)}
+                                </div>
+                                <span className="font-bold text-sm text-foreground">{citizen.citizen_name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <p className="text-xs font-mono text-foreground">{citizen.citizen_din}</p>
+                                <p className="text-[10px] text-muted-foreground">NRC: {citizen.citizen_nrc}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-xs text-muted-foreground">
+                              {new Date(citizen.linked_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${citizen.is_active ? "bg-emerald-400/10 text-emerald-400 border border-emerald-400/20" : "bg-red-400/10 text-red-400 border border-red-400/20"}`}>
+                                {citizen.is_active ? <CheckCircle2 className="h-2.5 w-2.5" /> : <AlertCircle className="h-2.5 w-2.5" />}
+                                {citizen.is_active ? "Active" : "Revoked"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button className="text-xs font-bold text-primary hover:underline" disabled={!citizen.is_active}>
+                                View Profile Data
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
