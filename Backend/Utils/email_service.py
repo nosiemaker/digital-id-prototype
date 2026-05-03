@@ -187,3 +187,28 @@ Regards,
 ZDID Institutional Programme Team
     """
     _send_email(subject, message, [email])
+
+def send_notice_of_death_link_email(informant_email: str, informant_name: str, death_record_id: int, base_url: str = 'http://localhost:3000'):
+    """
+    Send the informant a secure link to submit the Notice of Death form.
+    Called automatically after a Health Worker submits the MCCD.
+    """
+    url = settings.FRONTEND_URL or base_url
+    subject = "Action Required: Submit Notice of Death Form"
+    submission_url = f"{url}/submit-notice/{death_record_id}"
+
+    message = f"""
+    Hello {informant_name or 'there'},
+
+    A Medical Certificate of Cause of Death (MCCD) has been submitted for your case.
+    To complete the death registration process, you are required to submit the Notice of Death form.
+
+    Please click the link below to access and complete the form:
+    {submission_url}
+
+    This link is unique to your case reference. Please complete the form at your earliest convenience so the Registrar can process the documentation.
+
+    Regards,
+    ZAMREN Digital ID Team
+    """
+    _send_email(subject, message, [informant_email])

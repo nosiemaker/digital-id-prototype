@@ -510,7 +510,6 @@ async def submit_notice_of_death_endpoint(
     death_record_id: int,
     body: NoticeOfDeathCreate,
     request: Request,
-    user=Depends(require_groups([UserRole.HEALTH_WORKER, UserRole.CITIZEN])),
 ):
     """
     POST /deaths/submit/{death_record_id}/notice_of_death
@@ -534,7 +533,7 @@ async def submit_notice_of_death_endpoint(
     Returns: death_records_id, notice_of_death_id, HTTP 200.
     """
     result = await sync_to_async(submit_notice_of_death)(
-        body.model_dump(), death_record_id, citizen_id=user["id"]
+        body.model_dump(), death_record_id, citizen_id=None
     )
     return result
 

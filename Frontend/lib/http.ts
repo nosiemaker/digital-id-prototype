@@ -64,6 +64,12 @@ export const axiosInstance: AxiosInstance = axios.create({
 // Request interceptor — attach Bearer token
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+
+    if (config.url?.includes('/notice_of_death')) {
+      delete config.headers.Authorization;
+      return config;
+    }
+    
     const token = tokenStore.getAccess();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
