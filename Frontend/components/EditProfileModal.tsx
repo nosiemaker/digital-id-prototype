@@ -1,202 +1,192 @@
 "use client"
-
 import { useState, useEffect } from "react"
-import { X, User, Phone, Globe, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
-import { authApi } from "@/lib/axios"
+import { X, Loader2 } from "lucide-react"
+import type { CitizenUpdate, Language, ProvinceOption, DistrictOption } from "@/utils/types"
 
 interface EditProfileModalProps {
   open: boolean
   onClose: () => void
   currentData: {
-    name: string
-    phone?: string
-    language?: string
+    full_name: string
+    email: string
+    phone: string
+    residential_address: string
+    language: string
+    district_id?: number
+    province_id?: number
   }
-  onSuccess: (newData: any) => void
+  onSave: (updates: CitizenUpdate) => Promise<void>
+  isSaving?: boolean
+  provinces?: ProvinceOption[]
+  districts?: DistrictOption[]
 }
 
-const LANGUAGES = [
-  { code: "en", name: "English" },
-  { code: "bem", name: "Bemba" },
-  { code: "nya", name: "Nyanja" },
-  { code: "toi", name: "Tonga" },
-  { code: "loz", name: "Lozi" },
-]
+export function EditProfileModal({
+  open,
+  onClose,
+  currentData,
+  onSave,
+  isSaving = false,
+  provinces = [],
+  districts = [],
+}: EditProfileModalProps) {
+  const [form, setForm] = useState(currentData)
+  const [filteredDistricts, setFilteredDistricts] = useState<DistrictOption[]>([])
 
-export function EditProfileModal({ open, onClose, currentData, onSuccess }: EditProfileModalProps) {
-  const [name, setName] = useState(currentData.name)
-  const [phone, setPhone] = useState(currentData.phone || "")
-  const [language, setLanguage] = useState(currentData.language || "en")
-  
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-
+  // Sync form when modal opens or data changes
   useEffect(() => {
-    if (open) {
-      setName(currentData.name)
-      setPhone(currentData.phone || "")
-      setLanguage(currentData.language || "en")
-      setError(null)
-      setSuccess(false)
-    }
+    if (open) setForm(currentData)
   }, [open, currentData])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await authApi.updateMe({ name, phone, language })
-      setSuccess(true)
-      setTimeout(() => {
-        onSuccess(response)
-        onClose()
-      }, 1500)
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to update profile. Please try again.")
-    } finally {
-      setLoading(false)
+  // Filter districts when province changes
+  useEffect(() => {
+    if (form.province_id) {
+      setFilteredDistricts(districts.filter(d => d.province_code === provinces.find(p => p.id === form.province_id)?.code))
+      // Reset district if it doesn't belong to new province
+      if (!filteredDistricts.some(d => d.id === form.district_id)) {
+        setForm(prev => ({ ...prev, district_id: undefined }))
+      }
+    } else {
+      setFilteredDistricts([])
     }
-  }
-
-  const hasChanges = 
-    name !== currentData.name || 
-    phone !== (currentData.phone || "") || 
-    language !== (currentData.language || "en")
+  }, [form.province_id, districts, provinces])
 
   if (!open) return null
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const updates: CitizenUpdate = {
+      email: form.email || undefined,
+      phone: form.phone || undefined,
+      residential_address: form.residential_address || undefined,
+      language: form.language as Language,
+      district_id: form.district_id || undefined,
+    }
+    await onSave(updates)
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
-        className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl animate-in slide-in-from-bottom-4 duration-300 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
-        
-        <div className="flex items-center justify-between px-6 pt-6 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
-              <User className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-foreground">Edit Profile</h2>
-              <p className="text-xs text-muted-foreground">Update your personal preferences</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          >
-            <X className="h-4 w-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground">Edit Profile</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive animate-in shake duration-300">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <p>{error}</p>
-            </div>
-          )}
-
-          {success && (
-            <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-primary animate-in zoom-in duration-300">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <p>Profile updated successfully!</p>
-            </div>
-          )}
-
-          {/* Full Name */}
-          <div className="space-y-2">
-            <label htmlFor="name" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">
-              Full Name
-            </label>
-            <div className="relative group">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
-                <User className="h-4 w-4" />
-              </div>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full rounded-xl border border-border bg-secondary/50 py-3 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:bg-background focus:ring-4 focus:ring-primary/10 transition-all outline-none"
-                placeholder="Enter your full name"
-                disabled={loading || success}
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Read-Only Name */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Full Name</label>
+            <input
+              type="text"
+              value={form.full_name}
+              disabled
+              className="w-full px-3 py-2.5 rounded-lg bg-secondary/50 border border-border text-muted-foreground cursor-not-allowed text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">Name changes require official verification. Contact support.</p>
           </div>
 
-          {/* Phone Number */}
-          <div className="space-y-2">
-            <label htmlFor="phone" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">
-              Phone Number
-            </label>
-            <div className="relative group">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
-                <Phone className="h-4 w-4" />
-              </div>
-              <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-xl border border-border bg-secondary/50 py-3 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:bg-background focus:ring-4 focus:ring-primary/10 transition-all outline-none"
-                placeholder="e.g. +260 97..."
-                disabled={loading || success}
-              />
-            </div>
+          {/* Email */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Email Address</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
+              placeholder="you@example.com"
+            />
           </div>
 
-          {/* Preferred Language */}
-          <div className="space-y-2">
-            <label htmlFor="language" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">
-              Preferred Language
-            </label>
-            <div className="relative group">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
-                <Globe className="h-4 w-4" />
-              </div>
+          {/* Phone */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Phone Number</label>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
+              placeholder="097XXXXXXX"
+            />
+          </div>
+
+          {/* Province & District */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Province</label>
               <select
-                id="language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full rounded-xl border border-border bg-secondary/50 py-3 pl-10 pr-4 text-sm text-foreground appearance-none focus:border-primary/50 focus:bg-background focus:ring-4 focus:ring-primary/10 transition-all outline-none cursor-pointer"
-                disabled={loading || success}
+                value={form.province_id || ""}
+                onChange={e => setForm(prev => ({ ...prev, province_id: Number(e.target.value) || undefined }))}
+                className="w-full px-3 py-2.5 rounded-lg bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
               >
-                {LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </option>
+                <option value="">Select Province</option>
+                {provinces.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none border-l border-border pl-2">
-                <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-tight">District</label>
+              <select
+                value={form.district_id || ""}
+                onChange={e => setForm(prev => ({ ...prev, district_id: Number(e.target.value) || undefined }))}
+                disabled={!form.province_id}
+                className="w-full px-3 py-2.5 rounded-lg bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">Select District</option>
+                {filteredDistricts.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div className="pt-2 flex gap-3">
+          {/* Address */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Residential Address</label>
+            <textarea
+              value={form.residential_address}
+              onChange={e => setForm(prev => ({ ...prev, residential_address: e.target.value }))}
+              rows={2}
+              className="w-full px-3 py-2.5 rounded-lg bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm resize-none"
+              placeholder="Plot 123, Street Name, Area"
+            />
+          </div>
+
+          {/* Language */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Preferred Language</label>
+            <select
+              value={form.language}
+              onChange={e => setForm(prev => ({ ...prev, language: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
+            >
+              <option value="en">English</option>
+              <option value="bem">Bemba</option>
+              <option value="nya">Nyanja</option>
+              <option value="toi">Tonga</option>
+              <option value="loz">Lozi</option>
+            </select>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              disabled={loading || success}
-              className="flex-1 rounded-xl bg-secondary border border-border py-3 text-sm font-bold text-foreground hover:bg-secondary/80 transition-all active:scale-[0.98] disabled:opacity-50"
+              className="px-4 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading || success || !hasChanges}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-all active:scale-[0.98] shadow-lg shadow-primary/20 disabled:opacity-50 disabled:shadow-none"
+              disabled={isSaving}
+              className="px-5 py-2.5 rounded-lg text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center gap-2"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

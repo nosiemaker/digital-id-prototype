@@ -9,9 +9,12 @@ logger = logging.getLogger(__name__)
 
 def get_citizen_by_din(din: str) -> Optional[Citizen]:
     """
-    Get citizen by DIN.
+    Get citizen by DIN with eager loading of the district relationship.
     """
-    return Citizen.objects.get(din=din).first()
+    try:
+        return Citizen.objects.select_related('district', 'district__province').get(din=din.strip())
+    except Citizen.DoesNotExist:
+        return None
 
 
 def get_citizen_by_nrc(nrc: str) -> Optional[Citizen]:
@@ -26,23 +29,38 @@ def update_citizen(din: str, citizen_data: CitizenUpdate, actor_id: Optional[int
     Update citizen record.
     """
     citizen = get_citizen_by_din(din)
-
     if not citizen:
         return None
     
     update_dict = citizen_data.model_dump(exclude_unset=True)
 
+    new_email = update_dict.pop("email", None)
+
+    if new_email and hasattr(citizen, 'user') and citizen.user:
+        citizen.user.email = new_email
+        if hasattr(citizen.user, "username"):
+            citizen.user.username = new_email
+        citizen.user.save()
+
+    new_district_id = update_dict.pop("district_id", None)
+    if new_district_id is not None:
+        citizen.district_id = new_district_id
+
     for key, value in update_dict.items():
         setattr(citizen, key, value)
     
     citizen.save()
+
+    refreshed_citizen = Citizen.objects.select_related(
+        'district', 'district__province'
+    ).get(pk=citizen.pk)
     
     # Log the update if actor info is provided
     if actor_id:
-        updated_fields = list(update_dict.keys())
+        updated_fields = list(update_dict.keys()) + (["email"] if new_email else []) + (["district_id"] if new_district_id is not None else [])
         audit.citizen_updated(actor_id, actor_role, din, fields=updated_fields)
     
-    return citizen
+    return refreshed_citizen
 
 
 def delete_citizen(din: str, actor_id: Optional[int] = None, actor_role: str = "SYSTEM") -> bool:

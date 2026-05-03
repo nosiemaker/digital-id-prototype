@@ -7,3 +7,4 @@ class CitizenSerializer(ModelSerializer):
     class Meta:
         model = Citizen
         exclude = ["public_key"]
+        depth = 2

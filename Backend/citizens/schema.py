@@ -91,11 +91,11 @@ class CitizenCreate(CitizenBase):
 
 class CitizenUpdate(BaseModel):
     """PATCH /citizens/{din} — language change, phone updates, etc."""
-    full_name: Optional[str] = Field(None, max_length=255)
     phone: Optional[str] = Field(None, max_length=20)
     language: Optional[Language] = None
-    status: Optional[CitizenStatus] = None
     residential_address: Optional[str] = Field(None, max_length=255)
+    district_id: Optional[int] = None
+    email: Optional[str] = Field(None, max_length=255, description="Updates linked User email")
 
 
 class CitizenSummary(BaseModel):
