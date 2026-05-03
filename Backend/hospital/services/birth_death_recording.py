@@ -24,8 +24,9 @@
 #   get_single_birth_record / get_single_death_record
 #   get_all_births_records / get_all_death_records
 #   get_birth_certificates_by_user / get_burial_permits_by_user / get_death_certificates_by_user
+import hashlib
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import secrets
 
 from django.db import models, transaction
@@ -87,8 +88,7 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         HTTPException 400 — informant_din missing, Citizen not found, serialiser invalid.
         HTTPException 400 — SystemUser not found for resolved Citizen.
     """
-    if not request_body.get("medical_no"):
-        request_body["medical_no"] = f"MED-{datetime.now(timezone.utc)}{secrets.token_hex(3).upper()}"
+    request_body["medical_no"] = f"MED-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{secrets.token_hex(3).upper()}"
     if not request_body.get("witness_date"):
         request_body["witness_date"] = datetime.now(timezone.utc)
 
@@ -125,6 +125,8 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
             detail=f"Informant with DIN '{informant_din}' not found in system registry",
         )
 
+
+
     # Validate and persist the MCCD
     mccd_serializer = MedicalCertificateCauseOfDeathSerializer(data=enriched_data)
     if not mccd_serializer.is_valid():
@@ -142,12 +144,13 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         status=RegistrationStatusChoices.PENDING,
     )
 
+    notice_of_death_url = f'http://localhost:3000/submit-notice/{informant_sys.id}'
+
     audit.death_record_submitted(health_worker_id, death_records.id)
 
     return {
         "details": "MCCD Submitted",
-        "death_records_id": death_records.id,
-        "mccd_id": mccd.id,
+        "notice_of_death_url": death_records.id,
         "status": status.HTTP_201_CREATED,
     }
 
@@ -195,7 +198,7 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     # Fetch the DeathRecords entry, including the informant relation for the ownership check
     try:
         death_records = DeathRecords.objects.select_related(
-            "informant_that_submits_death_notice"
+            "informant"
         ).get(id=death_record_id)
     except DeathRecords.DoesNotExist:
         raise HTTPException(
@@ -217,26 +220,139 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
             detail="Notice of Death already linked to this record",
         )
 
-    informant_din = request_body.get("informant_din")
-    deceased_din  = request_body.get("deceased_din")
-
-    if not informant_din:
+    # Fetch the linked MCCD to auto-populate Section B (cause of death) fields
+    mccd = death_records.medical_certificate_of_death
+    if not mccd:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="informant_din is required",
+            detail="No MCCD linked to this death record. MCCD must be submitted first.",
         )
 
-    # Resolve informant DIN → Citizen and enrich the notice data
+    # Resolve the authenticated Citizen instance via the linked DIN on the informant field.
+    # The informant is already validated to be the same as death_records.informant.
     try:
-        informant = Citizen.objects.get(din=informant_din)
+        informant = Citizen.objects.get(din=death_records.informant.din)
     except Citizen.DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Informant with DIN '{informant_din}' not found in citizen registry",
+            detail="Informant Citizen record not found in registry",
         )
 
+    deceased_din = request_body.get("deceased_din")
+
     enriched_data = request_body.copy()
-    # Split full_name into surname (last part) and other_names (everything before the last part)
+    # Auto-generate unique serial_number and application_no
+    import hashlib
+    from citizens.utilities.id_generation import generate_id
+    
+    def _seed(s: str) -> bytes:
+        return hashlib.sha256(s.encode()).digest()
+    
+    enriched_data["serial_number"] = generate_id(_seed(f"nod_{death_record_id}"), "NOD")
+    enriched_data["application_no"] = generate_id(_seed(f"death_app_{death_record_id}"), "DEATH_APP")
+
+    # Auto-populate Section A (Details of Deceased) from MCCD
+    enriched_data["place_of_death"]      = "HEALTH_FACILITY"
+    enriched_data["date_of_death"]       = mccd.death_date
+    hw_profile = getattr(death_records.health_worker, 'health_worker_profile', None)
+    enriched_data["place_of_death_name"] = hw_profile.facility_name if hw_profile else ""
+    enriched_data["place_of_death_other"] = None
+    import re as _re
+    _age_match = _re.search(r'\d+', mccd.age_stated or "")
+    enriched_data["age_at_death"] = int(_age_match.group()) if _age_match else None
+    
+    # Required fields: use request body or MCCD data as fallback
+    enriched_data["date_and_time"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    # Try to resolve from deceased Citizen if deceased_din provided
+    if deceased_din:
+        try:
+            deceased_citizen = Citizen.objects.get(din=deceased_din)
+            # Fill any missing fields from Citizen record
+            if not enriched_data.get("surname"):
+                enriched_data["surname"] = deceased_citizen.full_name.split()[-1] if deceased_citizen.full_name else ""
+            if not enriched_data.get("other_names"):
+                enriched_data["other_names"] = " ".join(deceased_citizen.full_name.split()[:-1]) if deceased_citizen.full_name else ""
+            if not enriched_data.get("occupation"):
+                enriched_data["occupation"] = deceased_citizen.occupation
+            if not enriched_data.get("residential_address"):
+                enriched_data["residential_address"] = deceased_citizen.residential_address
+            if not enriched_data.get("date_of_birth"):
+                enriched_data["date_of_birth"] = deceased_citizen.dob
+            if not enriched_data.get("sex"):
+                enriched_data["sex"] = deceased_citizen.sex
+            if not enriched_data.get("nationality"):
+                enriched_data["nationality"] = deceased_citizen.nationality
+            if not enriched_data.get("national_identity_no"):
+                enriched_data["national_identity_no"] = deceased_citizen.nrc
+            if not enriched_data.get("social_security_no"):
+                enriched_data["social_security_no"] = deceased_citizen.social_id
+            if not enriched_data.get("education_level"):
+                enriched_data["education_level"] = deceased_citizen.education_level
+        except Citizen.DoesNotExist:
+            pass
+    
+    # Use MCCD data for name if still not provided
+    if not enriched_data.get("surname") and mccd.attended_name:
+        enriched_data["surname"] = mccd.attended_name.split()[-1]
+    if not enriched_data.get("other_names") and mccd.attended_name:
+        enriched_data["other_names"] = " ".join(mccd.attended_name.split()[:-1])
+    
+    # Ensure required fields have values with NIL fallback
+    if not enriched_data.get("sex"):
+        enriched_data["sex"] = "MALE"
+    
+    # Set NIL as fallback for optional fields not provided (excluding choice fields)
+    nil_fields = ["occupation", "residential_address", "nationality", "national_identity_no", "social_security_no"]
+    for field in nil_fields:
+        if not enriched_data.get(field):
+            enriched_data[field] = "NIL"
+
+    # Auto-populate Section B (Cause of Death) from MCCD
+    enriched_data["immediate_cause"]         = mccd.cause_a or ""
+    enriched_data["immediate_cause_icd"]     = mccd.cause_a_icd_code or ""
+    enriched_data["antecedent_cause"]        = mccd.cause_b or ""
+    enriched_data["antecedent_cause_icd"]    = mccd.cause_b_icd_code or ""
+    enriched_data["underlying_cause"]        = mccd.cause_c or ""
+    enriched_data["underlying_cause_icd"]    = mccd.cause_c_icd_code or ""
+
+    # Auto-populate Section C (Police / Brought-in-Dead) from Section A and MCCD
+    enriched_data["deceased_surname_police"]     = enriched_data.get("surname", "")
+    enriched_data["deceased_other_names_police"] = enriched_data.get("other_names", "")
+    enriched_data["deceased_age_police"]         = enriched_data.get("age_at_death")
+    enriched_data["passed_away_date"]            = enriched_data.get("date_of_death")
+    enriched_data["passed_away_time"]            = mccd.death_time
+    enriched_data["passed_away_place"]           = enriched_data.get("place_of_death_name", "")
+    enriched_data["suddenly_suffering_from"]     = mccd.cause_a or ""
+    enriched_data["treatment_was_at"]            = enriched_data.get("place_of_death_name", "")
+
+    # Auto-set Section C sign-off and doctor remarks to None
+    enriched_data["police_certifier_name"]             = None
+    enriched_data["police_certifier_residence"]        = None
+    enriched_data["police_certifier_relationship"]     = None
+    enriched_data["is_natural_death"]                  = None
+    enriched_data["is_sudden_death_postmortem_required"] = None
+    enriched_data["police_no_and_rank"]                = None
+    enriched_data["police_formation"]                  = None
+    enriched_data["police_officer_name"]               = None
+    enriched_data["police_officer_signed"]             = None
+    enriched_data["police_officer_date"]               = None
+    enriched_data["doctors_remarks"]                   = None
+    enriched_data["pupils_dilated_and_fixed"]          = None
+    enriched_data["certifying_doctor_name"]            = None
+    enriched_data["certifying_doctor_signature"]       = None
+    enriched_data["certifying_doctor_date"]            = None
+
+    # Auto-populate Section E (Appendices checklist) and Informant's Declaration
+    enriched_data["has_mccd"] = True
+    enriched_data["has_informant_national_id"] = bool(informant.nrc)
+    death_type = request_body.get("death_type", "")
+    enriched_data["has_coroner_report"] = death_type in ("SUDDEN", "UNNATURAL")
+    enriched_data["informant_declaration_name"]      = informant.full_name
+    enriched_data["informant_declaration_signature"] = None
+    enriched_data["informant_declaration_date"]      = date.today()
+
+    # Auto-populate Section D (Informant Details) from authenticated Citizen
     enriched_data["informant_surname"]            = informant.full_name.split()[-1] if informant.full_name else ""
     enriched_data["informant_other_names"]        = " ".join(informant.full_name.split()[:-1]) if informant.full_name else ""
     enriched_data["informant_contact_no"]         = informant.phone
@@ -246,13 +362,13 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     enriched_data["informant_postal_address"]     = (
         getattr(informant, 'postal_address', None) or informant.residential_address
     )
-    # Remove sentinel DIN fields; the model stores resolved values instead
+    enriched_data["date_of_registration"]         = date.today()
+
+    # Remove sentinel DIN fields
     enriched_data.pop("informant_din", None)
     enriched_data.pop("deceased_din", None)
 
-    # If the deceased is a registered Citizen, auto-populate Section A from their profile.
-    # If the DIN cannot be resolved, we silently continue — the caller must have
-    # provided the manual deceased detail fields instead.
+    # Auto-populate Section A from Citizen if deceased_din resolves
     if deceased_din:
         try:
             deceased = Citizen.objects.get(din=deceased_din)
@@ -452,6 +568,15 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
             "mother_consent_date":             request_body.get("mother_consent_date"),
         }
 
+        # Set NIL as fallback for optional fields not provided (excluding choice fields)
+        nil_fields = [
+            "father_village_of_origin", "father_chief", "father_district", "father_tribe",
+            "father_national_id", "father_occupation", "father_social_id", "father_nationality",
+        ]
+        for field in nil_fields:
+            if not notice_data.get(field):
+                notice_data[field] = "NIL"
+
         notice_serializer = NoticeOfBirthSerializer(data=notice_data)
         if not notice_serializer.is_valid():
             raise HTTPException(
@@ -470,7 +595,7 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
                 else:
                     dt_obj = datetime.fromisoformat(str(notif_time).replace('Z', '+00:00'))
 
-                parsed_time_string = dt_obj.strftime("%H:%M:%S")
+                parsed_time_string = dt_obj.strftime("%H:%M")
 
             except (ValueError, TypeError):
                 raise HTTPException(
@@ -500,6 +625,14 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
             "official_stamp_ref": request_body.get("official_stamp_ref"),
             "date_signed":        request_body.get("date_signed"),
         }
+
+        # Set NIL as fallback for optional fields not provided
+        if not record_data.get("father_name"):
+            record_data["father_name"] = "NIL"
+        if not record_data.get("father_occupation"):
+            record_data["father_occupation"] = "NIL"
+        if not record_data.get("father_present_address"):
+            record_data["father_present_address"] = "NIL"
 
         record_serializer = RecordOfBirthSerializer(data=record_data)
         if not record_serializer.is_valid():
@@ -631,8 +764,10 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
             cause_of_death += f"\n{mccd.cause_c}"
 
     # Generate a unique registration number for the death certificate
-    from citizens.utilities.id_generation import generate_id
-    death_cert_no = generate_id(f"death_{request_id}", "DEATH_CERT")
+    def _seed(s: str) -> bytes:
+        return hashlib.sha256(s.encode()).digest()
+    
+    death_cert_no = generate_id(_seed(f"death_{request_id}"), "DEATH_CERT")
 
     # Assemble Death Certificate payload from the notice and MCCD data
     death_certificate_data = {
@@ -652,9 +787,9 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
         "cause_of_death":  cause_of_death,
         "informant_name":  f"{notice.informant_other_names} {notice.informant_surname}".strip(),
         "informant_relationship": notice.informant_relationship,
-        "date_of_registration":   datetime.date.today(),
+        "date_of_registration":   date.today(),
         "register_kept_at":       f"{notice.district} District Registry",
-        "issued_date":            datetime.date.today(),
+        "issued_date":            date.today(),
         "registrar_general_name": "Registrar",
     }
 
@@ -672,7 +807,8 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
         "place_of_death":   place_of_death,
         "date_of_death":    notice.date_of_death,
         "issuing_authority": "REGISTRAR",
-        "issued_date":      datetime.date.today(),
+        "issued_date":      date.today(),
+        "authorised_by_name": "Registrar",
     }
 
     burial_permit_serializer = BurialPermitSerializer(data=burial_permit_data)
@@ -796,7 +932,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
 
     # Verify the registrar account exists (no select_related on profile - not all users have one)
     try:
-        registrar = SystemUser.objects.get(id=registrar_id)
+        registrar = SystemUser.objects.select_related("profile").get(id=registrar_id)
     except SystemUser.DoesNotExist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registrar Not Found")
 
@@ -835,14 +971,16 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
 
     # Extract child details from the notice for DIN generation and certificate fields
     child_full_name = f"{notice_of_birth.child_given_name} {notice_of_birth.child_surname}"
-    child_dob = notice_of_birth.date_of_birth
-    born_at = notice_of_birth.date_and_time
-    sex = notice_of_birth.sex
-    birth_weight = notice_of_birth.birth_weight_kg
-    place_of_birth = (
-            notice_of_birth.health_facility_name
-            or notice_of_birth.home_address
-            or notice_of_birth.other_place_specified
+    child_dob       = notice_of_birth.date_of_birth
+    born_at         = notice_of_birth.date_and_time
+    sex             = notice_of_birth.sex
+    birth_weight    = notice_of_birth.birth_weight_kg
+    place_of_birth  = (
+        notice_of_birth.health_facility_name
+        or notice_of_birth.home_address
+        or notice_of_birth.other_place_specified
+        or notice_of_birth.place_of_birth
+        or "Unknown"
     )
 
     # Generate a deterministic DIN for the child based on identity + mother's DIN
@@ -870,8 +1008,9 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
 
         if mother:
             try:
-                # Fixed: use "profile" (the related_name from Citizen.user)
-                mother_system_user = SystemUser.objects.select_related("profile").get(profile=mother)
+                mother_system_user = SystemUser.objects.select_related(
+                    "profile"
+                ).get(profile=mother)
             except SystemUser.DoesNotExist:
                 pass  # Certificate can still be created; FK will be null
 
@@ -881,8 +1020,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
             except SystemUser.DoesNotExist:
                 pass
 
-        # Fixed: safe access with getattr for mother_citizen
-        mother_citizen = getattr(mother_system_user, "profile", None) if mother_system_user else None
+        mother_citizen = mother_system_user.profile if mother_system_user else None  # Used for informant address on the certificate
 
         # Create the BirthCertificate, populating all fields from the Notice of Birth
         birth_certificate = BirthCertificate.objects.create(
@@ -912,17 +1050,16 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
             informant_address=mother_citizen.residential_address if mother_citizen else " ",
             postal_address=" ",
             date_of_registration=submission_request.submitted_at.date(),
-            # Fixed: use safe name resolver instead of registrar.citizen.full_name or registrar.registrar_profile.full_name
-            registrar_name=get_user_display_name(registrar),
+            registrar_name=registrar.profile.full_name,
         )
 
         # Update the BirthRecords submission to APPROVED and link the new certificate
         record_submission_serializer = BirthRecordRequestSerializer(
             instance=submission_request,
             data={
-                "status": RecordStatus.APPROVED,
-                "registrar": registrar_id,
-                "reviewed_at": datetime.now(timezone.utc),
+                "status":            RecordStatus.APPROVED,
+                "registrar":         registrar_id,
+                "reviewed_at":       datetime.now(),
                 "birth_certificate": birth_certificate.id,
             },
             partial=True,
@@ -1002,7 +1139,7 @@ def birth_record_rejection(request_id: int, registrar_id: int, rejection_reason:
             data={
                 "status":           RecordStatus.REJECTED,
                 "registrar":        registrar_id,
-                "reviewed_at":      datetime.datetime.now(),
+                "reviewed_at":      datetime.now(),
                 "rejection_reason": rejection_reason,
             },
             partial=True,

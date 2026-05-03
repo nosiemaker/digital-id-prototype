@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { Menu, X, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Logo } from "@/components/Logo"
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -20,14 +21,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/90 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Shield className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold text-foreground">Zambia</span>
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID</span>
-          </div>
+        <Link href="/" className="hover:opacity-90 transition-opacity">
+          <Logo variant="full" width={36} height={36} />
         </Link>
 
         {/* Desktop nav */}

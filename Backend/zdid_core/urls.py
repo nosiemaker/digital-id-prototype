@@ -20,3 +20,7 @@ from django.urls import path
 urlpatterns = [
     path('admin/', admin.site.urls),
 ]
+
+admin.site.site_header = "ZAMREN Digital ID Administration"
+admin.site.site_title = "ZAMREN Admin"
+admin.site.index_title = "Welcome to ZAMREN Digital ID Portal"

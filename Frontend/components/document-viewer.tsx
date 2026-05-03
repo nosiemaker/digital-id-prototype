@@ -85,7 +85,7 @@ export interface StreamingEndpoint {
   accessRoles: string[]
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
 export const BIRTH_REVIEW_ENDPOINT: StreamingEndpoint = {
   url: (id: number) => `${API_BASE}/births/${id}/review`,
