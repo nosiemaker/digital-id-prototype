@@ -1,121 +1,117 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  Users,
-  ClipboardList,
-  BarChart2,
-  Shield,
+import { usePathname, useRouter } from "next/navigation"
+import { 
+  Shield, 
+  ClipboardList, 
+  Users, 
+  Baby, 
+  Skull, 
+  LayoutDashboard, 
+  FileText, 
+  BarChart3, 
+  UserCog, 
+  Building2, 
+  TrendingUp,
   LogOut,
-  ChevronRight,
-  Baby,
-  Skull,
-  HeartPulse,
-  FileText,
+  ChevronRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { tokenStore } from "@/lib/axios"
+import { getRoutesForRole, type UserRole } from "@/lib/config/routes"
+import { Logo } from "@/components/Logo"
 
-const sidebarLinks = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Citizens", href: "/admin/citizens", icon: Users },
-  { label: "Registrations", href: "/admin/registrations", icon: ClipboardList },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart2 },
-]
+const iconMap: Record<string, React.ElementType> = {
+  ClipboardList,
+  Users,
+  Baby,
+  Skull,
+  LayoutDashboard,
+  FileText,
+  BarChart3,
+  UserCog,
+  Building2,
+  TrendingUp,
+}
 
-const civilRegistrationLinks = [
-  { label: "Birth Records", href: "/admin/civil/births", icon: Baby },
-  { label: "Death Records", href: "/admin/civil/deaths", icon: Skull },
-  { label: "Certificates", href: "/admin/civil/certificates", icon: FileText },
-]
+interface AdminSidebarProps {
+  userRole: UserRole | null
+  onNavigate?: () => void
+}
 
-export function AdminSidebar() {
+export function AdminSidebar({ userRole, onNavigate }: AdminSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  if (!userRole) return null
+
+  const routes = getRoutesForRole(userRole)
+
+  const handleLogout = () => {
+    localStorage.removeItem("zdid_access_token")
+    localStorage.removeItem("zdid_refresh_token")
+    localStorage.removeItem("zdid_user_role")
+    localStorage.removeItem("zdid_user_name")
+    router.push("/login")
+  }
 
   return (
-    <aside className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-2.5 px-6 border-b border-sidebar-border">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <Shield className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-sm font-bold text-sidebar-foreground">Zambia</span>
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Admin Portal</span>
+    <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
+      {/* Header */}
+      <div className="flex h-16 items-center gap-3 border-b border-border px-4">
+        <Logo width={32} height={32} />
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-foreground leading-tight">ZAMREN</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            {userRole.replace("_", " ")}
+          </span>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {sidebarLinks.map((link) => {
-          const Icon = link.icon
-          const active = pathname === link.href || (link.href !== "/admin" && pathname.startsWith(link.href) && !pathname.startsWith("/admin/civil"))
+      {/* Navigation */}
+      <nav className="flex-1 overflow-auto px-3 py-4 space-y-1">
+        {routes.map((route) => {
+          const Icon = iconMap[route.icon] || Shield
+          const isActive = pathname === route.path
+
           return (
             <Link
-              key={link.href}
-              href={link.href}
+              key={route.path}
+              href={route.path}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group",
-                active
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                isActive 
+                  ? "bg-primary/10 text-primary" 
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="flex-1">{link.label}</span>
-              {active && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
+              <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+              <span className="flex-1">{route.label}</span>
+              {isActive && <ChevronRight className="h-3.5 w-3.5 text-primary" />}
             </Link>
           )
         })}
-
-        {/* Civil Registration Section */}
-        <div className="pt-4 mt-3 border-t border-sidebar-border">
-          <div className="flex items-center gap-2 px-3 py-2">
-            <HeartPulse className="h-4 w-4 text-primary" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Civil Registration</span>
-          </div>
-          {civilRegistrationLinks.map((link) => {
-            const Icon = link.icon
-            const active = pathname === link.href || pathname.startsWith(link.href)
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group",
-                  active
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="flex-1">{link.label}</span>
-                {active && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
-              </Link>
-            )
-          })}
-        </div>
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 mb-1">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
-            AD
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-sidebar-foreground truncate">Admin User</p>
-            <p className="text-xs text-muted-foreground truncate">admin@zidp.gov.zm</p>
-          </div>
+      <div className="border-t border-border p-3 space-y-2">
+        <div className="rounded-lg bg-muted/50 px-3 py-2">
+          <p className="text-[11px] text-muted-foreground">
+            Signed in as
+          </p>
+          <p className="text-xs font-medium text-foreground truncate">
+            {typeof window !== "undefined" ? tokenStore.getName() || "User" : "User"}
+          </p>
         </div>
-        <Link
-          href="/"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
         >
           <LogOut className="h-4 w-4" />
-          <span>Sign Out</span>
-        </Link>
+          Sign Out
+        </button>
       </div>
     </aside>
   )

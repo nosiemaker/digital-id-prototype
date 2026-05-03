@@ -14,7 +14,11 @@ import {
   Menu,
   X,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { tokenStore } from "@/lib/axios"
+import { Logo } from "@/components/Logo"
+
 
 const features = [
   { icon: Shield, title: "Secure Identity", description: "Military-grade encryption protecting every citizen's personal data and biometric records." },
@@ -34,27 +38,35 @@ const stats = [
 
 const navLinks = [
   { label: "Home", href: "/" },
+  { label: "Partners", href: "/institutions" },
   { label: "Register", href: "/register" },
   { label: "Verify", href: "/verify" },
   { label: "Login", href: "/login" },
 ]
 
+import { ROLE_ROUTES, DEFAULT_ROUTE } from "@/lib/config/routes"
+
 export default function LandingPage() {
+  const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    const token = tokenStore.getAccess()
+    const role = tokenStore.getRole()
+    if (token && role) {
+      const destination = ROLE_ROUTES[role] ?? DEFAULT_ROUTE
+      router.push(destination)
+    }
+  }, [router])
+
 
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* Navbar */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/90 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Shield className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold text-foreground">Zambia</span>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID</span>
-            </div>
+          <Link href="/" className="hover:opacity-90 transition-opacity">
+            <Logo variant="full" width={36} height={36} />
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
@@ -88,8 +100,8 @@ export default function LandingPage() {
         </div>
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            Republic of Zambia — Official Digital Identity System
+            <Logo width={16} height={16} />
+            ZAMREN — Official Digital Identity System
           </div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl text-balance">
             Your Identity,{" "}
@@ -114,10 +126,8 @@ export default function LandingPage() {
             <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-primary" />
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded bg-primary">
-                  <Shield className="h-4 w-4 text-white" />
-                </div>
-                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Zambia Digital ID</span>
+                <Logo width={28} height={28} />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Digital ID</span>
               </div>
               <span className="text-xs text-primary font-semibold bg-primary/10 px-2 py-0.5 rounded-full">VERIFIED</span>
             </div>
@@ -159,6 +169,105 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Institutions Section */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-secondary/30 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="mx-auto max-w-7xl relative">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary mb-4 uppercase tracking-wider">
+                Service Partners
+              </div>
+              <h2 className="text-3xl font-bold text-foreground mb-6">Empower your business with ZDID Integration</h2>
+              <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
+                Join over 110+ banks, fintechs, and government agencies already using the Zambia Digital ID system to verify customers instantly and securely.
+              </p>
+              
+              <div className="space-y-6 mb-10">
+                {[
+                  { title: "KYC Compliance", desc: "Automate your Know Your Customer (KYC) processes with verified government data." },
+                  { title: "Secure Authentication", desc: "Replace fragile passwords with multi-factor biometric authentication." },
+                  { title: "Data Accuracy", desc: "Access real-time, validated identity records directly from the national registry." },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-4">
+                    <div className="mt-1 h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="h-3 w-3 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-foreground text-sm">{item.title}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-4">
+                <Link href="/institutions" className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+                  Join as a Partner <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link href="/institutions" className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground hover:bg-secondary transition-colors">
+                  Integration Docs
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="rounded-2xl border border-border bg-card p-2 shadow-2xl overflow-hidden">
+                <div className="bg-secondary/40 rounded-xl p-6 border border-border">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
+                        <Zap className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="font-bold text-xs uppercase tracking-tight">Partner API Console</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-red-400/50" />
+                      <div className="h-2 w-2 rounded-full bg-yellow-400/50" />
+                      <div className="h-2 w-2 rounded-full bg-green-400/50" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4 font-mono text-[10px]">
+                    <div className="p-3 rounded bg-black/80 text-green-400 border border-white/10">
+                      <p className="opacity-50 mb-2">// Request KYC Verification</p>
+                      <p>POST /api/v1/verify-identity</p>
+                      <p className="text-blue-400 mt-2">{"{"}</p>
+                      <p className="ml-4">"din": "ZM-2024-001-8872",</p>
+                      <p className="ml-4">"scope": ["name", "nrc", "biometrics"]</p>
+                      <p className="text-blue-400">{"}"}</p>
+                    </div>
+                    
+                    <div className="p-3 rounded bg-black/80 text-blue-300 border border-white/10">
+                      <p className="opacity-50 mb-2">// API Response</p>
+                      <p className="text-green-400">HTTP 200 OK</p>
+                      <p className="mt-2">{"{"}</p>
+                      <p className="ml-4">"status": "VERIFIED",</p>
+                      <p className="ml-4">"match_score": 0.998,</p>
+                      <p className="ml-4">"timestamp": "2024-03-23T14:30:00Z"</p>
+                      <p>{"}"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Floating badges */}
+              <div className="absolute -bottom-6 -left-6 rounded-xl bg-card border border-border p-4 shadow-xl animate-bounce duration-[3000ms]">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-green-400/10 flex items-center justify-center text-green-400">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold">Identity Confirmed</p>
+                    <p className="text-[10px] text-muted-foreground">High confidence match</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
@@ -189,7 +298,7 @@ export default function LandingPage() {
           <h2 className="text-2xl font-bold text-foreground text-balance">Ready to register your Digital ID?</h2>
           <p className="mt-4 text-muted-foreground">The process takes less than 10 minutes. Have your NRC and contact details ready.</p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/register" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+            <Link href="/authentication/register" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
               Register Now <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/login" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-border px-8 py-3 text-sm font-semibold text-foreground hover:bg-secondary transition-colors">

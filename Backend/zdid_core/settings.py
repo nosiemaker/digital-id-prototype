@@ -11,21 +11,48 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Tells Django to use the custom model
+AUTH_USER_MODEL = 'admin_ops.SystemUser'
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8^t2arv-ij!sx0vi3%1^s7ja)2z&%cvl@ters3kxr!^86w9h*-'
-
+SECRET_KEY = config(
+    "DJANGO_SECRET_KEY",
+    default="TZE9KfgO7sl6sdGkQBN8t0LK3Da03Kxbqv4T1dTJL8g_hjMt3x6iJ3lR8aH2MrMZysw",
+)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+
+# ============================================================================
+# Digital ID — ECDSA P-256 server signing keypair
+# ============================================================================
+# These are loaded once at startup by digital_id/service.py
+# If either is missing the app will refuse to start (ImproperlyConfigured).
+#
+# Generate a keypair locally:
+#   openssl ecparam -name prime256v1 -genkey -noout -out zdid_signing.pem
+#   openssl ec -in zdid_signing.pem -pubout -out zdid_signing_pub.pem
+#
+# Then paste the contents into .env.example — newlines replaced with \n:
+#   ZDID_SIGNING_PRIVATE_KEY="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
+#   ZDID_SIGNING_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+
+ZDID_SIGNING_PRIVATE_KEY = config("ZDID_SIGNING_PRIVATE_KEY", default="").replace("\\n", "\n")
+ZDID_SIGNING_PUBLIC_KEY = config("ZDID_SIGNING_PUBLIC_KEY", default="").replace("\\n", "\n")
+
+# Biometric salt (already in your system for DIN derivation — keep alongside)
+BIOMETRIC_SALT = config("BIOMETRIC_SALT", default="")
 
 
 # Application definition
@@ -37,6 +64,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'admin_ops',
+    'audit',
+    'citizens',
+    'hospital',
+    'kyc',
+    'registration',
+    'rest_framework',
+    "qr",
 ]
 
 MIDDLEWARE = [
@@ -54,7 +89,7 @@ ROOT_URLCONF = 'zdid_core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -69,14 +104,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'zdid_core.wsgi.application'
 
 
+import dj_database_url
+
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 
@@ -85,16 +123,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -102,9 +140,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -114,4 +152,26 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+# Email settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='')
+
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+
+
+# DATABASE_URL='postgres://postgres.oflccsjshbkuksuacfge:hamusonde11.@aws-0-eu-west-1.pooler.supabase.com:5432/postgres'
+
+#EMAIL_HOST_USER='hamusondemuntanga@gmail.com'
+#EMAIL_HOST_PASSWORD='hwhb qrlb yatd fckn'
+#DEFAULT_FROM_EMAIL='hamusondemuntanga@gmail.com'

@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import EnrollmentRequest,RegistrationOfficer
 
-# Register your models here.
+admin.site.register(RegistrationOfficer)
+admin.site.register(EnrollmentRequest)
