@@ -213,7 +213,6 @@ export default function IdentityRegistrationPage() {
         phone:          form.phone.trim() || undefined,
         gender:         form.gender as "MALE" | "FEMALE",
         district_id:    form.district_id ? Number(form.district_id) : undefined,
-        // province is intentionally omitted — UI only, not sent to backend
         language:       form.language as any,
         public_key:     pem,
         nrc_front_url:  form.nrcFrontUrl,
@@ -221,7 +220,7 @@ export default function IdentityRegistrationPage() {
         face_image_url: form.faceUrl,
       })
 
-      router.push("/admin/citizens/wallet")
+      router.push("/citizens/wallet")
     } catch (e: unknown) {
       const err = e as { detail?: string; message?: string }
       setError(err?.detail ?? err?.message ?? "Submission failed. Please try again.")
@@ -261,7 +260,7 @@ export default function IdentityRegistrationPage() {
               <span className="text-[10px] font-medium text-muted-foreground">Identity Registration</span>
             </div>
           </Link>
-          <Link href="/admin/citizens/wallet" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/citizens/wallet" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to wallet
           </Link>
         </div>

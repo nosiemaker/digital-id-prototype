@@ -8,4 +8,4 @@ export { birthRecordApi } from './birthRecords';
 export { deathRecordApi } from './deathRecords';
 export { kycApi } from './kyc';
 export { thirdPartyApi } from './thirdParty';
-export { auditApi } from './audit';
+export { auditApi, type AuditLog, type PaginatedAuditLogs } from './audit';

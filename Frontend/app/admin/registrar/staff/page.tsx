@@ -137,7 +137,7 @@ export default function StaffManagementPage() {
     if (!targetStaff?.citizen_din) return
     setRemoving(true)
     try {
-      const isHW = targetStaff.role.includes("HEALTH_WORKER")
+      const isHW = targetStaff.role?.includes("HEALTH_WORKER")
       if (isHW) await staffApi.removeHealthWorker(targetStaff.citizen_din)
       else await staffApi.removeRegistrationOfficer(targetStaff.citizen_din)
       toast.success(`${isHW ? "Health Worker" : "Registration Officer"} deactivated`)
@@ -152,12 +152,12 @@ export default function StaffManagementPage() {
   }
 
   const filteredStaff = staff.filter(s => {
-    const isHW = s.role.includes("HEALTH_WORKER")
-    const isRO = s.role.includes("REGISTRATION_OFFICER")
+    const isHW = s.role?.includes("HEALTH_WORKER")
+    const isRO = s.role?.includes("REGISTRATION_OFFICER")
     const matchesTab = activeTab === "hw" ? isHW : isRO
     const matchesSearch = 
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.email.toLowerCase().includes(search.toLowerCase()) ||
+      s.name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.email?.toLowerCase().includes(search.toLowerCase()) ||
       s.citizen_din?.toLowerCase().includes(search.toLowerCase()) ||
       s.employee_id?.toLowerCase().includes(search.toLowerCase())
     const matchesStatus = statusFilter === "all" || 
@@ -168,8 +168,8 @@ export default function StaffManagementPage() {
 
   const stats = [
     { label: "Total Staff", value: staff.length.toString(), icon: Users, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Health Workers", value: staff.filter(s => s.role.includes("HEALTH_WORKER")).length.toString(), icon: Stethoscope, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "Reg. Officers", value: staff.filter(s => s.role.includes("REGISTRATION_OFFICER")).length.toString(), icon: ClipboardList, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "Health Workers", value: staff.filter(s => s.role?.includes("HEALTH_WORKER")).length.toString(), icon: Stethoscope, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { label: "Reg. Officers", value: staff.filter(s => s.role?.includes("REGISTRATION_OFFICER")).length.toString(), icon: ClipboardList, color: "text-purple-500", bg: "bg-purple-500/10" },
     { label: "Active", value: staff.filter(s => s.is_active).length.toString(), icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10" }
   ]
 
@@ -260,8 +260,8 @@ export default function StaffManagementPage() {
                         <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">No staff members found</td></tr>
                       ) : filteredStaff.map(s => (
                         <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-3 font-medium text-foreground">{s.name}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">{s.email}</td>
+                          <td className="px-4 py-3 font-medium text-foreground">{s.name || "—"}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{s.email || "—"}</td>
                           <td className="px-4 py-3 font-mono text-xs text-primary">{s.citizen_din || "—"}</td>
                           <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{s.employee_id || "—"}</td>
                           <td className="px-4 py-3">
@@ -388,8 +388,8 @@ export default function StaffManagementPage() {
           </DialogHeader>
           {targetStaff && (
             <div className="bg-muted/30 p-3 rounded-lg space-y-1">
-              <p className="font-medium">{targetStaff.name}</p>
-              <p className="text-xs text-muted-foreground">DIN: {targetStaff.citizen_din} | ID: {targetStaff.employee_id}</p>
+              <p className="font-medium">{targetStaff.name || "—"}</p>
+              <p className="text-xs text-muted-foreground">DIN: {targetStaff.citizen_din || "—"} | ID: {targetStaff.employee_id || "—"}</p>
             </div>
           )}
           <DialogFooter className="gap-2 mt-4">

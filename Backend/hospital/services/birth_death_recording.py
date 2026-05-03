@@ -573,6 +573,22 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
         HTTPException 409 — Submission is not PENDING.
         HTTPException 400 — Notice of Death missing or serialiser validation errors.
     """
+
+    def get_user_display(user: SystemUser) -> str:
+        """
+        Safely get a display name from any SystemUser, regardless of profile type.
+        Priority: Citizen.full_name → SystemUser.first_name+last_name → username
+        """
+        # Try Citizen profile first (has full_name)
+        citizen_profile = getattr(user, "profile", None)
+        if citizen_profile and citizen_profile.full_name:
+            return citizen_profile.full_name
+
+        # Fallback to SystemUser fields for staff users
+        name_parts = [user.first_name, user.last_name]
+        full_name = " ".join(part for part in name_parts if part).strip()
+        return full_name or user.username or "Unknown"
+
     # Lock the row to prevent concurrent approval attempts on the same submission
     try:
         death_records = (
@@ -758,38 +774,29 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
     """
     Approves a pending birth registration, generating the Birth Certificate
     and creating an INACTIVE Citizen record for the child.
-
-    Steps:
-        1. Verify the registrar's SystemUser account exists.
-        2. Fetch the BirthRecords entry (with row-level lock).
-        3. Guard: only PENDING submissions can be approved.
-        4. Verify both NoticeOfBirth and RecordOfBirth are linked.
-        5. Verify the mother Citizen still exists; if not, auto-reject and raise.
-        6. Derive child identity from the NoticeOfBirth.
-        7. Generate the child's DIN via deterministic seed (name + dob + facility + mother DIN).
-        8. Check for an existing BirthCertificate with the same reg_no to prevent duplicates.
-        9. Within an atomic transaction:
-               a. Resolve mother's and father's SystemUser accounts.
-               b. Create the BirthCertificate with data from the notice and record.
-               c. Update the BirthRecords submission to APPROVED.
-               d. Create the child Citizen with status=INACTIVE.
-       10. Emit an audit event.
-
-    Args:
-        request_id:   PK of the BirthRecords submission to approve.
-        registrar_id: SystemUser ID of the authenticated Registrar Officer.
-
-    Returns:
-        Dict with details, certificate ID, and HTTP 200 status.
-
-    Raises:
-        HTTPException 404 — Registrar or BirthRecords not found.
-        HTTPException 409 — Submission is not PENDING, or certificate already exists.
-        HTTPException 400 — Missing related documents, invalid citizen data.
     """
-    # Verify the registrar account exists and load their Citizen profile (for the cert)
+
+    # ── Helper: Safe name resolver for any SystemUser profile type ──
+    def get_user_display_name(user: SystemUser) -> str:
+        """
+        Safely get a display name from any SystemUser, regardless of profile type.
+        Priority: Citizen.full_name → SystemUser.first_name+last_name → username
+        """
+        # Try Citizen profile first (has full_name)
+        citizen_profile = getattr(user, "profile", None)
+        if citizen_profile and citizen_profile.full_name:
+            return citizen_profile.full_name
+
+        # Fallback to SystemUser fields for staff users
+        name_parts = [user.first_name, user.last_name]
+        full_name = " ".join(part for part in name_parts if part).strip()
+        return full_name or user.username or "Unknown"
+
+    # ──────────────────────────────────────────────────────────────
+
+    # Verify the registrar account exists (no select_related on profile - not all users have one)
     try:
-        registrar = SystemUser.objects.select_related("profile").get(id=registrar_id)
+        registrar = SystemUser.objects.get(id=registrar_id)
     except SystemUser.DoesNotExist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registrar Not Found")
 
@@ -811,7 +818,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
     notice_of_birth = submission_request.notice_of_birth
     record_of_birth = submission_request.record_of_birth
 
-    # Both sub-documents are required — they should always be present for valid submissions
+    # Both sub-documents are required
     if not notice_of_birth or not record_of_birth:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -828,14 +835,14 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
 
     # Extract child details from the notice for DIN generation and certificate fields
     child_full_name = f"{notice_of_birth.child_given_name} {notice_of_birth.child_surname}"
-    child_dob       = notice_of_birth.date_of_birth
-    born_at         = notice_of_birth.date_and_time
-    sex             = notice_of_birth.sex
-    birth_weight    = notice_of_birth.birth_weight_kg
-    place_of_birth  = (
-        notice_of_birth.health_facility_name
-        or notice_of_birth.home_address
-        or notice_of_birth.other_place_specified
+    child_dob = notice_of_birth.date_of_birth
+    born_at = notice_of_birth.date_and_time
+    sex = notice_of_birth.sex
+    birth_weight = notice_of_birth.birth_weight_kg
+    place_of_birth = (
+            notice_of_birth.health_facility_name
+            or notice_of_birth.home_address
+            or notice_of_birth.other_place_specified
     )
 
     # Generate a deterministic DIN for the child based on identity + mother's DIN
@@ -857,15 +864,13 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
     # Atomic block: create all downstream records together or roll back entirely
     with transaction.atomic():
 
-        # NOTE: Certificate PDF generation is currently commented out (see cert_info block above).
-        # When re-enabled, generate_certificate() should be called here and its URL/hash stored.
-
         # Resolve SystemUser accounts for the mother and father (for certificate FK linking)
         mother_system_user = None
         father_system_user = None
 
         if mother:
             try:
+                # Fixed: use "profile" (the related_name from Citizen.user)
                 mother_system_user = SystemUser.objects.select_related("profile").get(profile=mother)
             except SystemUser.DoesNotExist:
                 pass  # Certificate can still be created; FK will be null
@@ -876,7 +881,8 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
             except SystemUser.DoesNotExist:
                 pass
 
-        mother_citizen = mother_system_user.profile if mother_system_user else None  # Used for informant address on the certificate
+        # Fixed: safe access with getattr for mother_citizen
+        mother_citizen = getattr(mother_system_user, "profile", None) if mother_system_user else None
 
         # Create the BirthCertificate, populating all fields from the Notice of Birth
         birth_certificate = BirthCertificate.objects.create(
@@ -903,20 +909,21 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
             mother_nid=notice_of_birth.mother_national_id,
             # Informant = mother (standard for facility births)
             informant_name=f"{notice_of_birth.mother_other_names or ''} {notice_of_birth.mother_surname or ''}".strip(),
-            informant_address=mother_citizen.residential_address or "",
-            postal_address="",
+            informant_address=mother_citizen.residential_address if mother_citizen else " ",
+            postal_address=" ",
             date_of_registration=submission_request.submitted_at.date(),
-            registrar_name=registrar.citizen.full_name,
+            # Fixed: use safe name resolver instead of registrar.citizen.full_name or registrar.registrar_profile.full_name
+            registrar_name=get_user_display_name(registrar),
         )
 
         # Update the BirthRecords submission to APPROVED and link the new certificate
         record_submission_serializer = BirthRecordRequestSerializer(
             instance=submission_request,
             data={
-                "status":            RecordStatus.APPROVED,
-                "registrar":         registrar_id,
-                "reviewed_at":       datetime.datetime.now(),
-                "birth_certificate": birth_certificate,
+                "status": RecordStatus.APPROVED,
+                "registrar": registrar_id,
+                "reviewed_at": datetime.now(timezone.utc),
+                "birth_certificate": birth_certificate.id,
             },
             partial=True,
         )
@@ -928,13 +935,12 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
         record_submission_serializer.save()
 
         # Create the child's Citizen record with INACTIVE status.
-        # The child must go through the full citizen registration flow to become ACTIVE.
         citizen_serializer = CitizenSerializer(
             data={
-                "din":       child_id,
+                "din": child_id,
                 "full_name": child_full_name,
-                "dob":       child_dob,
-                "status":    CitizenStatus.INACTIVE,
+                "dob": child_dob,
+                "status": CitizenStatus.INACTIVE,
             },
         )
         if not citizen_serializer.is_valid():
@@ -947,7 +953,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
     audit.birth_record_approved(registrar_id, birth_certificate.id)
 
     return {
-        "details":     "Approval Successful",
+        "details": "Approval Successful",
         "certificate": birth_certificate.id,
         "status": status.HTTP_200_OK,
     }
