@@ -36,6 +36,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path.rstrip("/")
         if not path: path = "/"
 
+        # Check for admin and static paths
+        if path.startswith("/admin") or path.startswith("/static"):
+            return await call_next(request)
+
         is_public = False
         for route in PUBLIC_ROUTES:
             route = route.rstrip("/")
