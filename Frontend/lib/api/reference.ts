@@ -8,7 +8,7 @@ export const referenceApi = {
   },
 
   getDistricts: async (province_code?: string): Promise<DistrictOption[]> => {
-    const { data } = await axiosInstance.get<DistrictOption[]>('/districts', {
+    const { data } = await axiosInstance.get<DistrictOption[]>('/districts/', {
       params: province_code ? { province_code } : undefined,
     });
     return data;

@@ -32,6 +32,7 @@ import secrets
 from django.db import models, transaction
 from fastapi import HTTPException, status
 from Utils.audit_logger import audit
+from Utils.email_service import send_notice_of_death_link_email
 #from Utils.certificate_generator import generate_certificate
 from admin_ops.models import SystemUser
 from citizens.models import Citizen, CitizenStatus
@@ -144,13 +145,18 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         status=RegistrationStatusChoices.PENDING,
     )
 
-    notice_of_death_url = f'http://localhost:3000/submit-notice/{informant_sys.id}'
+    send_notice_of_death_link_email(
+        informant_email=informant_sys.email,
+        informant_name=informant.full_name,
+        death_record_id=death_records.id,
+    )
 
     audit.death_record_submitted(health_worker_id, death_records.id)
 
     return {
-        "details": "MCCD Submitted",
+        "details": "MCCD Submitted. Notice of Death link has been emailed to the informant.",
         "notice_of_death_url": death_records.id,
+        "mccd_id": mccd.id,
         "status": status.HTTP_201_CREATED,
     }
 
@@ -159,7 +165,7 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
 # DEATH PIPELINE — Step 2: Attach Notice of Death
 # ============================================================================
 
-def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id: int) -> dict:
+def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id: int | None = None) -> dict:
     """
     Links a Notice of Death to an existing DeathRecords entry and marks the
     submission as ready_for_review so the RO can process it.
@@ -207,11 +213,15 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
         )
 
     # Ownership check: only the informant recorded on the MCCD may attach the notice
-    if not citizen_sys.id == death_records.informant.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Death Record is not linked to this user",
-        )
+    if citizen_id is not None:
+        try:
+            citizen_sys = SystemUser.objects.get(id=citizen_id)
+        except SystemUser.DoesNotExist:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+
+        if citizen_sys.id != death_records.informant.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Death Record is not linked to this user")
+
 
     # Guard against duplicate Notice of Death submissions for the same record
     if death_records.notice_of_death:
