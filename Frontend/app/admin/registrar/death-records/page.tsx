@@ -1,6 +1,4 @@
-// app/admin/registrar/death-records/page.tsx
 "use client"
-
 import { useState, useEffect } from "react"
 import {
   Skull,
@@ -56,7 +54,6 @@ import {
 
 export default function RegistrarDeathRecordsPage() {
   useRoleGuard(["REGISTRAR"])
-
   const [records, setRecords] = useState<any[]>([])
   const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,7 +70,6 @@ export default function RegistrarDeathRecordsPage() {
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerEndpoint, setViewerEndpoint] = useState<any>(null)
   const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
-
   const [token, setToken] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('zdid_access_token') || ''
@@ -94,7 +90,6 @@ export default function RegistrarDeathRecordsPage() {
         deathRecordApi.getAll(),
         deathRecordApi.getPendingSubmissions()
       ])
-
       setRecords(allData.records || [])
       setPendingSubmissions(pendingData.pending_submissions || [])
     } catch (err: any) {
@@ -123,7 +118,6 @@ export default function RegistrarDeathRecordsPage() {
       toast.error("Rejection reason must be at least 10 characters")
       return
     }
-
     setActionLoading(true)
     try {
       const payload: RecordRejection = { rejection_reason: rejectionReason.trim() }
@@ -148,7 +142,6 @@ export default function RegistrarDeathRecordsPage() {
   }
 
   const currentList = activeTab === "pending" ? pendingSubmissions : records
-
   const filteredRecords = currentList.filter((record) => {
     const name = record.attended_name || record.deceasedName || ""
     const matchesSearch =
@@ -159,31 +152,31 @@ export default function RegistrarDeathRecordsPage() {
   })
 
   const stats = [
-    { 
-      label: "Pending Review", 
-      value: pendingSubmissions.length.toString(), 
-      icon: Clock, 
+    {
+      label: "Pending Review",
+      value: pendingSubmissions.length.toString(),
+      icon: Clock,
       color: "text-yellow-500",
-      bg: "bg-yellow-500/10" 
+      bg: "bg-yellow-500/10"
     },
-    { 
-      label: "Approved Today", 
-      value: records.filter((r: any) => r.status === "APPROVED" && isToday(r.reviewed_at)).length.toString(), 
-      icon: CheckCircle2, 
+    {
+      label: "Approved Today",
+      value: records.filter((r: any) => r.status === "APPROVED" && isToday(r.reviewed_at)).length.toString(),
+      icon: CheckCircle2,
       color: "text-green-500",
       bg: "bg-green-500/10"
     },
-    { 
-      label: "Rejected Today", 
-      value: records.filter((r: any) => r.status === "REJECTED" && isToday(r.reviewed_at)).length.toString(), 
-      icon: XCircle, 
+    {
+      label: "Rejected Today",
+      value: records.filter((r: any) => r.status === "REJECTED" && isToday(r.reviewed_at)).length.toString(),
+      icon: XCircle,
       color: "text-red-500",
       bg: "bg-red-500/10"
     },
-    { 
-      label: "Total Processed", 
-      value: records.filter((r: any) => r.status !== "PENDING").length.toString(), 
-      icon: UserCheck, 
+    {
+      label: "Total Processed",
+      value: records.filter((r: any) => r.status !== "PENDING").length.toString(),
+      icon: UserCheck,
       color: "text-primary",
       bg: "bg-primary/10"
     },
@@ -335,11 +328,11 @@ export default function RegistrarDeathRecordsPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {record.place_of_death === "HEALTH_FACILITY" ? (
-                      <span className="flex items-center gap-1"><Building2 className="h-3 w-3" /> Facility</span>
+                      <span className="flex items-center gap-1"> <Building2 className="h-3 w-3" /> Facility </span>
                     ) : record.place_of_death === "HOME" ? (
-                      <span className="flex items-center gap-1"><Home className="h-3 w-3" /> Home</span>
+                      <span className="flex items-center gap-1"> <Home className="h-3 w-3" /> Home </span>
                     ) : (
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Other</span>
+                      <span className="flex items-center gap-1"> <MapPin className="h-3 w-3" /> Other </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -631,9 +624,10 @@ export default function RegistrarDeathRecordsPage() {
                     </div>
                   )}
                   {selectedRecord.rejection_reason && (
-                    <div className="rounded-md bg-red-50 border border-red-200 p-2 mt-2">
-                      <p className="text-xs text-red-600 font-medium">Rejection Reason:</p>
-                      <p className="text-sm text-red-700">{selectedRecord.rejection_reason}</p>
+                    // FIXED: Replaced hardcoded red-50/200 with theme-safe variants
+                    <div className="rounded-md bg-red-500/10 border border-red-500/20 p-2 mt-2">
+                      <p className="text-xs text-red-500 font-medium">Rejection Reason:</p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{selectedRecord.rejection_reason}</p>
                     </div>
                   )}
                 </div>
@@ -641,11 +635,12 @@ export default function RegistrarDeathRecordsPage() {
 
               {/* Warning if Notice of Death missing */}
               {selectedRecord.status === "PENDING" && !selectedRecord.notice_of_death && (
-                <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                // FIXED: Replaced hardcoded yellow-50/200 with theme-safe variants
+                <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4 flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-yellow-800">Notice of Death Required</p>
-                    <p className="text-sm text-yellow-700">
+                    <p className="text-sm font-medium text-yellow-600 dark:text-yellow-500">Notice of Death Required</p>
+                    <p className="text-sm text-yellow-600/90 dark:text-yellow-500/90">
                       This record cannot be approved until the informant attaches the Notice of Death (DNRPC form).
                     </p>
                   </div>
@@ -699,9 +694,10 @@ export default function RegistrarDeathRecordsPage() {
 
           {reviewRecord && (
             <div className="space-y-4 mt-4">
-              <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
+              {/* FIXED: Replaced hardcoded bg-yellow-50 with theme-safe bg-yellow-500/10 */}
+              <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4">
                 <div className="flex items-start gap-3">
-                  <Skull className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                  <Skull className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-foreground">{reviewRecord.attended_name}</p>
                     <p className="text-sm text-muted-foreground">
@@ -715,15 +711,16 @@ export default function RegistrarDeathRecordsPage() {
               </div>
 
               {/* Pre-approval document review link */}
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">Pre-Approval Review:</h4>
-                <p className="text-sm text-blue-700 mb-3">
+              {/* FIXED: Replaced hardcoded blue colors with primary semantic colors */}
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                <h4 className="text-sm font-medium text-foreground mb-2">Pre-Approval Review:</h4>
+                <p className="text-sm text-muted-foreground mb-3">
                   Before approving, review the submitted MCCD and Notice of Death to verify all details are correct.
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  className="border-primary text-primary hover:bg-primary/10"
                   onClick={() => {
                     setReviewRecord(null)
                     openDocumentViewer(DEATH_REVIEW_ENDPOINT, reviewRecord)
@@ -734,19 +731,20 @@ export default function RegistrarDeathRecordsPage() {
                 </Button>
               </div>
 
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">Actions on Approval:</h4>
-                <ul className="space-y-1 text-sm text-blue-700">
+              {/* FIXED: Replaced hardcoded blue colors with primary semantic colors */}
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                <h4 className="text-sm font-medium text-foreground mb-2">Actions on Approval:</h4>
+                <ul className="space-y-1 text-sm text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
                     Generate Death Certificate
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
                     Generate Burial Permit (Form XI)
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
                     Update deceased Citizen status to DECEASED
                   </li>
                 </ul>
@@ -756,7 +754,7 @@ export default function RegistrarDeathRecordsPage() {
                 <Button variant="outline" onClick={() => setReviewRecord(null)}>
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   className="bg-green-600 hover:bg-green-700"
                   onClick={() => handleApprove(reviewRecord.id)}
                   disabled={actionLoading}

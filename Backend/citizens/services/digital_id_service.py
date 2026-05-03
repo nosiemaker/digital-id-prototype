@@ -7,8 +7,8 @@ Responsibilities:
 - Sign the payload and return a DigitalIDPayload
 
 Signing key lifecycle:
-- Private key lives in .env as ZDID_SIGNING_PRIVATE_KEY (PEM string)
-- Public key lives in .env as ZDID_SIGNING_PUBLIC_KEY (PEM string)
+- Private key lives in .env.example as ZDID_SIGNING_PRIVATE_KEY (PEM string)
+- Public key lives in .env.example as ZDID_SIGNING_PUBLIC_KEY (PEM string)
 - Both are loaded once into module-level constants at import time
 - A missing or malformed key raises ImproperlyConfigured at startup,
   not at request time — so bad config is caught immediately.

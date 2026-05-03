@@ -213,7 +213,6 @@ export default function IdentityRegistrationPage() {
         phone:          form.phone.trim() || undefined,
         gender:         form.gender as "MALE" | "FEMALE",
         district_id:    form.district_id ? Number(form.district_id) : undefined,
-        // province is intentionally omitted — UI only, not sent to backend
         language:       form.language as any,
         public_key:     pem,
         nrc_front_url:  form.nrcFrontUrl,

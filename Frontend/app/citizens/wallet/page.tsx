@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 import { useState, useEffect, useCallback } from "react"
-import { tokenStore, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, type AuditLog, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse } from "@/lib/axios"
+import { tokenStore, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type AuditLog } from "@/lib/axios"
 
 
 import {

@@ -57,35 +57,32 @@ export default function HealthWorkerDashboard() {
         birthRecordApi.getMySubmissions(),
         deathRecordApi.getMySubmissions()
       ])
-      setBirthSubmissions(birthData.records || [])
-      setDeathSubmissions(deathData.records || [])
+      
+      // Safely handle both array and object response formats
+      const births = Array.isArray(birthData) ? birthData : (birthData?.records || [])
+      const deaths = Array.isArray(deathData) ? deathData : (deathData?.records || [])
+      
+      console.log("Birth submissions:", births) // Debug: Check actual data shape
+      console.log("Death submissions:", deaths)
+      
+      setBirthSubmissions(births)
+      setDeathSubmissions(deaths)
     } catch (err: any) {
+      console.error("Dashboard fetch error:", err)
       toast.error(err.detail || 'Failed to load your submissions')
     } finally {
       setLoading(false)
     }
   }
 
-  const allSubmissions = activeTab === 'birth' ? birthSubmissions : deathSubmissions
-  const filtered = allSubmissions.filter(r => {
-    const name = activeTab === 'birth'
-      ? `${r.child_given_name || ''} ${r.child_surname || ''}`.trim()
-      : r.attended_name || r.deceasedName || ''
-    
-    const matchesSearch = 
-      name.toLowerCase().includes(search.toLowerCase()) ||
-      (r.id || '').toString().includes(search)
-    const matchesStatus = statusFilter === 'all' || r.status?.toLowerCase() === statusFilter
-    return matchesSearch && matchesStatus
-  })
-
+  // Case-insensitive & safe status counting
   const stats = {
-    pendingBirths: birthSubmissions.filter(r => r.status === 'PENDING').length,
-    approvedBirths: birthSubmissions.filter(r => r.status === 'APPROVED').length,
-    rejectedBirths: birthSubmissions.filter(r => r.status === 'REJECTED').length,
-    pendingDeaths: deathSubmissions.filter(r => r.status === 'PENDING').length,
-    approvedDeaths: deathSubmissions.filter(r => r.status === 'APPROVED').length,
-    rejectedDeaths: deathSubmissions.filter(r => r.status === 'REJECTED').length,
+    pendingBirths: birthSubmissions.filter(r => r.status?.toUpperCase() === 'PENDING').length,
+    approvedBirths: birthSubmissions.filter(r => r.status?.toUpperCase() === 'APPROVED').length,
+    rejectedBirths: birthSubmissions.filter(r => r.status?.toUpperCase() === 'REJECTED').length,
+    pendingDeaths: deathSubmissions.filter(r => r.status?.toUpperCase() === 'PENDING').length,
+    approvedDeaths: deathSubmissions.filter(r => r.status?.toUpperCase() === 'APPROVED').length,
+    rejectedDeaths: deathSubmissions.filter(r => r.status?.toUpperCase() === 'REJECTED').length,
   }
 
   function openViewer(endpoint: StreamingEndpoint, record: any, name: string) {
@@ -200,6 +197,17 @@ export default function HealthWorkerDashboard() {
         </div>
 
         {/* Table */}
+        {(() => {
+          const data = activeTab === 'birth' ? birthSubmissions : deathSubmissions
+          const filtered: any[] = data.filter(record => {
+            const matchesSearch = search.toLowerCase() === '' ||
+              (activeTab === 'birth'
+                ? `${record.child_given_name || ''} ${record.child_surname || ''}`.toLowerCase().includes(search.toLowerCase())
+                : (record.attended_name || '').toLowerCase().includes(search.toLowerCase()))
+            const matchesStatus = statusFilter === 'all' || record.status?.toUpperCase() === statusFilter.toUpperCase()
+            return matchesSearch && matchesStatus
+          })
+          return (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -218,7 +226,7 @@ export default function HealthWorkerDashboard() {
                   <tr><td colSpan={6} className="px-4 py-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">No submissions found</td></tr>
-                ) : filtered.map(record => (
+                ) : filtered.map((record: any) => (
                   <tr key={record.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-primary">
                       {activeTab === 'birth' ? 'BR-' : 'DR-'}{record.id?.toString().padStart(4, '0')}
@@ -275,6 +283,8 @@ export default function HealthWorkerDashboard() {
             </table>
           </div>
         </div>
+          )
+        })()}
       </div>
 
       {/* Document Viewer */}

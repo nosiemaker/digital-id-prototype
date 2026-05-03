@@ -1,6 +1,4 @@
-
 "use client"
-
 import { useState, useEffect } from "react"
 import {
   Baby,
@@ -56,7 +54,6 @@ import {
 
 export default function RegistrarBirthRecordsPage() {
   useRoleGuard(["REGISTRAR"])
-
   const [records, setRecords] = useState<any[]>([])
   const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,12 +65,11 @@ export default function RegistrarBirthRecordsPage() {
   const [rejectionReason, setRejectionReason] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
-
+  
   // Document viewer state
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerEndpoint, setViewerEndpoint] = useState<any>(null)
   const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
-
   const [token, setToken] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('zdid_access_token') || ''
@@ -94,7 +90,6 @@ export default function RegistrarBirthRecordsPage() {
         birthRecordApi.getAll(),
         birthRecordApi.getPendingSubmissions()
       ])
-
       setRecords(allData.records || [])
       setPendingSubmissions(pendingData.pending_submissions || [])
     } catch (err: any) {
@@ -123,7 +118,6 @@ export default function RegistrarBirthRecordsPage() {
       toast.error("Rejection reason must be at least 10 characters")
       return
     }
-
     setActionLoading(true)
     try {
       const payload: RecordRejection = { rejection_reason: rejectionReason.trim() }
@@ -148,9 +142,8 @@ export default function RegistrarBirthRecordsPage() {
   }
 
   const currentList = activeTab === "pending" ? pendingSubmissions : records
-
   const filteredRecords = currentList.filter((record) => {
-    const name = `${record.child_given_name || ""} ${record.child_surname || ""}`.trim()
+    const name = `${record.child_given_name || " "} ${record.child_surname || " "}`.trim()
     const matchesSearch =
       name.toLowerCase().includes(search.toLowerCase()) ||
       (record.id || "").toString().toLowerCase().includes(search.toLowerCase()) ||
@@ -160,31 +153,31 @@ export default function RegistrarBirthRecordsPage() {
   })
 
   const stats = [
-    { 
-      label: "Pending Review", 
-      value: pendingSubmissions.length.toString(), 
-      icon: Clock, 
+    {
+      label: "Pending Review",
+      value: pendingSubmissions.length.toString(),
+      icon: Clock,
       color: "text-yellow-500",
-      bg: "bg-yellow-500/10" 
+      bg: "bg-yellow-500/10"
     },
-    { 
-      label: "Approved Today", 
-      value: records.filter((r: any) => r.status === "APPROVED" && isToday(r.reviewed_at)).length.toString(), 
-      icon: CheckCircle2, 
+    {
+      label: "Approved Today",
+      value: records.filter((r: any) => r.status === "APPROVED" && isToday(r.reviewed_at)).length.toString(),
+      icon: CheckCircle2,
       color: "text-green-500",
       bg: "bg-green-500/10"
     },
-    { 
-      label: "Rejected Today", 
-      value: records.filter((r: any) => r.status === "REJECTED" && isToday(r.reviewed_at)).length.toString(), 
-      icon: XCircle, 
+    {
+      label: "Rejected Today",
+      value: records.filter((r: any) => r.status === "REJECTED" && isToday(r.reviewed_at)).length.toString(),
+      icon: XCircle,
       color: "text-red-500",
       bg: "bg-red-500/10"
     },
-    { 
-      label: "Total Processed", 
-      value: records.filter((r: any) => r.status !== "PENDING").length.toString(), 
-      icon: UserCheck, 
+    {
+      label: "Total Processed",
+      value: records.filter((r: any) => r.status !== "PENDING").length.toString(),
+      icon: UserCheck,
       color: "text-primary",
       bg: "bg-primary/10"
     },
@@ -321,7 +314,7 @@ export default function RegistrarBirthRecordsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {(record.child_given_name?.[0] || "") + (record.child_surname?.[0] || "")}
+                        {(record.child_given_name?.[0] || " ") + (record.child_surname?.[0] || " ")}
                       </div>
                       <span className="font-medium text-foreground">
                         {record.child_given_name} {record.child_surname}
@@ -353,9 +346,9 @@ export default function RegistrarBirthRecordsPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-8 w-8 p-0"
                         onClick={() => setSelectedRecord(record)}
                       >
@@ -399,9 +392,9 @@ export default function RegistrarBirthRecordsPage() {
                       )}
 
                       {record.status === "PENDING" && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
                           onClick={() => setReviewRecord(record)}
                         >
@@ -445,7 +438,7 @@ export default function RegistrarBirthRecordsPage() {
               {/* Identity Header */}
               <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-muted/20">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
-                  {(selectedRecord.child_given_name?.[0] || "") + (selectedRecord.child_surname?.[0] || "")}
+                  {(selectedRecord.child_given_name?.[0] || " ") + (selectedRecord.child_surname?.[0] || " ")}
                 </div>
                 <div>
                   <p className="font-bold text-lg text-foreground">
@@ -617,7 +610,7 @@ export default function RegistrarBirthRecordsPage() {
               {/* Actions for pending records */}
               {selectedRecord.status === "PENDING" && (
                 <div className="flex gap-3 pt-4 border-t border-border">
-                  <Button 
+                  <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"
                     onClick={() => {
                       setSelectedRecord(null)
@@ -627,8 +620,8 @@ export default function RegistrarBirthRecordsPage() {
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Approve Record
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
                     onClick={() => {
                       setSelectedRecord(null)
@@ -661,9 +654,9 @@ export default function RegistrarBirthRecordsPage() {
 
           {reviewRecord && (
             <div className="space-y-4 mt-4">
-              <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
+              <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4">
                 <div className="flex items-start gap-3">
-                  <Baby className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                  <Baby className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-foreground">
                       {reviewRecord.child_given_name} {reviewRecord.child_surname}
@@ -679,15 +672,15 @@ export default function RegistrarBirthRecordsPage() {
               </div>
 
               {/* Pre-approval document review link */}
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">Pre-Approval Review:</h4>
-                <p className="text-sm text-blue-700 mb-3">
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                <h4 className="text-sm font-medium text-foreground mb-2">Pre-Approval Review:</h4>
+                <p className="text-sm text-muted-foreground mb-3">
                   Before approving, review the submitted documents to verify all details are correct.
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  className="border-primary text-primary hover:bg-primary/10"
                   onClick={() => {
                     setReviewRecord(null)
                     openDocumentViewer(BIRTH_REVIEW_ENDPOINT, reviewRecord)
@@ -698,19 +691,19 @@ export default function RegistrarBirthRecordsPage() {
                 </Button>
               </div>
 
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">Actions on Approval:</h4>
-                <ul className="space-y-1 text-sm text-blue-700">
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                <h4 className="text-sm font-medium text-foreground mb-2">Actions on Approval:</h4>
+                <ul className="space-y-1 text-sm text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
                     Generate Birth Certificate
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
                     Create child Citizen record (INACTIVE status)
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
                     Assign unique DIN to child
                   </li>
                 </ul>
@@ -720,7 +713,7 @@ export default function RegistrarBirthRecordsPage() {
                 <Button variant="outline" onClick={() => setReviewRecord(null)}>
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   className="bg-green-600 hover:bg-green-700"
                   onClick={() => handleApprove(reviewRecord.id)}
                   disabled={actionLoading}
@@ -787,8 +780,8 @@ export default function RegistrarBirthRecordsPage() {
             </div>
 
             <DialogFooter className="gap-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setShowRejectDialog(false)
                   setRejectionReason("")
@@ -796,7 +789,7 @@ export default function RegistrarBirthRecordsPage() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={() => handleReject(reviewRecord!.id)}
                 disabled={actionLoading || rejectionReason.trim().length < 10}

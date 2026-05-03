@@ -60,8 +60,7 @@ FIELD_COORDS = {
     "body_identified_of"            : (229, 259),
     "belief"                        : (78,  284),
 
-    # --- Post Mortem Line ---
-    "postmortem_confirmed"          : (200, 285),
+
 
     # --- Cause of Death Table ---
     "cause_a"                       : (327, 383),
@@ -205,8 +204,7 @@ def generate_mccd(mccd_data: dict, output_pdf: str) -> tuple[str, str]:
     _write_field(draw, "death_year",                     g("death_year", ""),                     font_reg,  BLACK)
     _write_field(draw, "death_time",                     g("death_time", ""),                     font_reg,  BLACK)
     _write_field(draw, "body_identified_of",             g("body_identified_of", ""),             font_reg,  BLACK)
-    _write_field(draw, "postmortem_confirmed",
-                 "CONFIRMED" if g("postmortem_confirmed", False) else "NOT CONFIRMED",            font_reg,  BLACK)
+
 
     # Cause of death table
     _write_field(draw, "cause_a",                        g("cause_a", ""),                        font_reg,  BLACK)

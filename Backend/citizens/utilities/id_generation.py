@@ -55,6 +55,10 @@ def generate_id(seed: bytes,type: str):
         return f"ZM-{final_hmac_id}{check_sum_value}"
     elif type == "THIRD_PARTY":
         return f"TP-{final_hmac_id}{check_sum_value}"
+    elif type == "NOD":
+        return f"NOD-{final_hmac_id}{check_sum_value}"
+    elif type == "DEATH_APP":
+        return f"DAP-{final_hmac_id}{check_sum_value}"
     else:
         return f"ZMB-{final_hmac_id}{check_sum_value}"
 
