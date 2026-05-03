@@ -42,8 +42,17 @@ import {
   ArrowRight,
   Share2,
   ScanLine,
+  Menu,
+  X,
 } from "lucide-react"
 import { Logo } from "@/components/Logo"
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 
 import { useMe } from "@/hooks/useMe"
 import { EnrollmentBanner } from "@/components/enrollment/enrollmentBanner"
@@ -121,6 +130,72 @@ function getPageSubtitle(tab: string) {
   }
 }
 /* ------------------------------------------------------------------ */
+// Sidebar Component
+/* ------------------------------------------------------------------ */
+
+function SidebarContent({ 
+  activeTab, 
+  setActiveTab, 
+  me, 
+  handleSignOut 
+}: { 
+  activeTab: string; 
+  setActiveTab: (tab: string) => void; 
+  me: any; 
+  handleSignOut: (e: React.MouseEvent) => void; 
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex h-16 items-center gap-2.5 px-4 border-b border-border">
+        <Logo width={32} height={32} />
+        <div className="flex flex-col leading-tight">
+          <span className="text-sm font-bold text-foreground">ZAMREN</span>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID Wallet</span>
+        </div>
+      </div>
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        {sidebarLinks.map((link) => {
+          const Icon = link.icon
+          const isActive = activeTab === link.id
+          return (
+            <button
+              key={link.id}
+              onClick={() => setActiveTab(link.id)}
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1 text-left">{link.label}</span>
+              {isActive && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
+            </button>
+          )
+        })}
+      </nav>
+      <div className="border-t border-border p-3">
+        {me && (
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
+              {me.name?.split(" ").map((n: string) => n[0]).join("")}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">{me.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{me.citizen_din || "Not issued"}</p>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
+        >
+          <LogOut className="h-4 w-4" /><span>Sign Out</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 // Main Page
 /* ------------------------------------------------------------------ */
 
@@ -152,6 +227,7 @@ export default function WalletPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
   const [logsTotal, setLogsTotal] = useState(0)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
 
   /* -------------------- Helper Functions -------------------- */
@@ -365,74 +441,48 @@ export default function WalletPage() {
 
   return (
     <div className="min-h-screen bg-background font-sans flex">
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-card shrink-0 sticky top-0 h-screen">
-        <div className="flex h-16 items-center gap-2.5 px-4 border-b border-border">
-          <Logo width={32} height={32} />
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold text-foreground">ZAMREN</span>
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Digital ID Wallet</span>
-          </div>
-        </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {sidebarLinks.map((link) => {
-            const Icon = link.icon
-            const isActive = activeTab === link.id
-            if (link.href) {
-              return (
-                <a
-                  key={link.id}
-                  href={link.href}
-                  className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground"
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 text-left">{link.label}</span>
-                </a>
-              )
-            }
-            return (
-              <button
-                key={link.id}
-                onClick={() => setActiveTab(link.id)}
-                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">{link.label}</span>
-                {isActive && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
-              </button>
-            )
-          })}
-        </nav>
-        <div className="border-t border-border p-3">
-          {me && (
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
-                {me.name?.split(" ").map((n: string) => n[0]).join("")}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-foreground truncate">{me.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{me.citizen_din || "Not issued"}</p>
-              </div>
-            </div>
-          )}
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
-          >
-            <LogOut className="h-4 w-4" /><span>Sign Out</span>
-          </button>
-        </div>
+        <SidebarContent 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          me={me} 
+          handleSignOut={handleSignOut} 
+        />
       </aside>
 
       {/* Main */}
       <main className="flex-1 overflow-auto">
         {/* Top bar */}
         <div className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-sm h-16 flex items-center justify-between px-4 sm:px-6">
-          <div>
-            <h1 className="text-base font-bold text-foreground">{getPageTitle(activeTab)}</h1>
-            <p className="text-xs text-muted-foreground">{getPageSubtitle(activeTab)}</p>
+          <div className="flex items-center gap-3">
+            {/* Mobile Menu Trigger */}
+            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+              <SheetTrigger asChild>
+                <button className="lg:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors">
+                  <Menu className="h-6 w-6" />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-72">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Navigation Menu</SheetTitle>
+                </SheetHeader>
+                <SidebarContent 
+                  activeTab={activeTab} 
+                  setActiveTab={(tab) => {
+                    setActiveTab(tab)
+                    setSidebarOpen(false)
+                  }} 
+                  me={me} 
+                  handleSignOut={handleSignOut} 
+                />
+              </SheetContent>
+            </Sheet>
+            
+            <div>
+              <h1 className="text-base font-bold text-foreground">{getPageTitle(activeTab)}</h1>
+              <p className="text-xs text-muted-foreground">{getPageSubtitle(activeTab)}</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {me && (

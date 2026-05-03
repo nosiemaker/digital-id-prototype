@@ -224,9 +224,9 @@ export default function DigitalIDCard({
                         )}
                       </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-2xl font-bold uppercase tracking-wide leading-tight" style={{ color: c.text }}>{displayName}</div>
-                      <div className="text-[11px] mt-0.5 tracking-wide" style={{ color: c.muted }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-lg sm:text-2xl font-bold uppercase tracking-wide leading-tight truncate" style={{ color: c.text }}>{displayName}</div>
+                      <div className="text-[10px] sm:text-[11px] mt-0.5 tracking-wide truncate" style={{ color: c.muted }}>
                         {formattedCitizenType} · {province}
                       </div>
                     </div>
@@ -245,9 +245,9 @@ export default function DigitalIDCard({
                         { label: "Gender", val: gender },
                         { label: "Issue Date", val: digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—" }
                       ].map((field, i) => (
-                        <div key={i}>
-                          <div className="text-[10px] uppercase tracking-[0.12em]" style={{ color: c.label }}>{field.label}</div>
-                          <div className="text-[11px] font-medium mt-px" style={{ color: c.text }}>{field.val}</div>
+                        <div key={i} className="min-w-0">
+                          <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>{field.label}</div>
+                          <div className="text-[10px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{field.val}</div>
                         </div>
                       ))}
                     </div>
