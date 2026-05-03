@@ -12,9 +12,9 @@
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
-import { useState, useEffect, useCallback } from "react"
-import { tokenStore, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, kycApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type AuditLog } from "@/lib/axios"
-import type { PartnerLinkResponse } from "@/utils/types"
+import { useState, useEffect, useCallback, use } from "react"
+import { tokenStore, referenceApi, citizenApi, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, kycApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type AuditLog, CitizenResponse, ProvinceOption, DistrictOption } from "@/lib/axios"
+import type { CitizenUpdate, PartnerLinkResponse } from "@/utils/types"
 
 
 import {
@@ -61,6 +61,7 @@ import { ShareIDModal } from "@/components/ShareIDModal"
 import { ScanIDModal } from "@/components/ScanIDModal"
 import { EditProfileModal } from "@/components/EditProfileModal"
 import { LinkPartnerModal } from "@/components/LinkPartnerModal"
+import { toast } from "sonner"
 
 
 interface QRPayload extends ApiQRPayload {}
@@ -229,6 +230,14 @@ export default function WalletPage() {
   const [logsTotal, setLogsTotal] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const [citizenData, setCitizenData] = useState<CitizenResponse | null>(null)
+  const [citizenLoading, setCitizenLoading] = useState(false)
+  const [citizenError, setCitizenError] = useState<string | null>(null)
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  const [provinces, setProvinces] = useState<ProvinceOption[]>([])
+  const [districts, setDistricts] = useState<DistrictOption[]>([])
+  const [locationsLoading, setLocationsLoading] = useState(false)
 
   /* -------------------- Helper Functions -------------------- */
 
@@ -299,6 +308,35 @@ export default function WalletPage() {
       setDigitalIDLoading(false)
     }
   }, [])
+
+  const fetchCitizenProfile = useCallback(async (din: string) => {
+    setCitizenLoading(true)
+    setCitizenError(null)
+    try {
+      const data = await citizenApi.get(din)
+      setCitizenData(data)
+    } catch (err: any) {
+      setCitizenError(err?.response?.data?.detail || err?.message || "Failed to fetch profile data")
+    } finally {
+      setCitizenLoading(false)
+    }
+  }, [])
+
+  const handleUpdateprofile = async(updates: CitizenUpdate) => {
+    if (!me?.citizen_din) return
+    setSavingProfile(true)
+
+    try {
+      const update = await citizenApi.update(me.citizen_din, updates)
+      setCitizenData(update)
+      setEditProfileModalOpen(false)
+      toast.success("Profile updated successfully")
+    } catch (err: any) {
+       alert(err?.response?.data?.detail || err?.message || "Failed to update profile")
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   const fetchServerPublicKey = useCallback(async () => {
     try {
@@ -417,6 +455,35 @@ export default function WalletPage() {
       fetchLogs()
     }
   }, [activeTab, fetchActiveInstitutions, fetchLinkedPartners, fetchLogs])
+
+  useEffect(() => {
+    if (activeTab === "profile" && me?.citizen_din) {
+      fetchCitizenProfile(me.citizen_din)
+    }
+  }, [activeTab, me?.citizen_din, fetchCitizenProfile])
+
+  useEffect(() => {
+  const fetchLocations = async () => {
+    setLocationsLoading(true)
+    try {
+      const [provs, dists] = await Promise.all([
+        referenceApi.getProvinces(),
+        referenceApi.getDistricts() // Fetch all; modal filters by province_code
+      ])
+      setProvinces(provs)
+      setDistricts(dists)
+    } catch (err: any) {
+      console.error("Failed to fetch location reference data", err)
+    } finally {
+      setLocationsLoading(false)
+    }
+  }
+
+  // Fetch when profile tab is active or modal opens
+  if ((activeTab === "profile" || editProfileModalOpen) && provinces.length === 0) {
+    fetchLocations()
+  }
+  }, [activeTab, editProfileModalOpen, provinces.length])
 
 
   /* -------------------- Handlers -------------------- */
@@ -709,23 +776,29 @@ export default function WalletPage() {
 
               {activeTab === "profile" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-
                   {/* Profile Header */}
                   <div className="rounded-2xl border border-border bg-card overflow-hidden">
                     <div className="h-32 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
                     <div className="px-6 pb-6">
                       <div className="relative -mt-12 mb-4">
                         <div className="h-24 w-24 rounded-2xl bg-card border-4 border-card shadow-lg flex items-center justify-center overflow-hidden">
-                          <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary">
-                            <User className="h-12 w-12" />
-                          </div>
+                          {citizenData?.face_image_url ? (
+                            <img src={citizenData.face_image_url} alt="Profile" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary">
+                              <User className="h-12 w-12" />
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                         <div>
-                          <h2 className="text-2xl font-bold text-foreground">{me.name}</h2>
+                          <h2 className="text-2xl font-bold text-foreground">
+                            {citizenLoading ? <div className="h-8 w-48 bg-secondary/60 rounded animate-pulse" /> : citizenData?.full_name || me?.name}
+                          </h2>
                           <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                            <CheckCircle2 className="h-4 w-4 text-primary" /> {enrollmentState === "ACTIVE" ? "Verified Citizen" : "Enrollment Pending"}
+                            <CheckCircle2 className="h-4 w-4 text-primary" />{" "}
+                            {citizenData?.status === "ACTIVE" ? "Verified Citizen" : `Status: ${citizenData?.status || enrollmentState}`}
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -734,108 +807,134 @@ export default function WalletPage() {
                               href="/registration/identity"
                               className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
                             >
-                              <Shield className="h-4 w-4" />
-                              Complete Profile
+                              <Shield className="h-4 w-4" /> Complete Profile
                             </Link>
                           )}
-                          <button 
+                          <button
                             onClick={() => setEditProfileModalOpen(true)}
-                            className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors"
+                            disabled={citizenLoading || !citizenData}
+                            className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
                           >
                             Edit Profile
                           </button>
                         </div>
-
                       </div>
                     </div>
                   </div>
 
-                  {/* Profile Details */}
+                  {/* Profile Details Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-6">
+                      {/* Personal Information */}
                       <div className="rounded-2xl border border-border bg-card p-6">
                         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
                           <User className="h-4 w-4 text-primary" /> Personal Information
                         </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
-                          {[
-                            { label: "Name", value: me.name },
-                            { label: "Email", value: me.email },
-                            { label: "User ID", value: me.user_id },
-                            { label: "Role", value: me.role },
-                          ].map((field) => (
-                            <div key={field.label} className="space-y-1">
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{field.label}</p>
-                              <p className="text-sm font-medium text-foreground">{field.value}</p>
-                            </div>
-                          ))}
-                        </div>
+                        {citizenLoading ? (
+                          <div className="space-y-4">
+                            {[1, 2, 3, 4].map((i) => (
+                              <div key={i} className="h-10 bg-secondary/40 rounded animate-pulse" />
+                            ))}
+                          </div>
+                        ) : citizenError ? (
+                          <p className="text-sm text-destructive">{citizenError}</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
+                            {[
+                              { label: "Full Name", value: citizenData?.full_name },
+                              { label: "NRC Number", value: citizenData?.nrc },
+                              { label: "Date of Birth", value: citizenData?.dob ? new Date(citizenData.dob).toLocaleDateString() : null },
+                              { label: "Gender", value: citizenData?.gender ? citizenData.gender.charAt(0) + citizenData.gender.slice(1).toLowerCase() : null },
+                            ].map((field) => (
+                              <div key={field.label} className="space-y-1">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{field.label}</p>
+                                <p className="text-sm font-medium text-foreground">{field.value || "—"}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
+                      {/* Contact & Location */}
                       <div className="rounded-2xl border border-border bg-card p-6">
                         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
-                          <Bell className="h-4 w-4 text-primary" /> Contact & Status
+                          <Bell className="h-4 w-4 text-primary" /> Contact & Location
                         </h3>
-                        <div className="space-y-6">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Email Address</p>
-                            <p className="text-sm font-medium text-foreground">{me.email}</p>
+                        {citizenLoading ? (
+                          <div className="space-y-4">
+                            {[1, 2, 3].map((i) => (
+                              <div key={i} className="h-10 bg-secondary/40 rounded animate-pulse" />
+                            ))}
                           </div>
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Email Status</p>
-                            <p className="text-sm font-medium text-foreground">{me.is_email_verified ? "Verified" : "Not verified"}</p>
+                        ) : (
+                          <div className="space-y-6">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Phone Number</p>
+                              <p className="text-sm font-medium text-foreground">{citizenData?.phone || "Not provided"}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Email Address</p>
+                              <p className="text-sm font-medium text-foreground">{(citizenData as any)?.user?.email || me?.email || "Not provided"}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Residential Address</p>
+                              <p className="text-sm font-medium text-foreground">{citizenData?.residential_address || "Not provided"}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">District / Province</p>
+                              <p className="text-sm font-medium text-foreground">
+                                   {citizenData?.district 
+                                    ? `${citizenData.district.name}, ${citizenData.district.province?.name || ""}` 
+                                   : "—"}
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
 
                     <div className="space-y-6">
+                      {/* Preferences & System Info */}
                       <div className="rounded-2xl border border-border bg-card p-6">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Enrollment Status</h3>
+                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Preferences & Status</h3>
                         <div className="space-y-4">
                           <div className="flex items-center justify-between py-2 border-b border-border/50">
-                            <span className="text-xs text-muted-foreground">Current Status</span>
-                            <span className="text-xs font-bold text-primary flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" /> {enrollmentState}
+                            <span className="text-xs text-muted-foreground">Language</span>
+                            <span className="text-xs font-bold text-foreground">
+                              {citizenData?.language ? citizenData.language.charAt(0).toUpperCase() + citizenData.language.slice(1) : "—"}
                             </span>
                           </div>
                           <div className="flex items-center justify-between py-2 border-b border-border/50">
-                            <span className="text-xs text-muted-foreground">Email Verified</span>
-                            <span className={`text-xs font-bold flex items-center gap-1 ${me.is_email_verified ? "text-primary" : "text-amber-400"}`}>
-                              <CheckCircle2 className="h-3 w-3" /> {me.is_email_verified ? "Yes" : "No"}
+                            <span className="text-xs text-muted-foreground">Citizen Type</span>
+                            <span className="text-xs font-bold text-foreground">
+                              {formatCitizenType(getCitizenType(citizenData?.dob?.toString() || "1990-01-01", citizenData?.citizen_type))}
                             </span>
                           </div>
+                          <div className="flex items-center justify-between py-2 border-b border-border/50">
+                            <span className="text-xs text-muted-foreground">DIN</span>
+                            <span className="text-xs font-mono font-bold text-primary">{citizenData?.din || me?.citizen_din || "—"}</span>
+                          </div>
                           <div className="flex items-center justify-between py-2">
-                            <span className="text-xs text-muted-foreground">DIN Issued</span>
-                            <span className={`text-xs font-bold flex items-center gap-1 ${me.citizen_din ? "text-primary" : "text-amber-400"}`}>
-                              <CheckCircle2 className="h-3 w-3" /> {me.citizen_din ? "Yes" : "No"}
+                            <span className="text-xs text-muted-foreground">Last Updated</span>
+                            <span className="text-xs font-bold text-foreground">
+                              {citizenData?.updated_at ? new Date(citizenData.updated_at).toLocaleDateString() : "—"}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Digital ID Metadata */}
+                      {/* Digital ID Metadata (kept from your original) */}
                       {digitalID && (
                         <div className="rounded-2xl border border-border bg-card p-6">
                           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Digital ID Metadata</h3>
                           <div className="space-y-4">
                             <div className="flex items-center justify-between py-2 border-b border-border/50">
                               <span className="text-xs text-muted-foreground">Issued</span>
-                              <span className="text-xs font-bold text-foreground">
-                                {new Date(digitalID.issued_at).toLocaleDateString()}
-                              </span>
+                              <span className="text-xs font-bold text-foreground">{new Date(digitalID.issued_at).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center justify-between py-2 border-b border-border/50">
-                              <span className="text-xs text-muted-foreground">Citizen Type</span>
-                              <span className="text-xs font-bold text-foreground">
-                                {formatCitizenType(getCitizenType(digitalID.dob || "1990-01-01", digitalID.citizen_type))}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between py-2">
                               <span className="text-xs text-muted-foreground">Signature</span>
-                              <span className="text-xs font-mono text-primary truncate max-w-[120px]">
-                                {digitalID.signature.slice(0, 16)}...
-                              </span>
+                              <span className="text-xs font-mono text-primary truncate max-w-[120px]">{digitalID.signature.slice(0, 16)}...</span>
                             </div>
                           </div>
                         </div>
@@ -844,7 +943,6 @@ export default function WalletPage() {
                   </div>
                 </div>
               )}
-
               {activeTab === "family" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="rounded-2xl border border-border bg-card p-6">
@@ -1163,16 +1261,18 @@ export default function WalletPage() {
         open={editProfileModalOpen}
         onClose={() => setEditProfileModalOpen(false)}
         currentData={{
-          name: me?.name ?? "",
-          phone: (me as any)?.phone ?? "",
-          language: (me as any)?.language ?? "en"
+          full_name: citizenData?.full_name ?? me?.name ?? "",
+          email: (citizenData as any)?.user?.email ?? me?.email ?? "",
+          phone: citizenData?.phone ?? "",
+          residential_address: citizenData?.residential_address ?? "",
+          language: citizenData?.language ?? "en",
+          district_id: citizenData?.district?.id,
+          province_id: citizenData?.district?.province?.id,
         }}
-        onSuccess={(newData) => {
-          // You might want to refresh 'me' data or manually update it in the tokenStore
-          // Since tokenStore is updated inside the API call, we just need the UI to reflect it.
-          // Re-fetching 'me' is the most reliable way.
-          window.location.reload() // Simplest way to refresh all state
-        }}
+         onSave={handleUpdateprofile}
+         isSaving={savingProfile}
+         provinces={provinces}
+         districts={districts}
       />
     </div>
   )

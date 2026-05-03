@@ -302,6 +302,7 @@ def identity_submission(body: IdentitySubmitRequest, system_user_id: int) -> dic
             phone=body.phone,
             gender=body.gender,
             district=district,
+            residential_address=body.residential_address,
             nrc_front_url=body.nrc_front_url,
             nrc_back_url=body.nrc_back_url,
             face_image_url=body.face_image_url,
