@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Digital ID',
   webDir: 'out',
   server: {
-    url: 'https://digital-id-eta.vercel.app/',
+    url: 'https://digital-id-eta.vercel.app/login',
     cleartext: true
   }
 };
