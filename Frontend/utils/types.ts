@@ -671,3 +671,19 @@ export interface ThirdPartyRegistrationRequest {
   email: string;
   password: string;
 }
+
+export interface VerifiedPartnerResponse {
+  id: number;
+  name: string;
+  institution_type?: string | null;
+  email: string;
+}
+
+export interface PartnerLinkResponse {
+  id: number;
+  institution_id: number;
+  institution_name: string;
+  institution_type?: string | null;
+  linked_at: string;
+  is_active: boolean;
+}

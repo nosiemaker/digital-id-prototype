@@ -13,7 +13,8 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 import { useState, useEffect, useCallback } from "react"
-import { tokenStore, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type AuditLog } from "@/lib/axios"
+import { tokenStore, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, kycApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type AuditLog } from "@/lib/axios"
+import type { PartnerLinkResponse } from "@/utils/types"
 
 
 import {
@@ -50,6 +51,7 @@ import DigitalIDCard from "@/components/DigitalIDCard"
 import { ShareIDModal } from "@/components/ShareIDModal"
 import { ScanIDModal } from "@/components/ScanIDModal"
 import { EditProfileModal } from "@/components/EditProfileModal"
+import { LinkPartnerModal } from "@/components/LinkPartnerModal"
 
 
 interface QRPayload extends ApiQRPayload {}
@@ -144,6 +146,9 @@ export default function WalletPage() {
 
   const [activeInstitutions, setActiveInstitutions] = useState<any[]>([])
   const [institutionsLoading, setInstitutionsLoading] = useState(false)
+  const [linkedPartners, setLinkedPartners] = useState<PartnerLinkResponse[]>([])
+  const [linkingId, setLinkingId] = useState<number | null>(null)
+  const [selectedPartnerToLink, setSelectedPartnerToLink] = useState<any | null>(null)
 
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
@@ -247,21 +252,48 @@ export default function WalletPage() {
   const fetchActiveInstitutions = useCallback(async () => {
     setInstitutionsLoading(true)
     try {
-      const data = await thirdPartyApi.getActive()
-      // API returns either an array directly or wrapped in a key
-      const list = Array.isArray(data) ? data : (data as any)?.results ?? (data as any)?.institutions ?? []
-      setActiveInstitutions(list)
+      // Use KYC verified partners endpoint (only ACTIVE institutions)
+      const partners = await kycApi.getVerifiedPartners()
+      setActiveInstitutions(partners)
     } catch (err: any) {
-      console.error("Failed to fetch active institutions", {
-        message: err.message,
-        detail: err.detail,
-        status: err.status,
-      })
+      console.error("Failed to fetch verified partners", err)
       setActiveInstitutions([])
     } finally {
       setInstitutionsLoading(false)
     }
   }, [])
+
+  const fetchLinkedPartners = useCallback(async () => {
+    try {
+      const links = await kycApi.getLinkedPartners()
+      setLinkedPartners(links)
+    } catch {
+      // Non-critical
+    }
+  }, [])
+
+  const handleLinkPartner = async (institution: any) => {
+    setSelectedPartnerToLink(institution)
+  }
+
+  const confirmLinkPartner = async () => {
+    if (!selectedPartnerToLink) return
+
+    setLinkingId(selectedPartnerToLink.id)
+    try {
+      const link = await kycApi.linkPartner(selectedPartnerToLink.id)
+      setLinkedPartners((prev) => {
+        const existing = prev.find((l) => l.institution_id === selectedPartnerToLink.id)
+        if (existing) return prev
+        return [...prev, link]
+      })
+      setSelectedPartnerToLink(null) // Close modal on success
+    } catch (err: any) {
+      alert(err?.detail || "Failed to link account. Please try again.")
+    } finally {
+      setLinkingId(null)
+    }
+  }
 
 
   const fetchLogs = useCallback(async (page = 1) => {
@@ -304,11 +336,12 @@ export default function WalletPage() {
   useEffect(() => {
     if (activeTab === "partners") {
       fetchActiveInstitutions()
+      fetchLinkedPartners()
     }
     if (activeTab === "activity" || activeTab === "wallet") {
       fetchLogs()
     }
-  }, [activeTab, fetchActiveInstitutions, fetchLogs])
+  }, [activeTab, fetchActiveInstitutions, fetchLinkedPartners, fetchLogs])
 
 
   /* -------------------- Handlers -------------------- */
@@ -899,35 +932,57 @@ export default function WalletPage() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {activeInstitutions.map((inst) => (
-                          <div key={inst.id} className="group rounded-2xl border border-border bg-secondary/20 p-5 hover:border-primary/40 transition-all duration-300">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
-                                <Building2 className="h-6 w-6 text-primary" />
-                              </div>
-                              <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                                Verified
-                              </span>
-                            </div>
-                            <div className="space-y-1 mb-6">
-                              <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">{inst.name}</h3>
-                              <p className="text-xs text-muted-foreground">Reg No: {inst.reg_number}</p>
-                              <div className="flex gap-1.5 mt-2">
-                                {inst.permitted_scope?.map((scope: string) => (
-                                  <span key={scope} className="text-[9px] bg-card border border-border px-1.5 py-0.5 rounded-md text-muted-foreground">
-                                    {scope.replace("_", " ")}
+                        {activeInstitutions.map((inst) => {
+                          const isLinked = linkedPartners.some((l) => l.institution_id === inst.id)
+                          const isLinking = linkingId === inst.id
+                          return (
+                            <div key={inst.id} className={`group rounded-2xl border p-5 transition-all duration-300 ${
+                              isLinked
+                                ? "border-primary/50 bg-primary/5"
+                                : "border-border bg-secondary/20 hover:border-primary/40"
+                            }`}>
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                  <Building2 className="h-6 w-6 text-primary" />
+                                </div>
+                                <div className="flex flex-col items-end gap-1.5">
+                                  <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                                    Verified
                                   </span>
-                                ))}
+                                  {isLinked && (
+                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20 flex items-center gap-1">
+                                      <CheckCircle2 className="h-2.5 w-2.5" /> Linked
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+                              <div className="space-y-1 mb-6">
+                                <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">{inst.name}</h3>
+                                {inst.institution_type && (
+                                  <p className="text-xs text-muted-foreground">{inst.institution_type}</p>
+                                )}
+                                <p className="text-xs text-muted-foreground">{inst.email}</p>
+                              </div>
+                              <button
+                                onClick={() => !isLinked && handleLinkPartner(inst)}
+                                disabled={isLinked || isLinking}
+                                className={`w-full py-2.5 rounded-lg text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
+                                  isLinked
+                                    ? "bg-emerald-400/10 text-emerald-400 cursor-default border border-emerald-400/20"
+                                    : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                }`}
+                              >
+                                {isLinking ? (
+                                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Linking...</>
+                                ) : isLinked ? (
+                                  <><CheckCircle2 className="h-3.5 w-3.5" /> Account Linked</>
+                                ) : (
+                                  <><Link2 className="h-3.5 w-3.5" /> Link Account</>
+                                )}
+                              </button>
                             </div>
-                            <button 
-                              onClick={() => alert(`Linking ${inst.name} to your Digital ID...`)}
-                              className="w-full py-2.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
-                            >
-                              <Link2 className="h-3.5 w-3.5" /> Link Account
-                            </button>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
 
@@ -1042,6 +1097,16 @@ export default function WalletPage() {
       <ScanIDModal
         open={scanModalOpen}
         onClose={() => setScanModalOpen(false)}
+      />
+
+      {/* Link Partner Modal */}
+      <LinkPartnerModal
+        open={!!selectedPartnerToLink}
+        onClose={() => setSelectedPartnerToLink(null)}
+        onConfirm={confirmLinkPartner}
+        institutionName={selectedPartnerToLink?.name || ""}
+        permittedScopes={selectedPartnerToLink?.permitted_scope || []}
+        isLinking={linkingId === selectedPartnerToLink?.id}
       />
 
       {/* Edit Profile Modal */}

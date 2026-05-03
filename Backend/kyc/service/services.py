@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Count, Q
 from citizens.models import Citizen, CitizenStatus, Gender, Province
-from ..models import KYCRequest, ConsentRecord, ThirdPartyInstitution, KYCRequestStatus
+from ..models import KYCRequest, ConsentRecord, ThirdPartyInstitution, KYCRequestStatus, PartnerLink, InstitutionStatus
 from ..schema import KYCRequestResponse, ConsentRecordResponse, ConsentDecision
 import logging
 
@@ -332,3 +332,65 @@ class StatisticsService:
             'total': total_requests,
             'approval_rate': round(approval_rate, 2)
         }
+
+
+class PartnerLinkService:
+    """Service for managing connections between citizens and service partners."""
+
+    @staticmethod
+    def get_verified_partners() -> list:
+        """Returns all active third-party institutions."""
+        return list(ThirdPartyInstitution.objects.filter(
+            status=InstitutionStatus.ACTIVE
+        ).order_by('name'))
+
+    @staticmethod
+    def link_account(system_user_id: int, institution_id: int) -> Any:
+        """
+        Creates (or reactivates) an active link between a citizen and an institution.
+        """
+        try:
+            citizen = Citizen.objects.select_related('user').get(user_id=system_user_id)
+            institution = ThirdPartyInstitution.objects.get(
+                id=institution_id,
+                status=InstitutionStatus.ACTIVE
+            )
+
+            link, created = PartnerLink.objects.get_or_create(
+                citizen=citizen,
+                institution=institution,
+                defaults={'is_active': True}
+            )
+
+            if not created and not link.is_active:
+                link.is_active = True
+                link.save(update_fields=['is_active'])
+
+            # Send email notification to citizen
+            if citizen.user and citizen.user.email:
+                from Utils.email_service import send_partner_link_email
+                send_partner_link_email(
+                    citizen_name=citizen.full_name,
+                    citizen_email=citizen.user.email,
+                    partner_name=institution.name,
+                    permitted_scopes=institution.permitted_scope
+                )
+
+            return link
+
+        except ThirdPartyInstitution.DoesNotExist:
+            logger.error(f"Active institution with ID {institution_id} not found")
+            raise ValueError("Institution not found or is not active")
+        except Citizen.DoesNotExist:
+            logger.error(f"Citizen associated with user ID {system_user_id} not found")
+            raise ValueError("Citizen not found")
+
+    @staticmethod
+    def get_linked_partners(system_user_id: int) -> list:
+        """Returns all active links for a specific citizen by their user ID."""
+        return list(
+            PartnerLink.objects.filter(
+                citizen__user_id=system_user_id,
+                is_active=True
+            ).select_related('institution').order_by('-linked_at')
+        )

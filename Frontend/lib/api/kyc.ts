@@ -6,6 +6,8 @@ import type {
   ConsentRecordResponse,
   ApprovedCitizenDataResponse,
   StatisticsResponse,
+  VerifiedPartnerResponse,
+  PartnerLinkResponse,
 } from '../../utils/types';
 
 export const kycApi = {
@@ -26,6 +28,21 @@ export const kycApi = {
 
   getStatistics: async (): Promise<StatisticsResponse> => {
     const { data } = await axiosInstance.get<StatisticsResponse>('/kyc/statistics');
+    return data;
+  },
+
+  getVerifiedPartners: async (): Promise<VerifiedPartnerResponse[]> => {
+    const { data } = await axiosInstance.get<VerifiedPartnerResponse[]>('/kyc/partners/verified');
+    return data;
+  },
+
+  linkPartner: async (institutionId: number): Promise<PartnerLinkResponse> => {
+    const { data } = await axiosInstance.post<PartnerLinkResponse>(`/kyc/partners/${institutionId}/link`);
+    return data;
+  },
+
+  getLinkedPartners: async (): Promise<PartnerLinkResponse[]> => {
+    const { data } = await axiosInstance.get<PartnerLinkResponse[]>('/kyc/partners/linked');
     return data;
   },
 };

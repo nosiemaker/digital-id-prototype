@@ -162,3 +162,17 @@ class PaginatedKYCRequestList(BaseModel):
     page: int
     page_size: int
     items: list[KYCRequestResponse]
+class VerifiedPartnerResponse(BaseModel):
+    id: int
+    name: str
+    institution_type: Optional[str] = None
+    email: str
+
+class PartnerLinkResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    institution_id: int
+    institution_name: str
+    institution_type: Optional[str] = None
+    linked_at: datetime
+    is_active: bool
