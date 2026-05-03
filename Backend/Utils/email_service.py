@@ -118,3 +118,72 @@ Regards,
 ZAMREN Digital ID Team
     """
     _send_email(subject, message, [user.email])
+
+# --- Third-Party Institution Notifications ---
+
+def send_third_party_registration_confirmation(institution_name: str, email: str):
+    """Notify the third party that their application is received."""
+    subject = "Institutional Partnership Application Received - ZDID"
+    message = f"""
+Hello {institution_name},
+
+Thank you for applying to become a Trusted Service Partner with the Zambia Digital Identity System (ZDID).
+
+Your application has been received and is currently under review by our registration team. We will verify your institutional details and data security compliance.
+
+What happens next?
+- Our team will review your application within 3-5 business days.
+- You will receive another email once your account has been approved and activated.
+
+Thank you for your patience.
+
+Regards,
+ZDID Institutional Programme Team
+    """
+    _send_email(subject, message, [email])
+
+def notify_officers_of_third_party_pending(institution_name: str):
+    """Notify all Registration Officers of a new institution application."""
+    officers = SystemUser.objects.filter(role=UserRole.REGISTRATION_OFFICER, is_active=True)
+    recipient_list = [o.email for o in officers if o.email]
+    
+    if not recipient_list:
+        return
+
+    subject = "ACTION REQUIRED: New Third-Party Institution Application"
+    message = f"""
+Attention Registration Officer,
+
+A new institutional partnership application has been submitted by:
+Institution: {institution_name}
+
+This application requires your review and verification. Please log in to the Admin Dashboard to process this request.
+
+Regards,
+ZDID System Automator
+    """
+    _send_email(subject, message, recipient_list)
+
+def send_third_party_approval_email(institution_name: str, email: str, institution_id: str):
+    """Notify the third party that they are approved."""
+    subject = "Institutional Partnership APPROVED - ZDID"
+    message = f"""
+Congratulations {institution_name},
+
+We are pleased to inform you that your application for the ZDID Institutional Programme has been APPROVED.
+
+Your account is now active. You can log in to the Partner Portal using your registered email and the password you set during registration.
+
+Your official Institution ID: {institution_id}
+
+You can now:
+1. Access the Institutional Dashboard.
+2. Manage your API Keys.
+3. Start initiating identity verification requests.
+
+Welcome to the network!
+
+Regards,
+ZDID Institutional Programme Team
+    """
+    _send_email(subject, message, [email])

@@ -19,6 +19,11 @@ from dependencies.auth import UserRole
 from kyc.models import ThirdPartyInstitution, InstitutionStatus
 from registration.models import EnrollmentStatus
 from Utils.email_sender import send_staff_credentials_email
+from Utils.email_service import (
+    send_third_party_registration_confirmation,
+    notify_officers_of_third_party_pending,
+    send_third_party_approval_email
+)
 
 
 # Creates a new system user record after checking for duplicate DINs.
@@ -146,15 +151,42 @@ def set_system_user_password(request_body: dict) -> dict:
 # Validates and persists the institution data, then creates a linked
 # ThirdPartyEnrollmentRequest in PENDING status.
 def third_party_registration_request (request_body: dict):
-
+    # Extract password to create the system user
+    password = request_body.pop("password", None)
+    
     serializer = ThirdPartyInstitutionSerializer(data=request_body)
     if serializer.is_valid():
         third_party = serializer.save()
+        
+        # Create an INACTIVE system user for this institution immediately
+        # They cannot log in until the Registrar approves the application.
+        create_system_user({
+            "role": UserRole.THIRD_PARTY,
+            "email": third_party.email,
+            "username": third_party.email,
+            "password": password or "password123.", # Use provided password
+            "is_active": False 
+        })
+
         # Link the newly created institution to the enrollment request
         new_request = {"third_party_institution": third_party.id}
         request_serializer = ThirdPartyEnrollmentRequestSerializer(data=new_request)
         if request_serializer.is_valid():
             request_serializer.save()
+
+            # Send background notifications
+            threading.Thread(
+                target=send_third_party_registration_confirmation,
+                args=(third_party.name, third_party.email),
+                daemon=True
+            ).start()
+            
+            threading.Thread(
+                target=notify_officers_of_third_party_pending,
+                args=(third_party.name,),
+                daemon=True
+            ).start()
+
             return {"details": "Request Submitted","request":request_serializer.data ,"status": status.HTTP_201_CREATED }
         else:
             raise HTTPException(
@@ -188,21 +220,18 @@ def approve_third_party_registration(request_id: int, registrar_id:int, permitte
     third_party_serializer_temp = ThirdPartyInstitutionSerializer(third_party)
 
     # Generate a deterministic institution ID from the registration number and type prefix
-    institution_id = generate_id(third_party_serializer_temp.data.get("reg_number"),"THIRD_PARTY")
+    reg_number = third_party_serializer_temp.data.get("reg_number")
+    institution_id = generate_id(reg_number.encode('utf-8'), "THIRD_PARTY")
 
     # Check whether an institution with this ID already exists to prevent collisions
-    try:
-        third_party_check = ThirdPartyInstitution.objects.filter(institution_id = institution_id).first()
-    except ThirdPartyInstitution.DoesNotExist:
-        # No collision — safe to proceed with this institution ID
-        pass
-    else:
+    third_party_check = ThirdPartyInstitution.objects.filter(institution_id=institution_id).exists()
+    if third_party_check:
         # ID collision detected; auto-reject and clean up the orphaned institution record
-        details = reject_third_party_registration(request_id,registrar_id,"Institution Already Registered")
-        third_party.delete()
+        details = reject_third_party_registration(request_id, registrar_id, "Institution Already Registered")
+        # We don't delete here because reject_third_party_registration already handles status
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=details,
+            detail=f"Institution with ID {institution_id} already exists. Please reject this request and use the existing institution.",
         )
 
     # Atomically update the enrollment request and activate the institution record
@@ -246,16 +275,33 @@ def approve_third_party_registration(request_id: int, registrar_id:int, permitte
 
         third_party_serializer.save()
 
-        # Create a system user account for the institution so it can authenticate with the platform
-        create_system_user({
-            "role": UserRole.THIRD_PARTY,
-            "email": third_party.email,
-            "name": third_party.name,
-            "institution_din": third_party.institution_id,
-            "password": "password123."
-        })
+        # Activate the existing system user account for the institution
+        try:
+            institution_user = SystemUser.objects.get(email=third_party.email, role=UserRole.THIRD_PARTY)
+            institution_user.institution_din = third_party.institution_id
+            institution_user.is_active = True
+            institution_user.save()
+        except SystemUser.DoesNotExist:
+            # Fallback if for some reason the user wasn't created at registration
+            create_system_user({
+                "role": UserRole.THIRD_PARTY,
+                "email": third_party.email,
+                "name": third_party.name,
+                "institution_din": third_party.institution_id,
+                "password": "password123.",
+                "is_active": True
+            })
+
         # Log the approval event for audit trail
         audit.third_party_enrollment_approved(registrar_id,enrollment_serializer.data['id'], enrollment_serializer.data)
+
+        # Send approval email to the institution
+        threading.Thread(
+            target=send_third_party_approval_email,
+            args=(third_party.name, third_party.email, third_party.institution_id),
+            daemon=True
+        ).start()
+
         return {"details": "Approval Successful","request": enrollment_serializer.data, "status": status.HTTP_200_OK}
 
 # Rejects a pending third-party institution enrollment request.

@@ -30,6 +30,7 @@ class ConsentDecision(str, Enum):
 class ThirdPartyInstitutionBase(BaseModel):
     email:str = Field(..., description="Email Address")
     name: str = Field(..., max_length=255)
+    password: str = Field(..., min_length=8, description="Institution login password")
     reg_number: str = Field(..., max_length=100, description="Business registration number")
     permitted_scope: list[str] = Field(
         default_factory=list, 

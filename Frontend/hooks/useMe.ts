@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * useMe
  * Fetches GET /auth/me once on mount and derives enrollment state.

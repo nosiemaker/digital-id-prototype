@@ -15,7 +15,7 @@ export interface RouteConfig {
 }
 
 export const ROLE_ROUTES: Record<UserRole, string> = {
-  REGISTRATION_OFFICER: "/admin",
+  REGISTRATION_OFFICER: "/admin/dashboard",
   HEALTH_WORKER: "/admin/health-worker/dashboard",
   REGISTRAR: "/admin/registrar/birth-records",
   SUPERVISOR: "/admin/dashboard",
@@ -29,7 +29,7 @@ export const DEFAULT_ROUTE = "/citizens/wallet";
 export const sidebarRoutes: RouteConfig[] = [
   // SHARED DASHBOARD
   {
-    path: "/admin",
+    path: "/admin/dashboard",
     label: "Dashboard",
     icon: "LayoutDashboard",
     allowedRoles: ["REGISTRAR", "SUPERVISOR", "REGISTRATION_OFFICER"],
@@ -124,7 +124,7 @@ export const sidebarRoutes: RouteConfig[] = [
     path: "/admin/institutions",
     label: "Institutions",
     icon: "Building2",
-    allowedRoles: ["SUPERVISOR"],
+    allowedRoles: ["SUPERVISOR", "REGISTRATION_OFFICER"],
     description: "Approve third-party institutions",
   },
   {
@@ -143,9 +143,11 @@ export function getRoutesForRole(role: UserRole): RouteConfig[] {
 
 // Helper to check if a path is accessible by a role
 export function isPathAllowed(path: string, role: UserRole): boolean {
+  const normalizedPath = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
+  
   const route = sidebarRoutes.find((r) => {
     // Exact match
-    if (r.path === path) return true;
+    if (r.path === normalizedPath) return true;
     
     // Check if the route is dynamic (contains :id)
     if (r.path.includes(':id')) {

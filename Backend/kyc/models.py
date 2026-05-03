@@ -26,6 +26,9 @@ class ThirdPartyInstitution(models.Model):
     institution_id = models.CharField(max_length=20, blank=True, null=True, unique=True)
     name = models.CharField(max_length=255)
     reg_number = models.CharField(max_length=100, unique=True)  # Business registration number
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    institution_type = models.CharField(max_length=100, blank=True, null=True)
+    purpose = models.TextField(blank=True, null=True)
     oidc_client_id = models.CharField(max_length=128, unique=True, null=True, blank=True)
     oidc_secret = models.CharField(max_length=255, null=True, blank=True)  # hashed
     permitted_scope = models.JSONField(default=list, blank=True)  # e.g. ["full_name", "dob", "phone"]
