@@ -314,6 +314,13 @@ async def review_birth_submission(
     body.write(f"--{boundary}--\r\n".encode())
     body.seek(0)
 
+    # Delete PDF files after reading to clean up media/generated_pdfs
+    try:
+        os.remove(notice_pdf)
+        os.remove(record_pdf)
+    except OSError:
+        pass
+
     return StreamingResponse(
         body,
         media_type=f"multipart/form-data; boundary={boundary}",
@@ -327,7 +334,7 @@ async def view_birth_certificate_endpoint(
     user=Depends(require_groups([UserRole.REGISTRAR,UserRole.CITIZEN])),
 ):
     """
-    GET /births/{birth_records_id}/review/certificate
+    GET /births/{birth_records_id}/view/certificate
 
     Fetches a BirthRecords entry with its linked BirthCertificate,
     validates it exists, generates the Birth Certificate PDF, and
@@ -350,6 +357,12 @@ async def view_birth_certificate_endpoint(
 
     with open(cert_pdf, "rb") as f:
         cert_data = f.read()
+
+    # Delete the PDF file after reading to clean up media/generated_pdfs
+    try:
+        os.remove(cert_pdf)
+    except OSError:
+        pass
 
     return StreamingResponse(
         io.BytesIO(cert_data),
@@ -445,6 +458,14 @@ async def review_all_approved_birth_documents_endpoint(
 
     body.write(f"--{boundary}--\r\n".encode())
     body.seek(0)
+
+    # Delete PDF files after reading to clean up media/generated_pdfs
+    try:
+        os.remove(cert_pdf)
+        os.remove(notice_pdf)
+        os.remove(record_pdf)
+    except OSError:
+        pass
 
     return StreamingResponse(
         body,
@@ -755,6 +776,13 @@ async def view_death_submission(
     body.write(f"--{boundary}--\r\n".encode())
     body.seek(0)
 
+    # Delete PDF files after reading to clean up media/generated_pdfs
+    try:
+        os.remove(mccd_pdf)
+        os.remove(notice_pdf)
+    except OSError:
+        pass
+
     return StreamingResponse(
         body,
         media_type=f"multipart/form-data; boundary={boundary}",
@@ -762,7 +790,7 @@ async def view_death_submission(
 
 
 @death_router.get("/{death_records_id}/view/certificates")
-async def view_death_certificates(
+async def view_death_certificates_endpoint(
     death_records_id: int,
     request: Request,
     user=Depends(require_groups([UserRole.REGISTRAR, UserRole.CITIZEN])),
@@ -941,12 +969,23 @@ async def review_all_approved_death_documents_endpoint(
     body.write(f"--{boundary}--\r\n".encode())
     body.seek(0)
 
+    # Delete PDF files after reading to clean up media/generated_pdfs
+    try:
+        os.remove(cert_pdf)
+        os.remove(permit_pdf)
+        os.remove(mccd_pdf)
+        os.remove(notice_pdf)
+    except OSError:
+        pass
+
     return StreamingResponse(
         body,
         media_type=f"multipart/form-data; boundary={boundary}",
     )
 
 
+# ============================================================================
+# DEATH RECORD SUBMISSION
 # ============================================================================
 # CITIZEN SELF-SERVICE — Certificate Retrieval
 # ============================================================================

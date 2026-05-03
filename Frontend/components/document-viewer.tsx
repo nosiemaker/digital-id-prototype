@@ -85,7 +85,7 @@ export interface StreamingEndpoint {
   accessRoles: string[]
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
 export const BIRTH_REVIEW_ENDPOINT: StreamingEndpoint = {
   url: (id: number) => `${API_BASE}/births/${id}/review`,
@@ -108,7 +108,7 @@ export const BIRTH_CERTIFICATE_ENDPOINT: StreamingEndpoint = {
 }
 
 export const BIRTH_FULL_PACK_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `${API_BASE}/births/${id}/view/full_pack`,
+  url: (id: number) => `${API_BASE}/births/${id}/review/full_pack`,
   method: "GET",
   parts: [
     { name: "birth_certificate", label: "Birth Certificate", filename: "birth_certificate.pdf" },
@@ -144,7 +144,7 @@ export const DEATH_CERTIFICATES_ENDPOINT: StreamingEndpoint = {
 }
 
 export const DEATH_FULL_PACK_ENDPOINT: StreamingEndpoint = {
-  url: (id: number) => `${API_BASE}/deaths/${id}/view/full_pack`,
+  url: (id: number) => `${API_BASE}/deaths/${id}/review/full_pack`,
   method: "GET",
   parts: [
     { name: "death_certificate", label: "Death Certificate", filename: "death_certificate.pdf" },

@@ -24,8 +24,9 @@
 #   get_single_birth_record / get_single_death_record
 #   get_all_births_records / get_all_death_records
 #   get_birth_certificates_by_user / get_burial_permits_by_user / get_death_certificates_by_user
+import hashlib
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import secrets
 
 from django.db import models, transaction
@@ -197,7 +198,7 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     # Fetch the DeathRecords entry, including the informant relation for the ownership check
     try:
         death_records = DeathRecords.objects.select_related(
-            "informant_that_submits_death_notice"
+            "informant"
         ).get(id=death_record_id)
     except DeathRecords.DoesNotExist:
         raise HTTPException(
@@ -241,9 +242,14 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
 
     enriched_data = request_body.copy()
     # Auto-generate unique serial_number and application_no
+    import hashlib
     from citizens.utilities.id_generation import generate_id
-    enriched_data["serial_number"] = generate_id(f"nod_{death_record_id}", "NOD")
-    enriched_data["application_no"] = generate_id(f"death_app_{death_record_id}", "DEATH_APP")
+    
+    def _seed(s: str) -> bytes:
+        return hashlib.sha256(s.encode()).digest()
+    
+    enriched_data["serial_number"] = generate_id(_seed(f"nod_{death_record_id}"), "NOD")
+    enriched_data["application_no"] = generate_id(_seed(f"death_app_{death_record_id}"), "DEATH_APP")
 
     # Auto-populate Section A (Details of Deceased) from MCCD
     enriched_data["place_of_death"]      = "HEALTH_FACILITY"
@@ -254,6 +260,12 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     import re as _re
     _age_match = _re.search(r'\d+', mccd.age_stated or "")
     enriched_data["age_at_death"] = int(_age_match.group()) if _age_match else None
+    
+    # Required fields: use MCCD data or fallbacks
+    enriched_data["date_and_time"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    enriched_data["surname"] = mccd.attended_name.split()[-1] if mccd.attended_name else ""
+    enriched_data["other_names"] = " ".join(mccd.attended_name.split()[:-1]) if mccd.attended_name else ""
+    enriched_data["sex"] = "MALE"  # TODO: resolve from deceased Citizen DIN
 
     # Auto-populate Section B (Cause of Death) from MCCD
     enriched_data["immediate_cause"]         = mccd.cause_a or ""
@@ -297,7 +309,7 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     enriched_data["has_coroner_report"] = death_type in ("SUDDEN", "UNNATURAL")
     enriched_data["informant_declaration_name"]      = informant.full_name
     enriched_data["informant_declaration_signature"] = None
-    enriched_data["informant_declaration_date"]      = datetime.date.today()
+    enriched_data["informant_declaration_date"]      = date.today()
 
     # Auto-populate Section D (Informant Details) from authenticated Citizen
     enriched_data["informant_surname"]            = informant.full_name.split()[-1] if informant.full_name else ""
@@ -309,7 +321,7 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     enriched_data["informant_postal_address"]     = (
         getattr(informant, 'postal_address', None) or informant.residential_address
     )
-    enriched_data["date_of_registration"]         = datetime.date.today()
+    enriched_data["date_of_registration"]         = date.today()
 
     # Remove sentinel DIN fields
     enriched_data.pop("informant_din", None)
@@ -533,7 +545,7 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
                 else:
                     dt_obj = datetime.fromisoformat(str(notif_time).replace('Z', '+00:00'))
 
-                parsed_time_string = dt_obj.strftime("%H:%M:%S")
+                parsed_time_string = dt_obj.strftime("%H:%M")
 
             except (ValueError, TypeError):
                 raise HTTPException(
@@ -678,8 +690,10 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
             cause_of_death += f"\n{mccd.cause_c}"
 
     # Generate a unique registration number for the death certificate
-    from citizens.utilities.id_generation import generate_id
-    death_cert_no = generate_id(f"death_{request_id}", "DEATH_CERT")
+    def _seed(s: str) -> bytes:
+        return hashlib.sha256(s.encode()).digest()
+    
+    death_cert_no = generate_id(_seed(f"death_{request_id}"), "DEATH_CERT")
 
     # Assemble Death Certificate payload from the notice and MCCD data
     death_certificate_data = {
@@ -699,9 +713,9 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
         "cause_of_death":  cause_of_death,
         "informant_name":  f"{notice.informant_other_names} {notice.informant_surname}".strip(),
         "informant_relationship": notice.informant_relationship,
-        "date_of_registration":   datetime.date.today(),
+        "date_of_registration":   date.today(),
         "register_kept_at":       f"{notice.district} District Registry",
-        "issued_date":            datetime.date.today(),
+        "issued_date":            date.today(),
         "registrar_general_name": "Registrar",
     }
 
@@ -719,7 +733,8 @@ def death_record_approval(request_id: int, registrar_id: int) -> dict:
         "place_of_death":   place_of_death,
         "date_of_death":    notice.date_of_death,
         "issuing_authority": "REGISTRAR",
-        "issued_date":      datetime.date.today(),
+        "issued_date":      date.today(),
+        "authorised_by_name": "Registrar",
     }
 
     burial_permit_serializer = BurialPermitSerializer(data=burial_permit_data)
@@ -852,7 +867,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
     """
     # Verify the registrar account exists and load their Citizen profile (for the cert)
     try:
-        registrar = SystemUser.objects.select_related("citizen").get(id=registrar_id)
+        registrar = SystemUser.objects.select_related("profile").get(id=registrar_id)
     except SystemUser.DoesNotExist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registrar Not Found")
 
@@ -899,6 +914,8 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
         notice_of_birth.health_facility_name
         or notice_of_birth.home_address
         or notice_of_birth.other_place_specified
+        or notice_of_birth.place_of_birth
+        or "Unknown"
     )
 
     # Generate a deterministic DIN for the child based on identity + mother's DIN
@@ -930,18 +947,18 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
         if mother:
             try:
                 mother_system_user = SystemUser.objects.select_related(
-                    "System_user_to_citizen"
-                ).get(citizen=mother)
+                    "profile"
+                ).get(profile=mother)
             except SystemUser.DoesNotExist:
                 pass  # Certificate can still be created; FK will be null
 
         if father:
             try:
-                father_system_user = SystemUser.objects.get(citizen=father)
+                father_system_user = SystemUser.objects.get(profile=father)
             except SystemUser.DoesNotExist:
                 pass
 
-        mother_citizen = mother_system_user.citizen  # Used for informant address on the certificate
+        mother_citizen = mother_system_user.profile if mother_system_user else None  # Used for informant address on the certificate
 
         # Create the BirthCertificate, populating all fields from the Notice of Birth
         birth_certificate = BirthCertificate.objects.create(
@@ -971,7 +988,7 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
             informant_address=mother_citizen.residential_address or "",
             postal_address="",
             date_of_registration=submission_request.submitted_at.date(),
-            registrar_name=registrar.citizen.full_name,
+            registrar_name=registrar.profile.full_name,
         )
 
         # Update the BirthRecords submission to APPROVED and link the new certificate
@@ -980,8 +997,8 @@ def birth_record_approval(request_id: int, registrar_id: int) -> dict:
             data={
                 "status":            RecordStatus.APPROVED,
                 "registrar":         registrar_id,
-                "reviewed_at":       datetime.datetime.now(),
-                "birth_certificate": birth_certificate,
+                "reviewed_at":       datetime.now(),
+                "birth_certificate": birth_certificate.id,
             },
             partial=True,
         )
@@ -1061,7 +1078,7 @@ def birth_record_rejection(request_id: int, registrar_id: int, rejection_reason:
             data={
                 "status":           RecordStatus.REJECTED,
                 "registrar":        registrar_id,
-                "reviewed_at":      datetime.datetime.now(),
+                "reviewed_at":      datetime.now(),
                 "rejection_reason": rejection_reason,
             },
             partial=True,

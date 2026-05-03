@@ -32,8 +32,8 @@ TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "media", "Bi
 VERIFY_BASE_URL  = "https://zdid.gov.zm/verify/birth"
 FONT_REGULAR = "C:\\Windows\\Fonts\\arial.ttf" 
 FONT_BOLD    = "C:\\Windows\\Fonts\\arialbd.ttf"
-FONT_SIZE        = 20
-FONT_SIZE_SERIAL = 22
+FONT_SIZE        = 16
+FONT_SIZE_SERIAL = 16
 FONT_SIZE_TINY   = 11
 
 # Template dimensions: 864 × 1212 px
