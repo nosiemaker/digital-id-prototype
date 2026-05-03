@@ -6,13 +6,21 @@ import { useRouter } from "next/navigation"
 import { Shield, Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react"
 import { authApi, APIError, tokenStore } from "@/lib/axios"
 import { Logo } from "@/components/Logo"
+import { SplashScreen } from "@/components/SplashScreen"
+import { AnimatePresence } from "framer-motion"
 
 import { ROLE_ROUTES, DEFAULT_ROUTE, type UserRole } from "@/lib/config/routes"
 
 export default function LoginPage() {
   const router = useRouter()
+  const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
+    const hasSeenSplash = sessionStorage.getItem("hasSeenSplash")
+    if (hasSeenSplash) {
+      setShowSplash(false)
+    }
+
     const token = tokenStore.getAccess()
     if (token) {
       const role = tokenStore.getRole() as UserRole
@@ -20,6 +28,11 @@ export default function LoginPage() {
       router.replace(destination)
     }
   }, [router])
+
+  const handleSplashComplete = () => {
+    setShowSplash(false)
+    sessionStorage.setItem("hasSeenSplash", "true")
+  }
 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -55,7 +68,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background font-sans flex items-center justify-center px-4">
+    <>
+      <AnimatePresence>
+        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      </AnimatePresence>
+
+      <div className="min-h-screen bg-background font-sans flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
@@ -186,5 +204,6 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+    </>
   )
 }

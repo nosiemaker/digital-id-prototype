@@ -85,6 +85,7 @@ class IdentitySubmitRequest(BaseModel):
     phone:          Optional[str] = Field(None, max_length=20)
     gender:         Optional[str] = Field(None, description="MALE | FEMALE")
     district_id:    Optional[int] = Field(None, description="District FK — resolved from province/district selection")
+    residential_address: Optional[str] = Field(None, max_length=255, description="Residential address")
     nrc_front_url:  Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC front image")
     nrc_back_url:   Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC back image")
     face_image_url: Optional[str] = Field(None, max_length=500, description="URL to uploaded face photo")

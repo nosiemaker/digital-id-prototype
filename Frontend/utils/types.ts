@@ -68,6 +68,7 @@ export interface IdentitySubmitRequest {
   full_name: string;
   dob: string;              // ISO date string: "YYYY-MM-DD"
   phone?: string;
+  residential_address?: string;
   gender: Gender;
   district_id?: number;     // resolved from province → district selection
   language: Language;
@@ -201,6 +202,7 @@ export interface CitizenBase {
   dob: string;
   phone?: string;
   language: Language;
+  residential_address?: string;
   public_key: string;
   nrc_front_url?: string;
   nrc_back_url?: string;
@@ -217,6 +219,7 @@ export interface CitizenSummary {
 export interface CitizenResponse extends CitizenBase {
   din: string;
   status: CitizenStatus;
+  district?: string;
   gender?: string;
   residential_address?: string;
   citizen_type?: string;
@@ -225,10 +228,11 @@ export interface CitizenResponse extends CitizenBase {
 }
 
 export interface CitizenUpdate {
-  full_name?: string;
   phone?: string;
-  language?: string;
-  status?: CitizenStatus;
+  language?: Language;
+  residential_address?: string;
+  district_id?: number;
+  email?: string;
 }
 
 export interface FamilyLinkBase {
@@ -737,4 +741,4 @@ export interface StatisticsResponse {
   approved_requests: number;
   denied_requests: number;
   pending_requests: number;
-}
+}

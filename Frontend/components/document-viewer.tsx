@@ -333,7 +333,7 @@ export function DocumentViewerDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) cleanup(); onOpenChange(o) }}>
-      <DialogContent className="max-w-6xl max-h-[95vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-7xl max-h-[95vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-border bg-muted/20">
           <div className="flex items-center justify-between">
             <div>

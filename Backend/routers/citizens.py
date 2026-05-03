@@ -13,6 +13,7 @@ from citizens.schema import (
     FamilyLinkBase,
     FamilyLinkResponse, CitizenLookupResponse,
 )
+from citizens.serializer import CitizenSerializer
 from citizens.services import(
     citizen_service, biometric_service, family_service)
 from citizens.services.citizen_service import lookup_citizen_for_form
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Citizen CRUD Operations
 
-@router.get("/{din}", response_model=CitizenResponse)
+@router.get("/{din}")
 async def get_citizen(
     din: str,
     user = Depends(require_groups([UserRole.CITIZEN, UserRole.REGISTRATION_OFFICER, UserRole.REGISTRAR, UserRole.SUPERVISOR]))
@@ -40,10 +41,11 @@ async def get_citizen(
     if not citizen:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found")
 
-    if user["role"] == UserRole.CITIZEN and citizen.din != user["din"]:
-        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Citizens can only view their own profile.")
+    if user.get("role") != UserRole.CITIZEN:
+        raise HTTPException(status_code=403, detail="Access denied")
 
-    return citizen
+    data = await sync_to_async(lambda: CitizenSerializer(citizen).data)()
+    return data
 
 @router.get("/lookup/{din}", response_model=CitizenLookupResponse)
 async def look_citizen_for_autofill(
@@ -81,12 +83,6 @@ async def update_citizen(
     """
     # Citizens can only update their own profile
     citizen = await sync_to_async(citizen_service.get_citizen_by_din)(din)
-    if not citizen or citizen.din != user["din"]:
-     raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions. Citizens can only update their own profile.",
-        )
-
     if not citizen:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Citizen not found"

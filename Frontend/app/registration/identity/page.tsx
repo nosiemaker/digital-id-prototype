@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 /**
  * /register/identity
@@ -51,6 +51,7 @@ const step2Schema = z.object({
 
 const step3Schema = z.object({
   phone: z.string().min(1, "Phone number is required."),
+  residential_address: z.string().optional(),
 })
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ const LANGUAGES = [
 type FormData = {
   firstName: string; lastName: string; dob: string; gender: string
   nrc: string; province: string; district_id: string
-  phone: string; language: string
+  phone: string; language: string; residential_address: string
   nrcFrontUrl: string; nrcBackUrl: string; faceUrl: string
 }
 
@@ -103,7 +104,7 @@ export default function IdentityRegistrationPage() {
   const [form, setForm] = useState<FormData>({
     firstName: "", lastName: "", dob: "", gender: "", nrc: "",
     province: "", district_id: "",
-    phone: "", language: "en",
+    phone: "", language: "en", residential_address: "",
     nrcFrontUrl: "", nrcBackUrl: "", faceUrl: "",
   })
 
@@ -213,6 +214,7 @@ export default function IdentityRegistrationPage() {
         phone:          form.phone.trim() || undefined,
         gender:         form.gender as "MALE" | "FEMALE",
         district_id:    form.district_id ? Number(form.district_id) : undefined,
+        residential_address: form.residential_address.trim() || undefined,
         language:       form.language as any,
         public_key:     pem,
         nrc_front_url:  form.nrcFrontUrl,
@@ -370,6 +372,17 @@ export default function IdentityRegistrationPage() {
                   </select>
                   <p className="mt-1.5 text-xs text-muted-foreground">Notifications will be sent in this language where available.</p>
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className={label}>Residential Address</label>
+                  <textarea
+                    className={`${input} resize-none`}
+                    rows={2}
+                    placeholder="Plot 123, Street Name, Area"
+                    value={form.residential_address}
+                    onChange={e => update("residential_address", e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -389,6 +402,7 @@ export default function IdentityRegistrationPage() {
                     <div><p className="text-xs text-muted-foreground">Gender</p><p className="text-foreground font-medium capitalize">{form.gender.toLowerCase()}</p></div>
                     <div><p className="text-xs text-muted-foreground">Province</p><p className="text-foreground font-medium">{selectedProvince?.label ?? form.province}</p></div>
                     <div><p className="text-xs text-muted-foreground">District</p><p className="text-foreground font-medium">{selectedDistrict?.name ?? "—"}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Residential Address</p><p className="text-foreground font-medium">{form.residential_address}</p></div>
                   </div>
                 </div>
                 <div className="rounded-xl border border-border bg-secondary/40 p-4">
@@ -414,6 +428,10 @@ export default function IdentityRegistrationPage() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div><p className="text-xs text-muted-foreground">Phone</p><p className="text-foreground font-medium">{form.phone}</p></div>
                     <div><p className="text-xs text-muted-foreground">Language</p><p className="text-foreground font-medium">{LANGUAGES.find(l => l.value === form.language)?.label ?? form.language}</p></div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Residential Address</p>
+                      <p className="text-foreground font-medium">{form.residential_address || "—"}</p>
+                    </div>
                   </div>
                 </div>
                 <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
