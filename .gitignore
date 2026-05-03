@@ -53,8 +53,8 @@ env/
 **/venv/
 **/ENV/
 **/env/
-**/migrations/*.py
-!**/migrations/__init__.py
+# Keep migrations committed to git (required for production deploys)
+# **/migrations/*.py  <-- DO NOT ignore migrations
 
 # database
 *.sqlite3
