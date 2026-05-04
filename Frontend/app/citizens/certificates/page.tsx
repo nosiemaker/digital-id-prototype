@@ -480,13 +480,9 @@ export default function CitizenCertificatesPage() {
       </Tabs>
 
       {/* Document Viewer Dialog */}
-      {viewerEndpoint && viewerRecordId && (
+      {viewerOpen && viewerEndpoint && viewerRecordId && (
         <DocumentViewer
-          onClose={() => {
-            setViewerOpen(false)
-            setViewerEndpoint(null)
-            setViewerRecordId(null)
-          }}
+          onClose={() => setViewerOpen(false)}
           endpoint={viewerEndpoint}
           recordId={viewerRecordId}
           recordName={viewerRecordName || undefined}
