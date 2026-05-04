@@ -43,7 +43,7 @@ import { useRoleGuard } from "@/hooks/use-role-guard"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
-  DocumentViewerDialog,
+  DocumentViewer,
   BIRTH_CERTIFICATE_ENDPOINT,
   DEATH_CERTIFICATES_ENDPOINT,
   type StreamingEndpoint,
@@ -478,10 +478,9 @@ export default function CitizenCertificatesPage() {
       </Tabs>
 
       {/* Document Viewer Dialog */}
-      {viewerEndpoint && viewerRecordId && (
-        <DocumentViewerDialog
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
+      {viewerOpen && viewerEndpoint && viewerRecordId && (
+        <DocumentViewer
+          onClose={() => setViewerOpen(false)}
           endpoint={viewerEndpoint}
           recordId={viewerRecordId}
           recordName={viewerRecordName}
