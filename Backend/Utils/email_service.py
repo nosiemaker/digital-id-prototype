@@ -197,20 +197,18 @@ def send_notice_of_death_link_email(informant_email: str, informant_name: str, d
     subject = "Action Required: Submit Notice of Death Form"
     submission_url = f"{url}/submit-notice/{death_record_id}"
 
-    message = f"""
-    Hello {informant_name or 'there'},
+    message = f"""Hello {informant_name or 'there'},
 
-    A Medical Certificate of Cause of Death (MCCD) has been submitted for your case.
-    To complete the death registration process, you are required to submit the Notice of Death form.
+A Medical Certificate of Cause of Death (MCCD) has been submitted for your case.
+To complete the death registration process, you are required to submit the Notice of Death form.
 
-    Please click the link below to access and complete the form:
-    {submission_url}
+Please click the link below to access and complete the form:
+{submission_url}
 
-    This link is unique to your case reference. Please complete the form at your earliest convenience so the Registrar can process the documentation.
+This link is unique to your case reference. Please complete the form at your earliest convenience so the Registrar can process the documentation.
 
-    Regards,
-    ZAMREN Digital ID Team
-    """
+Regards,
+ZAMREN Digital ID Team"""
     _send_email(subject, message, [informant_email])
 
 def send_partner_link_email(citizen_name: str, citizen_email: str, partner_name: str, permitted_scopes: list):
