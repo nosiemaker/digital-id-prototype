@@ -6,8 +6,33 @@ from admin_ops.models import SystemUser, UserRole
 
 logger = logging.getLogger(__name__)
 
+import requests
+
 def _send_email(subject, message, recipient_list):
-    """Internal helper to send email and handle errors."""
+    """Internal helper to send email. Uses Vercel proxy if configured, otherwise falls back to Django SMTP."""
+    
+    # 1. Try Vercel Proxy (recommended for Render)
+    if settings.EMAIL_API_URL and settings.EMAIL_API_SECRET:
+        try:
+            response = requests.post(
+                settings.EMAIL_API_URL,
+                json={
+                    "to": recipient_list[0],  # Currently handles one recipient at a time for simplicity
+                    "subject": subject,
+                    "text": message,
+                    "secret": settings.EMAIL_API_SECRET
+                },
+                timeout=10
+            )
+            if response.status_code == 200:
+                logger.info(f"Email sent via Vercel Proxy: {subject} to {recipient_list}")
+                return
+            else:
+                logger.warning(f"Vercel Proxy failed ({response.status_code}): {response.text}. Falling back to SMTP.")
+        except Exception as e:
+            logger.warning(f"Vercel Proxy error: {str(e)}. Falling back to SMTP.")
+
+    # 2. Fallback to Django SMTP
     try:
         send_mail(
             subject=subject,
@@ -16,9 +41,9 @@ def _send_email(subject, message, recipient_list):
             recipient_list=recipient_list,
             fail_silently=False,
         )
-        logger.info(f"Email sent successfully: {subject} to {recipient_list}")
+        logger.info(f"Email sent successfully via SMTP: {subject} to {recipient_list}")
     except Exception as e:
-        logger.error(f"Failed to send email '{subject}' to {recipient_list}: {str(e)}")
+        logger.error(f"Failed to send email '{subject}' to {recipient_list} via both Proxy and SMTP: {str(e)}")
 
 def send_account_verified_email(user: SystemUser):
     """Notify user that their account is verified and prompt them to complete their profile."""
