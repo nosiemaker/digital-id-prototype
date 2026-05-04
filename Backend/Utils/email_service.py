@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 
 def _send_email(subject, message, recipient_list):
     """Internal helper to send email and handle errors."""
+    settings.EMAIL_HOST = 'smtp.googlemail.com'
+    logger.debug(f"DEBUG: Attempting to send email via {settings.EMAIL_HOST}:{settings.EMAIL_PORT} as {settings.EMAIL_HOST_USER}")
+    print(f"DEBUG: Attempting to send email via {settings.EMAIL_HOST}:{settings.EMAIL_PORT} as {settings.EMAIL_HOST_USER}")
     try:
         send_mail(
             subject=subject,
