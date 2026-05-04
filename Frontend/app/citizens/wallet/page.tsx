@@ -676,9 +676,6 @@ export default function WalletPage() {
                             <p className="text-[10px] text-muted-foreground">Republic of Zambia</p>
                           </div>
                         </div>
-                        <span className="text-xs text-amber-400 font-semibold bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-                          {enrollmentState}
-                        </span>
                       </div>
                       <div className="flex gap-5 mb-6">
                         <div className="h-20 w-20 rounded-xl bg-secondary flex items-center justify-center shrink-0 border border-border overflow-hidden">
@@ -689,7 +686,6 @@ export default function WalletPage() {
                         <div className="flex-1 space-y-1">
                           <p className="text-xl font-bold text-foreground">{me.name}</p>
                           <p className="text-xs text-muted-foreground">{me.email}</p>
-                          <p className="text-xs text-muted-foreground">Status: {enrollmentState}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

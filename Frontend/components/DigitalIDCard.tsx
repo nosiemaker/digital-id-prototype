@@ -255,25 +255,32 @@ export default function DigitalIDCard({
                   </div>
 
                   {/* Name and DIN */}
-                  <div className="mt-2">
-                    <div className="text-lg sm:text-xl font-bold uppercase tracking-wide text-foreground truncate" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{displayName}</div>
-                    <div className="flex items-center justify-between mt-1">
+                  <div className="mt-1 sm:mt-2">
+                    <div className="text-sm sm:text-sm font-bold uppercase tracking-wide text-foreground truncate" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+                      {displayName}
+                      </div>
+
+                    <div className="flex items-center justify-between mt-0.5 sm:mt-1">
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.12em] mb-0.5" style={{ color: c.label }}>Digital ID Number (DIN)</div>
-                        <div className="text-lg sm:text-xl font-bold tracking-wider font-mono" style={{ color: c.accent, textShadow: "0 1px 1px rgba(0,0,0,0.8)" }}>{din}</div>
+                        <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.12em] mb-0.5"
+                         style={{ color: c.label }}>
+                          Digital ID Number (DIN)
+                          </div>
+                        <div 
+                        className="text-base sm:text-xl font-bold tracking-wider font-mono"
+                         style={{ color: c.accent, textShadow: "0 1px 1px rgba(0,0,0,0.8)" }}>
+                          {din}
+                          </div>
                       </div>
                     </div>
                   </div>
 
                     <div className="flex justify-between items-end mt-auto">
-                      <div className="flex gap-6">
+                      <div className="flex gap-3 sm:gap-6">
                         <div>
-                          <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>Issue Date</div>
-                          <div className="text-[10px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—"}</div>
-                        </div>
-                        <div>
-                           <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>Document Type</div>
-                           <div className="text-[10px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>Identity Card</div>
+                          <div 
+                          className="text-[8px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>Issue Date</div>
+                          <div className="text-[9px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—"}</div>
                         </div>
                       </div>
                     </div>
