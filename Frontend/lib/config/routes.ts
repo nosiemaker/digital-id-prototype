@@ -17,7 +17,7 @@ export interface RouteConfig {
 export const ROLE_ROUTES: Record<UserRole, string> = {
   REGISTRATION_OFFICER: "/admin/dashboard",
   HEALTH_WORKER: "/admin/health-worker/dashboard",
-  REGISTRAR: "/admin/registrar/birth-records",
+  REGISTRAR: "/admin/registrar",
   SUPERVISOR: "/admin/dashboard",
   CITIZEN: "/citizens/wallet",
   THIRD_PARTY: "/institutions/dashboard",
@@ -32,7 +32,7 @@ export const sidebarRoutes: RouteConfig[] = [
     path: "/admin/dashboard",
     label: "Dashboard",
     icon: "LayoutDashboard",
-    allowedRoles: ["REGISTRAR", "SUPERVISOR", "REGISTRATION_OFFICER"],
+    allowedRoles: ["SUPERVISOR", "REGISTRATION_OFFICER"],
     description: "Overview and analytics",
   },
 
@@ -48,7 +48,7 @@ export const sidebarRoutes: RouteConfig[] = [
     path: "/admin/analytics",
     label: "Analysis",
     icon: "BarChart3",
-    allowedRoles: ["REGISTRATION_OFFICER", "SUPERVISOR", "REGISTRAR"],
+    allowedRoles: ["REGISTRATION_OFFICER", "SUPERVISOR"],
     description: "System analytics and demographic data",
   },
   {
@@ -83,6 +83,13 @@ export const sidebarRoutes: RouteConfig[] = [
   },
 
   // REGISTRAR ONLY
+    {
+    path: "/admin/registrar",
+    label: "Dashboard",
+    icon: "LayoutDashboard",
+    allowedRoles: ["REGISTRAR"],
+    description: "Display birth and death registrations",
+  },
   {
     path: "/admin/registrar/birth-records",
     label: "Review Birth Records",
@@ -146,13 +153,16 @@ export function isPathAllowed(path: string, role: UserRole): boolean {
   const normalizedPath = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
   
   const route = sidebarRoutes.find((r) => {
+    // Normalize the route path as well (strip trailing slash)
+    const normalizedRoute = r.path.endsWith('/') && r.path !== '/' ? r.path.slice(0, -1) : r.path;
+    
     // Exact match
-    if (r.path === normalizedPath) return true;
+    if (normalizedRoute === normalizedPath) return true;
     
     // Check if the route is dynamic (contains :id)
-    if (r.path.includes(':id')) {
-      const baseRoute = r.path.split('/:id')[0]; // "/admin/citizens"
-      return path.startsWith(baseRoute);
+    if (normalizedRoute.includes(':id')) {
+      const baseRoute = normalizedRoute.split('/:id')[0]; // "/admin/citizens"
+      return normalizedPath.startsWith(baseRoute);
     }
     return false;
   });

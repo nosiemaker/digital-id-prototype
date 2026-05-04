@@ -616,7 +616,7 @@ export default function WalletPage() {
                   )}
                   {/* Integrated Digital ID Card */}
                   {enrollmentState === "ACTIVE" ? (
-                    <div className="rounded-2xl border border-primary/20 bg-[#0c0c0c] p-0 sm:p-6 shadow-2xl relative overflow-hidden">
+                    <div className="rounded-2xl border border-primary/20 bg-[#0c0c0c] p-0 sm:p-6 shadow-2xl relative overflow-hidden min-h-[220px]">
                       {/* Chitenge background pattern */}
                       <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-0">
                         <svg viewBox="0 0 680 700" className="w-full h-full" preserveAspectRatio="xMidYMid slice">
