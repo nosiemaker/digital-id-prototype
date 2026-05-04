@@ -284,12 +284,10 @@ export function useDocumentStream() {
 }
 
 // ============================================================================
-// COMPONENT: DocumentViewerDialog
+// COMPONENT: DocumentViewer (Full-Screen Overlay)
 // ============================================================================
-
-interface DocumentViewerDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+interface DocumentViewerProps {
+  onClose: () => void
   endpoint: StreamingEndpoint
   recordId: number | null
   recordName?: string
@@ -297,15 +295,14 @@ interface DocumentViewerDialogProps {
   status?: string
 }
 
-export function DocumentViewerDialog({
-  open,
-  onOpenChange,
+export function DocumentViewer({
+  onClose,
   endpoint,
   recordId,
   recordName,
   token,
   status,
-}: DocumentViewerDialogProps) {
+}: DocumentViewerProps) {
   const {
     loading,
     error,
@@ -319,148 +316,137 @@ export function DocumentViewerDialog({
   } = useDocumentStream()
 
   useEffect(() => {
-    if (open && recordId) {
+    if (recordId) {
       fetchDocuments(endpoint, recordId, token)
     }
-    return () => {
-      cleanup()
-    }
-  }, [open, recordId, endpoint, token])
+    return () => cleanup()
+  }, [recordId, endpoint, token, fetchDocuments, cleanup])
 
   const activePart = endpoint.parts.find(p => p.name === activeDoc)
   const availableParts = endpoint.parts.filter(p => documents.has(p.name))
   const missingParts = endpoint.parts.filter(p => !documents.has(p.name))
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) cleanup(); onOpenChange(o) }}>
-      <DialogContent className="max-w-7xl max-h-[95vh] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b border-border bg-muted/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                {recordName || "Document Viewer"}
-              </DialogTitle>
-              {status && (
-                <Badge variant="outline" className={cn(
-                  "mt-1 text-xs",
-                  status === "APPROVED" && "border-green-500/30 bg-green-500/10 text-green-500",
-                  status === "PENDING" && "border-yellow-500/30 bg-yellow-500/10 text-yellow-500",
-                  status === "REJECTED" && "border-red-500/30 bg-red-500/10 text-red-500",
-                )}>
-                  {status}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {availableParts.length > 1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => downloadAll(endpoint.parts)}
-                  className="h-8"
-                >
-                  <Download className="h-3.5 w-3.5 mr-1.5" />
-                  Download All
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="flex h-[calc(95vh-80px)]">
-          {/* Sidebar: Document Tabs */}
-          <div className="w-64 border-r border-border bg-muted/10 flex flex-col">
-            <div className="p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Documents ({availableParts.length}/{endpoint.parts.length})
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {endpoint.parts.map((part) => {
-                const isAvailable = documents.has(part.name)
-                const isActive = activeDoc === part.name
-                return (
-                  <button
-                    key={part.name}
-                    onClick={() => isAvailable && setActiveDoc(part.name)}
-                    disabled={!isAvailable || loading}
-                    className={cn(
-                      "w-full text-left px-4 py-3 border-b border-border transition-colors flex items-center gap-2",
-                      isActive
-                        ? "bg-primary/10 border-l-2 border-l-primary"
-                        : "border-l-2 border-l-transparent hover:bg-muted/30",
-                      !isAvailable && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <FileText className={cn(
-                      "h-4 w-4 shrink-0",
-                      isActive ? "text-primary" : "text-muted-foreground"
-                    )} />
-                    <div className="min-w-0">
-                      <p className={cn(
-                        "text-sm font-medium truncate",
-                        isActive ? "text-primary" : "text-foreground"
-                      )}>
-                        {part.label}
-                      </p>
-                      {!isAvailable && (
-                        <p className="text-xs text-muted-foreground">Not available</p>
-                      )}
-                    </div>
-                    {isAvailable && (
-                      <Download
-                        className="h-3.5 w-3.5 ml-auto shrink-0 text-muted-foreground hover:text-primary cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); downloadDocument(part) }}
-                      />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-
-            {missingParts.length > 0 && (
-              <div className="p-3 border-t border-border">
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {missingParts.length} document{missingParts.length > 1 ? 's' : ''} missing
-                </p>
-              </div>
+    <div className="fixed inset-0 z-50 flex flex-col bg-background h-screen w-screen overflow-hidden">
+      {/* Header */}
+      <header className="px-6 py-4 border-b border-border bg-muted/20 shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {recordName || "Document Viewer"}
+            </h2>
+            {status && (
+              <Badge variant="outline" className={cn(
+                "mt-1 text-xs",
+                status === "APPROVED" && "border-green-500/30 bg-green-500/10 text-green-500",
+                status === "PENDING" && "border-yellow-500/30 bg-yellow-500/10 text-yellow-500",
+                status === "REJECTED" && "border-red-500/30 bg-red-500/10 text-red-500",
+              )}>
+                {status}
+              </Badge>
             )}
           </div>
-
-          {/* Main: PDF Viewer */}
-          <div className="flex-1 bg-muted/20 relative">
-            {loading ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Generating documents...</p>
-              </div>
-            ) : error ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8">
-                <AlertCircle className="h-10 w-10 text-red-500" />
-                <p className="text-sm font-medium text-red-600">{error}</p>
-                <p className="text-xs text-muted-foreground text-center max-w-md">
-                  The documents could not be generated. This may happen if the record is missing required sub-documents or is not in the correct status.
-                </p>
-              </div>
-            ) : activeDoc && documents.get(activeDoc) ? (
-              <iframe
-                src={documents.get(activeDoc)!}
-                className="w-full h-full border-0"
-                title={activePart?.label || "Document"}
-              />
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <Eye className="h-10 w-10 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">Select a document to view</p>
-              </div>
+          <div className="flex items-center gap-2">
+            {availableParts.length > 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadAll(endpoint.parts)}
+                className="h-8"
+              >
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                Download All
+              </Button>
             )}
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </header>
+
+      {/* Main Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <div className="w-64 border-r border-border bg-muted/10 flex flex-col shrink-0">
+          <div className="p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Documents ({availableParts.length}/{endpoint.parts.length})
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {endpoint.parts.map((part) => {
+              const isAvailable = documents.has(part.name)
+              const isActive = activeDoc === part.name
+              return (
+                <button
+                  key={part.name}
+                  onClick={() => isAvailable && setActiveDoc(part.name)}
+                  disabled={!isAvailable || loading}
+                  className={cn(
+                    "w-full text-left px-4 py-3 border-b border-border transition-colors flex items-center gap-2",
+                    isActive ? "bg-primary/10 border-l-2 border-l-primary" : "border-l-2 border-l-transparent hover:bg-muted/30",
+                    !isAvailable && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <FileText className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                  <div className="min-w-0">
+                    <p className={cn("text-sm font-medium truncate", isActive ? "text-primary" : "text-foreground")}>
+                      {part.label}
+                    </p>
+                    {!isAvailable && <p className="text-xs text-muted-foreground">Not available</p>}
+                  </div>
+                  {isAvailable && (
+                    <Download
+                      className="h-3.5 w-3.5 ml-auto shrink-0 text-muted-foreground hover:text-primary cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); downloadDocument(part) }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          {missingParts.length > 0 && (
+            <div className="p-3 border-t border-border">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {missingParts.length} document{missingParts.length > 1 ? 's' : ''} missing
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* PDF Viewer */}
+        <div className="flex-1 bg-muted/20 relative">
+          {loading ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Generating documents...</p>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8">
+              <AlertCircle className="h-10 w-10 text-red-500" />
+              <p className="text-sm font-medium text-red-600">{error}</p>
+              <p className="text-xs text-muted-foreground text-center max-w-md">
+                The documents could not be generated. This may happen if the record is missing required sub-documents or is not in the correct status.
+              </p>
+            </div>
+          ) : activeDoc && documents.get(activeDoc) ? (
+            <iframe
+              src={documents.get(activeDoc)!}
+              className="w-full h-full border-0"
+              title={activePart?.label || "Document"}
+            />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <Eye className="h-10 w-10 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">Select a document to view</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
-
 // ============================================================================
 // COMPONENT: DocumentActionButtons
 // ============================================================================
@@ -528,14 +514,16 @@ export function BirthDocumentActions({
       )}
 
       {activeEndpoint && (
-        <DocumentViewerDialog
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
-          endpoint={activeEndpoint}
-          recordId={recordId}
-          recordName={recordName}
-          token={token}
-          status={status}
+        <DocumentViewer
+    onClose={() => {
+      setViewerOpen(false)
+      setActiveEndpoint(null)
+      }}
+      endpoint={activeEndpoint}
+      recordId={recordId}
+      recordName={recordName}
+      token={token}
+      status={status}
         />
       )}
     </div>
@@ -595,10 +583,9 @@ export function DeathDocumentActions({
         </>
       )}
 
-      {activeEndpoint && (
-        <DocumentViewerDialog
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
+      {activeEndpoint && viewerOpen && (
+        <DocumentViewer
+          onClose={() => { setViewerOpen(false); setActiveEndpoint(null) }}
           endpoint={activeEndpoint}
           recordId={recordId}
           recordName={recordName}
