@@ -16,7 +16,7 @@ import { useRoleGuard } from "@/hooks/use-role-guard"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
-  DocumentViewerDialog,
+  DocumentViewer,
   BIRTH_CERTIFICATE_ENDPOINT,
   BIRTH_FULL_PACK_ENDPOINT,
   DEATH_CERTIFICATES_ENDPOINT,
@@ -322,16 +322,19 @@ export default function RegistrarCertificatesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Document Viewer */}
-      {viewerEndpoint && viewerRecordId && (
-        <DocumentViewerDialog
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
+      {/* Full-Screen Document Viewer */}
+      {viewerOpen && viewerEndpoint && viewerRecordId && (
+        <DocumentViewer
+          onClose={() => {
+            setViewerOpen(false)
+            setViewerEndpoint(null)
+            setViewerRecordId(null)
+          }}
           endpoint={viewerEndpoint}
           recordId={viewerRecordId}
-          recordName={viewerRecordName}
+          recordName={viewerRecordName || undefined}
           token={token}
-          status="APPROVED"
+          status={(birthCerts?.find((r: any) => r.id === viewerRecordId) || deathCerts?.find((r: any) => r.id === viewerRecordId))?.status || "APPROVED"}
         />
       )}
     </div>

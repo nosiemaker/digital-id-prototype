@@ -46,7 +46,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
   BirthDocumentActions,
-  DocumentViewerDialog,
+  DocumentViewer,
   BIRTH_REVIEW_ENDPOINT,
   BIRTH_CERTIFICATE_ENDPOINT,
   BIRTH_FULL_PACK_ENDPOINT,
@@ -70,6 +70,7 @@ export default function RegistrarBirthRecordsPage() {
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerEndpoint, setViewerEndpoint] = useState<any>(null)
   const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
+  const [viewerRecordName, setViewerRecordName] = useState("")
   const [token, setToken] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('zdid_access_token') || ''
@@ -138,6 +139,7 @@ export default function RegistrarBirthRecordsPage() {
   function openDocumentViewer(endpoint: any, record: any) {
     setViewerEndpoint(endpoint)
     setViewerRecordId(record.id)
+    setViewerRecordName(`${record.child_given_name || ""} ${record.child_surname || ""}`.trim())
     setViewerOpen(true)
   }
 
@@ -806,16 +808,21 @@ export default function RegistrarBirthRecordsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Document Viewer Dialog */}
-      {viewerEndpoint && viewerRecordId && (
-        <DocumentViewerDialog
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
-          endpoint={viewerEndpoint}
-          recordId={viewerRecordId}
-          token={token}
-          status={records.find(r => r.id === viewerRecordId)?.status || "PENDING"}
-        />
+        {/* Full-Screen Document Viewer */}
+        {viewerOpen && viewerEndpoint && viewerRecordId && (
+          <DocumentViewer
+            onClose={() => {
+              setViewerOpen(false)
+              setViewerEndpoint(null)
+              setViewerRecordId(null)
+              setViewerRecordName("")
+            }}
+            endpoint={viewerEndpoint}
+            recordId={viewerRecordId}
+            recordName={viewerRecordName || undefined}
+            token={token}
+            status={records?.find((r: any) => r.id === viewerRecordId)?.status || "PENDING"}
+          />
       )}
     </div>
   )
