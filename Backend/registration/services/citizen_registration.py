@@ -154,6 +154,14 @@ def _enrollment_response(enrollment: EnrollmentRequest) -> dict:
         "activation_challenge_expires_at": enrollment.activation_challenge_expires_at,
     }
 
+def _unique_username(base: str) -> str:
+    candidate = base
+    counter = 1
+    while SystemUser.objects.filter(username=candidate).exists():
+        candidate = f"{base}{counter}"
+        counter += 1
+    return candidate
+
 # ─── Phase 1: Account Creation ────────────────────────────────────────────────
 
 def create_account(body: AccountCreateRequest) -> dict:
@@ -224,6 +232,96 @@ def resend_otp(email: str) -> dict:
 
     issue_otp(user)
     return {"message": f"A new OTP has been sent to {email}."}
+
+def ro_create_citizen(body: IdentitySubmitRequest, ro_id: int) -> dict:
+    """
+    Unified RO-assisted registration endpoint.
+    - Bypasses OTP
+    - Assigns default password
+    - Generates username from NRC
+    - Auto-activates account & sets must_change_password flag
+    """
+
+    if Citizen.objects.filter(nrc=body.nrc).exists():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Citizen with this NRC already exists.")
+
+    district = District.objects.filter(id=body.district_id, is_active=True).first()
+    if not district:
+        raise HTTPException(status_code=400, detail="Invalid or inactive district.")
+
+    placeholder_email = f"citizen_{body.nrc}@zamren.com"
+
+    dob = body.dob
+
+    age = (datetime.date.today() - dob).days // 365
+    if age < 16: citizen_type = "CHILD_UNDER_16"
+    elif age < 18: citizen_type = "CHILD_ABOVE_16"
+    elif age >= 60: citizen_type = "SENIOR"
+    else: citizen_type = "ADULT"
+
+    username_base = f"citizen_{body.nrc.replace('/', '_')}"
+    username = _unique_username(username_base)
+    default_password = "password123"
+    password_hash = hash_password(default_password)
+
+    with transaction.atomic():
+        user = SystemUser.objects.create(
+            username=username,
+            email=placeholder_email,
+            password=password_hash,
+            role=UserRole.CITIZEN,
+            is_active=True,
+            is_email_verified=True,
+        )
+
+        citizen = Citizen.objects.create(
+            user=user,
+            nrc=body.nrc,
+            full_name=body.full_name,
+            dob=dob,
+            phone=body.phone,
+            gender=body.gender,
+            district=district,
+            residential_address=body.residential_address,
+            nrc_front_url=body.nrc_front_url,
+            nrc_back_url=body.nrc_back_url,
+            face_image_url=body.face_image_url,
+            public_key=body.public_key,
+            language=body.language,
+            status=CitizenStatus.PENDING,
+            citizen_type=citizen_type,
+        )
+
+        user.first_name = citizen.full_name
+        user.save(update_fields=["first_name"])
+
+        enrollment = EnrollmentRequest.objects.create(
+            citizen=citizen,
+            status=EnrollmentStatus.PENDING,
+            ro_id=ro_id
+        )
+
+        audit.log(
+            actor_id=ro_id,
+            actor_role=UserRole.REGISTRATION_OFFICER,
+            action="RO_ASSISTED_REGISTRATION",
+            target_id=citizen.id,
+            target_type=UserRole.CITIZEN,
+            meta={"nrc": body.nrc, "username": username}
+        )
+
+        notify_officers_of_pending_review(citizen.full_name)
+
+        return {
+            "user_id": user.id,
+            "citizen_id": citizen.id,
+            "enrollment_request_id": enrollment.id,
+            "username": username,
+            "default_password": default_password,
+            "must_change_password": True,
+            "message": "Citizen registered successfully. Provide credentials to citizen for first login."
+        }
+
 
 
 # ─── Phase 2: Identity Submission ─────────────────────────────────────────────

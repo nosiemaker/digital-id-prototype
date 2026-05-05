@@ -164,11 +164,16 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 10
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='')
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+
+# Email Proxy (Vercel) settings
+EMAIL_API_URL = config('EMAIL_API_URL', default='')
+EMAIL_API_SECRET = config('EMAIL_API_SECRET', default='')
 
 
 # DATABASE_URL='postgres://postgres.oflccsjshbkuksuacfge:hamusonde11.@aws-0-eu-west-1.pooler.supabase.com:6543/postgres'

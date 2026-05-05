@@ -6,8 +6,33 @@ from admin_ops.models import SystemUser, UserRole
 
 logger = logging.getLogger(__name__)
 
-def _send_email(subject, message, recipient_list):
-    """Internal helper to send email and handle errors."""
+import requests
+
+def send_email(subject, message, recipient_list):
+    """Internal helper to send email. Uses Vercel proxy if configured, otherwise falls back to Django SMTP."""
+    
+    # 1. Try Vercel Proxy (recommended for Render)
+    if settings.EMAIL_API_URL and settings.EMAIL_API_SECRET:
+        try:
+            response = requests.post(
+                settings.EMAIL_API_URL,
+                json={
+                    "to": recipient_list[0],  # Currently handles one recipient at a time for simplicity
+                    "subject": subject,
+                    "text": message,
+                    "secret": settings.EMAIL_API_SECRET
+                },
+                timeout=10
+            )
+            if response.status_code == 200:
+                logger.info(f"Email sent via Vercel Proxy: {subject} to {recipient_list}")
+                return
+            else:
+                logger.warning(f"Vercel Proxy failed ({response.status_code}): {response.text}. Falling back to SMTP.")
+        except Exception as e:
+            logger.warning(f"Vercel Proxy error: {str(e)}. Falling back to SMTP.")
+
+    # 2. Fallback to Django SMTP
     try:
         send_mail(
             subject=subject,
@@ -16,9 +41,9 @@ def _send_email(subject, message, recipient_list):
             recipient_list=recipient_list,
             fail_silently=False,
         )
-        logger.info(f"Email sent successfully: {subject} to {recipient_list}")
+        logger.info(f"Email sent successfully via SMTP: {subject} to {recipient_list}")
     except Exception as e:
-        logger.error(f"Failed to send email '{subject}' to {recipient_list}: {str(e)}")
+        logger.error(f"Failed to send email '{subject}' to {recipient_list} via both Proxy and SMTP: {str(e)}")
 
 def send_account_verified_email(user: SystemUser):
     """Notify user that their account is verified and prompt them to complete their profile."""
@@ -40,7 +65,7 @@ Thank you for joining the digital transformation of Zambia.
 Regards,
 ZAMREN Digital ID Team
     """
-    _send_email(subject, message, [user.email])
+    send_email(subject, message, [user.email])
 
 def send_identity_submitted_email(user: SystemUser):
     """Notify user that their identity submission is received."""
@@ -57,7 +82,7 @@ If your application is approved, you will be assigned your official Digital Iden
 Regards,
 ZAMREN Digital ID Team
     """
-    _send_email(subject, message, [user.email])
+    send_email(subject, message, [user.email])
 
 def notify_officers_of_pending_review(citizen_name: str):
     """Notify all Registration Officers that a new submission is pending."""
@@ -81,7 +106,7 @@ Portal Link: http://localhost:3000/officer/dashboard
 Regards,
 ZDID System Automator
     """
-    _send_email(subject, message, recipient_list)
+    send_email(subject, message, recipient_list)
 
 def send_enrollment_approved_email(user: SystemUser, din: str):
     """Notify user that their enrollment was approved."""
@@ -99,7 +124,7 @@ You can now view your Digital ID card in your wallet and use it to access online
 Regards,
 ZAMREN Digital ID Team
     """
-    _send_email(subject, message, [user.email])
+    send_email(subject, message, [user.email])
 
 def send_enrollment_rejected_email(user: SystemUser, reason: str):
     """Notify user that their enrollment was rejected."""
@@ -117,7 +142,7 @@ Please log in to your account, correct the issues mentioned above, and resubmit 
 Regards,
 ZAMREN Digital ID Team
     """
-    _send_email(subject, message, [user.email])
+    send_email(subject, message, [user.email])
 
 # --- Third-Party Institution Notifications ---
 
@@ -140,7 +165,7 @@ Thank you for your patience.
 Regards,
 ZDID Institutional Programme Team
     """
-    _send_email(subject, message, [email])
+    send_email(subject, message, [email])
 
 def notify_officers_of_third_party_pending(institution_name: str):
     """Notify all Registration Officers of a new institution application."""
@@ -162,7 +187,7 @@ This application requires your review and verification. Please log in to the Adm
 Regards,
 ZDID System Automator
     """
-    _send_email(subject, message, recipient_list)
+    send_email(subject, message, recipient_list)
 
 def send_third_party_approval_email(institution_name: str, email: str, institution_id: str):
     """Notify the third party that they are approved."""
@@ -186,7 +211,7 @@ Welcome to the network!
 Regards,
 ZDID Institutional Programme Team
     """
-    _send_email(subject, message, [email])
+    send_email(subject, message, [email])
 
 def send_notice_of_death_link_email(informant_email: str, informant_name: str, death_record_id: int, base_url: str = 'http://localhost:3000'):
     """
@@ -197,21 +222,19 @@ def send_notice_of_death_link_email(informant_email: str, informant_name: str, d
     subject = "Action Required: Submit Notice of Death Form"
     submission_url = f"{url}/submit-notice/{death_record_id}"
 
-    message = f"""
-    Hello {informant_name or 'there'},
+    message = f"""Hello {informant_name or 'there'},
 
-    A Medical Certificate of Cause of Death (MCCD) has been submitted for your case.
-    To complete the death registration process, you are required to submit the Notice of Death form.
+A Medical Certificate of Cause of Death (MCCD) has been submitted for your case.
+To complete the death registration process, you are required to submit the Notice of Death form.
 
-    Please click the link below to access and complete the form:
-    {submission_url}
+Please click the link below to access and complete the form:
+{submission_url}
 
-    This link is unique to your case reference. Please complete the form at your earliest convenience so the Registrar can process the documentation.
+This link is unique to your case reference. Please complete the form at your earliest convenience so the Registrar can process the documentation.
 
-    Regards,
-    ZAMREN Digital ID Team
-    """
-    _send_email(subject, message, [informant_email])
+Regards,
+ZAMREN Digital ID Team"""
+    send_email(subject, message, [informant_email])
 
 def send_partner_link_email(citizen_name: str, citizen_email: str, partner_name: str, permitted_scopes: list):
     """Notify the citizen that their account has been linked to a partner."""
@@ -238,7 +261,7 @@ If you did not authorize this action, please log in to your Digital ID Wallet im
 Regards,
 ZAMREN Digital ID Team
     """
-    _send_email(subject, message, [citizen_email])
+    send_email(subject, message, [citizen_email])
 
 def send_kyc_request_email(citizen_name: str, citizen_email: str, partner_name: str, requested_fields: list):
     """Notify the citizen that a third-party is requesting KYC data."""
@@ -260,4 +283,4 @@ Please log in to your Digital ID Wallet to review this request. You can choose t
 Regards,
 ZAMREN Digital ID Team
     """
-    _send_email(subject, message, [citizen_email])
+    send_email(subject, message, [citizen_email])

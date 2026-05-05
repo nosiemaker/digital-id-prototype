@@ -3,12 +3,11 @@ import secrets
 import logging
 from datetime import datetime, timedelta, timezone
 from django.contrib.auth.hashers import make_password, check_password
-from django.core.mail import send_mail
 from django.conf import settings
 from fastapi import HTTPException, status
 from admin_ops.models import SystemUser
 from Utils.audit_logger import audit
-from Utils.email_service import send_account_verified_email
+from Utils.email_service import send_account_verified_email, send_email
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +19,12 @@ def _generate_otp() -> str:
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
-
-
 def _deliver_otp_email(email: str, otp: str) -> None:
     """
-    Delivers the OTP via email using Django's send_mail.
+    Delivers the OTP via email using the centralized send_email helper.
     """
     subject = "Your ZAMREN Digital ID Verification Code"
-    message = f"""
-Hello,
+    message = f"""Hello,
 
 Your verification code for the ZAMREN Digital ID system is:
 
@@ -39,8 +35,7 @@ This code will expire in {OTP_TTL_MINUTES} minutes.
 If you did not request this code, please ignore this email.
 
 Regards,
-ZAMREN Digital ID Team
-    """
+ZAMREN Digital ID Team"""
     
     # Also log to console for development visibility
     border = "=" * 50
@@ -49,19 +44,7 @@ ZAMREN Digital ID Team
     print(f"  Code: {otp}")
     print(f"{border}\n")
 
-    try:
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
-        )
-    except Exception as e:
-        logger.error(f"Failed to send OTP email to {email}: {str(e)}")
-        # In development, we might not want to crash if email fails, 
-        # but in production this should be handled carefully.
-        # For now, we log and continue if in debug, but here we just log.
+    send_email(subject, message, [email])
 
 
 

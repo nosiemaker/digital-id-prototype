@@ -64,8 +64,8 @@ import { LinkPartnerModal } from "@/components/LinkPartnerModal"
 import { toast } from "sonner"
 
 
-interface QRPayload extends ApiQRPayload {}
-interface ServerPublicKey extends ServerPublicKeyResponse {}
+interface QRPayload extends ApiQRPayload { }
+interface ServerPublicKey extends ServerPublicKeyResponse { }
 
 /* ------------------------------------------------------------------ */
 // Sidebar & mock data (preserved from original)
@@ -134,16 +134,16 @@ function getPageSubtitle(tab: string) {
 // Sidebar Component
 /* ------------------------------------------------------------------ */
 
-function SidebarContent({ 
-  activeTab, 
-  setActiveTab, 
-  me, 
-  handleSignOut 
-}: { 
-  activeTab: string; 
-  setActiveTab: (tab: string) => void; 
-  me: any; 
-  handleSignOut: (e: React.MouseEvent) => void; 
+function SidebarContent({
+  activeTab,
+  setActiveTab,
+  me,
+  handleSignOut
+}: {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  me: any;
+  handleSignOut: (e: React.MouseEvent) => void;
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -162,9 +162,8 @@ function SidebarContent({
             <button
               key={link.id}
               onClick={() => setActiveTab(link.id)}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="flex-1 text-left">{link.label}</span>
@@ -207,15 +206,15 @@ export default function WalletPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [scanModalOpen, setScanModalOpen] = useState(false)
   const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
-  
+
   // Backend integration state
   const [digitalID, setDigitalID] = useState<ApiDigitalIDPayload | null>(null)
   const [digitalIDLoading, setDigitalIDLoading] = useState(false)
   const [digitalIDError, setDigitalIDError] = useState<string | null>(null)
-  
+
   const [qrPayload, setQrPayload] = useState<QRPayload | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
-  
+
   const [cardFlipped, setCardFlipped] = useState(false)
   const [serverPublicKey, setServerPublicKey] = useState<ServerPublicKey | null>(null)
 
@@ -256,7 +255,7 @@ export default function WalletPage() {
   // Determine citizen type based on age
   const getCitizenType = (dob: string, citizenType?: string): string => {
     if (citizenType) return citizenType
-    
+
     const age = calculateAge(dob)
     if (age < 16) return "CHILD_UNDER_16"
     if (age < 18) return "CHILD_ABOVE_16"
@@ -283,12 +282,12 @@ export default function WalletPage() {
     const date = new Date(timestamp);
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
+
     if (diffInSeconds < 60) return "just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-    
+
     return date.toLocaleDateString();
   }
 
@@ -299,7 +298,7 @@ export default function WalletPage() {
     setDigitalIDLoading(true)
     setDigitalIDError(null)
     try {
-     const response = await digitalIdApi.get(din)
+      const response = await digitalIdApi.get(din)
       setDigitalID(response.payload)
       localStorage.setItem("zdid_server_public_key", response.server_public_key);
     } catch (err: any) {
@@ -322,7 +321,7 @@ export default function WalletPage() {
     }
   }, [])
 
-  const handleUpdateprofile = async(updates: CitizenUpdate) => {
+  const handleUpdateprofile = async (updates: CitizenUpdate) => {
     if (!me?.citizen_din) return
     setSavingProfile(true)
 
@@ -332,7 +331,7 @@ export default function WalletPage() {
       setEditProfileModalOpen(false)
       toast.success("Profile updated successfully")
     } catch (err: any) {
-       alert(err?.response?.data?.detail || err?.message || "Failed to update profile")
+      alert(err?.response?.data?.detail || err?.message || "Failed to update profile")
     } finally {
       setSavingProfile(false)
     }
@@ -463,26 +462,26 @@ export default function WalletPage() {
   }, [activeTab, me?.citizen_din, fetchCitizenProfile])
 
   useEffect(() => {
-  const fetchLocations = async () => {
-    setLocationsLoading(true)
-    try {
-      const [provs, dists] = await Promise.all([
-        referenceApi.getProvinces(),
-        referenceApi.getDistricts() // Fetch all; modal filters by province_code
-      ])
-      setProvinces(provs)
-      setDistricts(dists)
-    } catch (err: any) {
-      console.error("Failed to fetch location reference data", err)
-    } finally {
-      setLocationsLoading(false)
+    const fetchLocations = async () => {
+      setLocationsLoading(true)
+      try {
+        const [provs, dists] = await Promise.all([
+          referenceApi.getProvinces(),
+          referenceApi.getDistricts() // Fetch all; modal filters by province_code
+        ])
+        setProvinces(provs)
+        setDistricts(dists)
+      } catch (err: any) {
+        console.error("Failed to fetch location reference data", err)
+      } finally {
+        setLocationsLoading(false)
+      }
     }
-  }
 
-  // Fetch when profile tab is active or modal opens
-  if ((activeTab === "profile" || editProfileModalOpen) && provinces.length === 0) {
-    fetchLocations()
-  }
+    // Fetch when profile tab is active or modal opens
+    if ((activeTab === "profile" || editProfileModalOpen) && provinces.length === 0) {
+      fetchLocations()
+    }
   }, [activeTab, editProfileModalOpen, provinces.length])
 
 
@@ -510,11 +509,11 @@ export default function WalletPage() {
     <div className="min-h-screen bg-background font-sans flex">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-card shrink-0 sticky top-0 h-screen">
-        <SidebarContent 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          me={me} 
-          handleSignOut={handleSignOut} 
+        <SidebarContent
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          me={me}
+          handleSignOut={handleSignOut}
         />
       </aside>
 
@@ -534,18 +533,18 @@ export default function WalletPage() {
                 <SheetHeader className="sr-only">
                   <SheetTitle>Navigation Menu</SheetTitle>
                 </SheetHeader>
-                <SidebarContent 
-                  activeTab={activeTab} 
+                <SidebarContent
+                  activeTab={activeTab}
                   setActiveTab={(tab) => {
                     setActiveTab(tab)
                     setSidebarOpen(false)
-                  }} 
-                  me={me} 
-                  handleSignOut={handleSignOut} 
+                  }}
+                  me={me}
+                  handleSignOut={handleSignOut}
                 />
               </SheetContent>
             </Sheet>
-            
+
             <div>
               <h1 className="text-base font-bold text-foreground">{getPageTitle(activeTab)}</h1>
               <p className="text-xs text-muted-foreground">{getPageSubtitle(activeTab)}</p>
@@ -616,7 +615,7 @@ export default function WalletPage() {
                   )}
                   {/* Integrated Digital ID Card */}
                   {enrollmentState === "ACTIVE" ? (
-                    <div className="rounded-2xl border border-primary/20 bg-[#0c0c0c] p-0 sm:p-6 shadow-2xl relative overflow-hidden">
+                    <div className="rounded-2xl border border-primary/20 bg-[#0c0c0c] p-0 sm:p-6 shadow-2xl relative overflow-hidden min-h-[220px]">
                       {/* Chitenge background pattern */}
                       <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-0">
                         <svg viewBox="0 0 680 700" className="w-full h-full" preserveAspectRatio="xMidYMid slice">
@@ -676,9 +675,6 @@ export default function WalletPage() {
                             <p className="text-[10px] text-muted-foreground">Republic of Zambia</p>
                           </div>
                         </div>
-                        <span className="text-xs text-amber-400 font-semibold bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-                          {enrollmentState}
-                        </span>
                       </div>
                       <div className="flex gap-5 mb-6">
                         <div className="h-20 w-20 rounded-xl bg-secondary flex items-center justify-center shrink-0 border border-border overflow-hidden">
@@ -689,7 +685,6 @@ export default function WalletPage() {
                         <div className="flex-1 space-y-1">
                           <p className="text-xl font-bold text-foreground">{me.name}</p>
                           <p className="text-xs text-muted-foreground">{me.email}</p>
-                          <p className="text-xs text-muted-foreground">Status: {enrollmentState}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -883,9 +878,9 @@ export default function WalletPage() {
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">District / Province</p>
                               <p className="text-sm font-medium text-foreground">
-                                   {citizenData?.district 
-                                    ? `${citizenData.district.name}, ${citizenData.district.province?.name || ""}` 
-                                   : "—"}
+                                {citizenData?.district
+                                  ? `${citizenData.district.name}, ${citizenData.district.province?.name || ""}`
+                                  : "—"}
                               </p>
                             </div>
                           </div>
@@ -984,7 +979,7 @@ export default function WalletPage() {
                         <span className="text-xs text-muted-foreground">{logsTotal} total events</span>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                       {!logsLoading && logs.length === 0 && (
                         <div className="text-center py-12 bg-secondary/20 rounded-2xl border border-dashed border-border">
@@ -992,7 +987,7 @@ export default function WalletPage() {
                           <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
                         </div>
                       )}
-                      
+
                       {logs.map((item) => (
                         <div key={item.id} className="flex items-start gap-4 p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/30 transition-colors">
                           <div className={`mt-1 h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${item.outcome === 'SUCCESS' ? 'bg-primary/10' : 'bg-destructive/10'}`}>
@@ -1004,7 +999,7 @@ export default function WalletPage() {
                               <span className="text-[10px] font-medium text-muted-foreground">{getRelativeTime(item.timestamp)}</span>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {item.actor_role === 'CITIZEN' ? 'You initiated this action' : `This action was performed by a ${item.actor_role}`} 
+                              {item.actor_role === 'CITIZEN' ? 'You initiated this action' : `This action was performed by a ${item.actor_role}`}
                               {item.target_type !== 'CITIZEN' && ` on ${item.target_type.toLowerCase()}`}
                             </p>
                             <div className="mt-2 flex items-center gap-2">
@@ -1021,9 +1016,9 @@ export default function WalletPage() {
 
                     {logsTotal > 20 && (
                       <div className="mt-6 flex items-center justify-center gap-2">
-                         <button className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">Previous</button>
-                         <button className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg">1</button>
-                         <button className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">Next</button>
+                        <button className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">Previous</button>
+                        <button className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg">1</button>
+                        <button className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">Next</button>
                       </div>
                     )}
                   </div>
@@ -1083,11 +1078,10 @@ export default function WalletPage() {
                           const isLinked = linkedPartners.some((l) => l.institution_id === inst.id)
                           const isLinking = linkingId === inst.id
                           return (
-                            <div key={inst.id} className={`group rounded-2xl border p-5 transition-all duration-300 ${
-                              isLinked
+                            <div key={inst.id} className={`group rounded-2xl border p-5 transition-all duration-300 ${isLinked
                                 ? "border-primary/50 bg-primary/5"
                                 : "border-border bg-secondary/20 hover:border-primary/40"
-                            }`}>
+                              }`}>
                               <div className="flex items-start justify-between mb-4">
                                 <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
                                   <Building2 className="h-6 w-6 text-primary" />
@@ -1113,11 +1107,10 @@ export default function WalletPage() {
                               <button
                                 onClick={() => !isLinked && handleLinkPartner(inst)}
                                 disabled={isLinked || isLinking}
-                                className={`w-full py-2.5 rounded-lg text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
-                                  isLinked
+                                className={`w-full py-2.5 rounded-lg text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 ${isLinked
                                     ? "bg-emerald-400/10 text-emerald-400 cursor-default border border-emerald-400/20"
                                     : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                                }`}
+                                  }`}
                               >
                                 {isLinking ? (
                                   <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Linking...</>
@@ -1269,10 +1262,10 @@ export default function WalletPage() {
           district_id: citizenData?.district?.id,
           province_id: citizenData?.district?.province?.id,
         }}
-         onSave={handleUpdateprofile}
-         isSaving={savingProfile}
-         provinces={provinces}
-         districts={districts}
+        onSave={handleUpdateprofile}
+        isSaving={savingProfile}
+        provinces={provinces}
+        districts={districts}
       />
     </div>
   )

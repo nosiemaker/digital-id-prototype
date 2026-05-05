@@ -15,7 +15,7 @@ import { useRoleGuard } from '@/hooks/use-role-guard'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
-  DocumentViewerDialog,
+  DocumentViewer,
   BIRTH_FULL_PACK_ENDPOINT,
   DEATH_FULL_PACK_ENDPOINT,
   type StreamingEndpoint,
@@ -288,17 +288,22 @@ export default function HealthWorkerDashboard() {
       </div>
 
       {/* Document Viewer */}
-      {viewerEndpoint && viewerRecordId && (
-        <DocumentViewerDialog
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
-          endpoint={viewerEndpoint}
-          recordId={viewerRecordId}
-          recordName={viewerRecordName}
-          token={token}
-          status="APPROVED"
-        />
-      )}
+{/* Full-Screen Document Viewer */}
+{viewerOpen && viewerEndpoint && viewerRecordId && (
+  <DocumentViewer
+    onClose={() => {
+      setViewerOpen(false)
+      setViewerEndpoint(null)
+      setViewerRecordId(null)
+      setViewerRecordName("")
+    }}
+    endpoint={viewerEndpoint}
+    recordId={viewerRecordId}
+    recordName={viewerRecordName || undefined}
+    token={token}
+    status={(birthSubmissions?.find((r: any) => r.id === viewerRecordId) || deathSubmissions?.find((r: any) => r.id === viewerRecordId))?.status || "PENDING"}
+  />
+  )}
     </div>
   )
 }

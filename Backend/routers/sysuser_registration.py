@@ -103,7 +103,7 @@ async def get_pending(request_id: int,request: Request,user=Depends(require_grou
 # Expects the permitted data scope in the request body.
 # Only accessible to users with the REGISTRAR role.
 @third_party_router.put("/{request_id}/approve")
-async def approve_third_party(request_id: int,body: ThirdPartyApprovalRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.REGISTRATION_OFFICER]))):
+async def approve_third_party(request_id: int,body: ThirdPartyApprovalRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.REGISTRATION_OFFICER, UserRole.SUPERVISOR]))):
     result = await sync_to_async(approve_third_party_registration)(request_id, user["id"], body.permitted_scope)
     return result
 
@@ -111,7 +111,7 @@ async def approve_third_party(request_id: int,body: ThirdPartyApprovalRequest,re
 # Requires a rejection reason in the request body.
 # Only accessible to users with the REGISTRAR role.
 @third_party_router.put("/{request_id}/reject")
-async def reject_third_party(request_id: int,body: RejectionRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.REGISTRATION_OFFICER]))):
+async def reject_third_party(request_id: int,body: RejectionRequest,request: Request,user=Depends(require_groups([UserRole.REGISTRAR, UserRole.REGISTRATION_OFFICER, UserRole.SUPERVISOR]))):
     result = await sync_to_async(reject_third_party_registration)(
         request_id, user["id"], body.rejection_reason
     )

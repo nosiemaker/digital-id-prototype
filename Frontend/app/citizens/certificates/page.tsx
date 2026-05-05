@@ -43,7 +43,7 @@ import { useRoleGuard } from "@/hooks/use-role-guard"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
-  DocumentViewerDialog,
+  DocumentViewer,
   BIRTH_CERTIFICATE_ENDPOINT,
   DEATH_CERTIFICATES_ENDPOINT,
   type StreamingEndpoint,
@@ -68,6 +68,7 @@ interface BirthCertificate {
   date_of_registration: string
   registrar_name: string
   birth_records_id: number
+  status?: string
 }
 
 interface DeathCertificate {
@@ -87,6 +88,7 @@ interface DeathCertificate {
   date_of_registration: string
   registrar_general_name: string
   death_records_id: number
+  status?: string
 }
 
 interface BurialPermit {
@@ -478,15 +480,14 @@ export default function CitizenCertificatesPage() {
       </Tabs>
 
       {/* Document Viewer Dialog */}
-      {viewerEndpoint && viewerRecordId && (
-        <DocumentViewerDialog
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
+      {viewerOpen && viewerEndpoint && viewerRecordId && (
+        <DocumentViewer
+          onClose={() => setViewerOpen(false)}
           endpoint={viewerEndpoint}
           recordId={viewerRecordId}
-          recordName={viewerRecordName}
+          recordName={viewerRecordName || undefined}
           token={token}
-          status="APPROVED"
+          status={(birthCerts?.find((r: any) => r.id === viewerRecordId) || deathCerts?.find((r: any) => r.id === viewerRecordId))?.status || "APPROVED"}
         />
       )}
     </div>

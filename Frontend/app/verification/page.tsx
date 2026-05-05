@@ -239,7 +239,7 @@ export default function VerifyOTPPage() {
                 {/* Back to sign up */}
                 <p className="mt-6 text-center text-xs text-muted-foreground">
                     Wrong email?{" "}
-                    <Link href="/signup" className="text-primary font-medium hover:underline">
+                    <Link href="/register" className="text-primary font-medium hover:underline">
                         Start over
                     </Link>
                 </p>
