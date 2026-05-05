@@ -77,14 +77,12 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions = new String[]{
                 Manifest.permission.CAMERA,
-                Manifest.permission.NFC,
                 Manifest.permission.READ_MEDIA_IMAGES,
                 Manifest.permission.READ_MEDIA_VIDEO,
             };
         } else {
             permissions = new String[]{
                 Manifest.permission.CAMERA,
-                Manifest.permission.NFC,
                 Manifest.permission.READ_EXTERNAL_STORAGE,
             };
         }
