@@ -14,6 +14,7 @@ import {
   UserCog, 
   Building2, 
   TrendingUp,
+  QrCode,
   LogOut,
   ChevronRight
 } from "lucide-react"
@@ -33,6 +34,7 @@ const iconMap: Record<string, React.ElementType> = {
   UserCog,
   Building2,
   TrendingUp,
+  QrCode,
 }
 
 interface AdminSidebarProps {
