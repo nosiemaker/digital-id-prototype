@@ -93,13 +93,26 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
   const [result, setResult] = useState<ScannedIDResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment")
+  const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("user")
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const animFrameRef = useRef<number>(0)
   const activeRef = useRef(false)
+
+  // Set video srcObject when stream changes
+  useEffect(() => {
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current
+      videoRef.current.load()
+      setTimeout(() => {
+        videoRef.current?.play().catch(() => {
+          // Ignore play errors
+        })
+      }, 100)
+    }
+  }, [streamRef.current])
 
   const stopCamera = useCallback(() => {
     activeRef.current = false
@@ -134,13 +147,25 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: cameraFacing, width: { ideal: 640 }, height: { ideal: 480 } },
-      })
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: cameraFacing, width: { ideal: 640 }, height: { ideal: 480 } },
+        })
+      } catch {
+        // Fallback: try without facingMode (for devices that don't support it)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        })
+      }
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
+      if (!stream.active) {
+        throw new Error("Camera stream is not active")
+      }
+      // Check if we have video tracks
+      const videoTracks = stream.getVideoTracks()
+      if (videoTracks.length === 0) {
+        throw new Error("No video tracks available")
       }
       setScanState("scanning")
       activeRef.current = true
