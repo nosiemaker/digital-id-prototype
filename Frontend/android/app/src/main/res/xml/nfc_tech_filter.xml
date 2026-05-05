@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    NFC Technology Filter for Digital ID App
+    Defines which NFC tag technologies this app can read/write.
+    Each <tech-list> is an AND group; multiple <tech-list> entries are OR groups.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- ISO 14443-4 (Type A & B) — common in government ID chips (ePassports, smart cards) -->
+    <tech-list>
+        <tech>android.nfc.tech.IsoDep</tech>
+    </tech-list>
+
+    <!-- NDEF — standard format for NFC tags (used in QR-linked tap payloads) -->
+    <tech-list>
+        <tech>android.nfc.tech.Ndef</tech>
+    </tech-list>
+
+    <!-- NDEF Formatable — for blank tags that need to be formatted first -->
+    <tech-list>
+        <tech>android.nfc.tech.NdefFormatable</tech>
+    </tech-list>
+
+    <!-- NFC-A (ISO 14443-3A) — Mifare, NFC Forum Type 1 & 2 tags -->
+    <tech-list>
+        <tech>android.nfc.tech.NfcA</tech>
+    </tech-list>
+
+    <!-- NFC-B (ISO 14443-3B) — used in some government ID cards -->
+    <tech-list>
+        <tech>android.nfc.tech.NfcB</tech>
+    </tech-list>
+
+    <!-- NFC-F (JIS 6319-4 / FeliCa) -->
+    <tech-list>
+        <tech>android.nfc.tech.NfcF</tech>
+    </tech-list>
+
+    <!-- NFC-V (ISO 15693) — vicinity cards -->
+    <tech-list>
+        <tech>android.nfc.tech.NfcV</tech>
+    </tech-list>
+
+</resources>
