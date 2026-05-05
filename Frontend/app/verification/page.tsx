@@ -77,6 +77,7 @@ export default function VerifyOTPPage() {
         e.preventDefault()
         const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH)
         if (!pasted) return
+
         const next = Array(OTP_LENGTH).fill("")
         pasted.split("").forEach((ch, i) => { next[i] = ch })
         setDigits(next)
@@ -86,29 +87,40 @@ export default function VerifyOTPPage() {
     }
 
     // ── Submit ────────────────────────────────────────────────────────────────
-
     const handleVerify = useCallback(async () => {
-        if (otp.length < OTP_LENGTH) return
+        if (isVerifying || digits.includes("")) return
         setIsVerifying(true)
         setApiError(null)
 
         try {
-            await authApi.verifyOtp({ email, otp })
-            setSuccessMsg("Email verified! Redirecting to sign in…")
-            setTimeout(() => router.push("/login"), 1_500)
+            const res = await authApi.verifyOtp({ email, otp: digits.join("") })
+
+            const isSuccess = res.is_email_verified === true
+
+            if (isSuccess) {
+                    setSuccessMsg("Email verified! Redirecting to sign in…")
+                    setTimeout(() => router.push("/login"), 1_500)
+            } else {
+                (res.message || "Invalid or expired code. Please try again.")
+                setDigits(Array(OTP_LENGTH).fill(""))
+                inputRefs.current[0]?.focus()
+            }
         } catch (err: any) {
-            setApiError(err?.detail ?? "Invalid or expired code. Please try again.")
+            const msg = err?.detail ?? "Invalid or expired code. Please try again."
+            setApiError(msg)
+            setDigits(Array(OTP_LENGTH).fill(""))
+            inputRefs.current[0]?.focus()
         } finally {
             setIsVerifying(false)
         }
-    }, [otp, email, router])
+    }, [digits, otp, email, router])
 
     // Auto-submit when all digits filled
     useEffect(() => {
-        if (otp.length === OTP_LENGTH && !digits.includes("")) {
+        if (!digits.includes("") && !isVerifying) {
             handleVerify()
         }
-    }, [otp, digits, handleVerify])
+    }, [isVerifying, digits, handleVerify])
 
     // ── Resend ────────────────────────────────────────────────────────────────
 
