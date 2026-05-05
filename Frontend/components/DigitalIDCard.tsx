@@ -46,10 +46,10 @@ const formatCitizenType = (type: string): string => {
 const ZambiaOfficialSeal = ({ className = "", style }: { className?: string; style?: React.CSSProperties }) => (
   <div className={`rounded-full overflow-hidden border flex items-center justify-center bg-white ${className}`} style={{ ...style, borderColor: style?.borderColor }}>
     {/* ZAMREN Logo */}
-    <img 
-      src="/assets/zamren_logo.png" 
-      alt="ZAMREN Logo" 
-      className="w-full h-full object-contain p-0.5" 
+    <img
+      src="/assets/zamren_logo.png"
+      alt="ZAMREN Logo"
+      className="w-full h-full object-contain p-0.5"
     />
   </div>
 )
@@ -57,10 +57,10 @@ const ZambiaOfficialSeal = ({ className = "", style }: { className?: string; sty
 const CoatOfArmsWatermark = () => (
   <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none z-0 select-none">
     {/* Image 0: The Coat of Arms */}
-    <img 
-      src="/assets/coat_of_arm.png" 
-      alt="Zambia Coat of Arms Watermark" 
-      className="w-[80%] h-[80%] grayscale" 
+    <img
+      src="/assets/coat_of_arm.png"
+      alt="Zambia Coat of Arms Watermark"
+      className="w-[80%] h-[80%] grayscale"
     />
   </div>
 )
@@ -164,15 +164,15 @@ export default function DigitalIDCard({
       {/* Vault Housing */}
       <div className="relative w-full rounded-[22px] p-2.5" style={{ background: `linear-gradient(145deg, ${c.cardBg}, #0a0c0b)` }}>
         <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-[140px] h-[3px] rounded-b-md" style={{ background: `linear-gradient(90deg, transparent, ${c.border}, transparent)` }} />
-        
+
         <div className="flex items-center justify-center gap-2 mb-3 mt-1">
           <div className="h-px flex-1 rounded-full" style={{ backgroundColor: "#1e2a22" }} />
-          
+
           {/* UPDATED: Official Seal instead of generic icon */}
           <div className="w-10 h-10 rounded-full border-2 shadow-[0_0_12px_rgba(75,83,32,0.2)] overflow-hidden flex items-center justify-center" style={{ borderColor: c.accent, background: "#0d1410" }}>
             <ZambiaOfficialSeal className="w-full h-full" style={{ borderColor: c.accent }} />
           </div>
-          
+
           <span className="text-[11px] uppercase tracking-[0.12em] font-semibold" style={{ color: c.accent }}>Republic of Zambia</span>
           <div className="h-px flex-1 rounded-full" style={{ backgroundColor: "#1e2a22" }} />
         </div>
@@ -190,19 +190,19 @@ export default function DigitalIDCard({
                 transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)"
               }}
             >
-              
+
               {/* FRONT FACE */}
               <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ backfaceVisibility: "hidden", background: c.bg, border: `1px solid ${c.border}` }}>
-                
+
                 {/* Chitenge Watermark */}
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-                   <svg width="100%" height="100%">
-                      <pattern id="card-chitenge" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-                         <path d="M0 20 L10 0 L20 20 L10 40 Z" fill="none" stroke={c.accent} strokeWidth="0.5" />
-                         <circle cx="10" cy="20" r="3" fill="none" stroke={c.accent} strokeWidth="0.3" />
-                      </pattern>
-                      <rect width="100%" height="100%" fill="url(#card-chitenge)" />
-                   </svg>
+                  <svg width="100%" height="100%">
+                    <pattern id="card-chitenge" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                      <path d="M0 20 L10 0 L20 20 L10 40 Z" fill="none" stroke={c.accent} strokeWidth="0.5" />
+                      <circle cx="10" cy="20" r="3" fill="none" stroke={c.accent} strokeWidth="0.3" />
+                    </pattern>
+                    <rect width="100%" height="100%" fill="url(#card-chitenge)" />
+                  </svg>
                 </div>
                 <CoatOfArmsWatermark />
 
@@ -234,22 +234,22 @@ export default function DigitalIDCard({
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="text-right">
-                       <div className="text-[9px] uppercase tracking-[0.1em]" style={{ color: c.label }}>Status</div>
-                       <div className="text-[11px] font-bold text-primary flex items-center justify-end gap-1">
-                          <div className="h-1 w-1 rounded-full bg-primary animate-ping" />
-                          {status}
-                       </div>
-                       
-                       {/* NFC Icon below status using the provided image */}
-                       <div className="flex items-center justify-end mt-2 opacity-80">
-                         <img 
-                           src="/assets/nfc_icon.png" 
-                           alt="NFC" 
-                           className="h-10 w-auto grayscale invert brightness-200"
-                           style={{ opacity: 0.9 }}
-                         />
+                      <div className="text-[9px] uppercase tracking-[0.1em]" style={{ color: c.label }}>Status</div>
+                      <div className="text-[11px] font-bold text-primary flex items-center justify-end gap-1">
+                        <div className="h-1 w-1 rounded-full bg-primary animate-ping" />
+                        {status}
+                      </div>
+
+                      {/* NFC Icon below status using the provided image */}
+                      <div className="flex items-center justify-end mt-2 opacity-80">
+                        <img
+                          src="/assets/nfc_icon.png"
+                          alt="NFC"
+                          className="h-10 w-auto grayscale invert brightness-200"
+                          style={{ opacity: 0.9 }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -258,32 +258,32 @@ export default function DigitalIDCard({
                   <div className="mt-1 sm:mt-2">
                     <div className="text-sm sm:text-sm font-bold uppercase tracking-wide text-foreground truncate" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
                       {displayName}
-                      </div>
+                    </div>
 
                     <div className="flex items-center justify-between mt-0.5 sm:mt-1">
                       <div>
                         <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.12em] mb-0.5"
-                         style={{ color: c.label }}>
+                          style={{ color: c.label }}>
                           Digital ID Number (DIN)
-                          </div>
-                        <div 
-                        className="text-base sm:text-xl font-bold tracking-wider font-mono"
-                         style={{ color: c.accent, textShadow: "0 1px 1px rgba(0,0,0,0.8)" }}>
+                        </div>
+                        <div
+                          className="text-base sm:text-xl font-bold tracking-wider font-mono"
+                          style={{ color: c.accent, textShadow: "0 1px 1px rgba(0,0,0,0.8)" }}>
                           {din}
-                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                    <div className="flex justify-between items-end mt-auto">
-                      <div className="flex gap-3 sm:gap-6">
-                        <div>
-                          <div 
+                  <div className="flex justify-between items-end mt-auto">
+                    <div className="flex gap-3 sm:gap-6">
+                      <div>
+                        <div
                           className="text-[8px] sm:text-[10px] uppercase tracking-[0.12em] truncate" style={{ color: c.label }}>Issue Date</div>
-                          <div className="text-[9px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—"}</div>
-                        </div>
+                        <div className="text-[9px] sm:text-[11px] font-medium mt-px truncate" style={{ color: c.text }}>{digitalID?.issued_at ? new Date(digitalID.issued_at).toLocaleDateString("en-GB") : "—"}</div>
                       </div>
                     </div>
+                  </div>
                 </div>
               </div>
 
@@ -297,7 +297,7 @@ export default function DigitalIDCard({
                     </div>
                     <span className="text-[9px] tracking-wide" style={{ color: c.muted }}>v2.4.1</span>
                   </div>
-                  
+
                   <div className="flex gap-4 items-start flex-1">
                     <div className="shrink-0 flex flex-col items-center">
                       <div className="text-[9px] uppercase tracking-[0.1em] mb-1.5" style={{ color: c.muted }}>Scan to verify</div>
@@ -312,11 +312,11 @@ export default function DigitalIDCard({
                       )}
                       {qrPayload && (
                         <div className="text-[8px] font-mono mt-1 opacity-50" style={{ color: c.muted }}>
-                          TTL: {Math.floor((qrPayload.exp - Date.now()/1000))}s
+                          TTL: {Math.floor((qrPayload.exp - Date.now() / 1000))}s
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex-1 grid grid-cols-1 gap-2">
                       <div className="space-y-2">
                         <div>
@@ -350,8 +350,8 @@ export default function DigitalIDCard({
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                         <span className="text-[8px] uppercase tracking-[0.1em]" style={{ color: c.muted }}>Tamper-evident</span>
-                         <div className="h-2 w-2 rounded-full bg-primary/20 animate-pulse" />
+                        <span className="text-[8px] uppercase tracking-[0.1em]" style={{ color: c.muted }}>Tamper-evident</span>
+                        <div className="h-2 w-2 rounded-full bg-primary/20 animate-pulse" />
                       </div>
                     </div>
                   </div>
@@ -368,11 +368,11 @@ export default function DigitalIDCard({
           { icon: <Share2 className="h-4 w-4" />, label: "Share ID", onClick: handleShareID },
           { icon: <Copy className="h-4 w-4" />, label: "Copy DIN", onClick: handleCopyDIN },
           { icon: <FileText className="h-4 w-4" />, label: "Export PDF", onClick: () => alert("PDF Generation triggered") },
-          { 
-            icon: qrLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <QrCodeIcon className="h-4 w-4" />, 
-            label: qrPayload ? "Refresh QR" : "Generate QR", 
-            onClick: onGenerateQR, 
-            disabled: qrLoading 
+          {
+            icon: qrLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <QrCodeIcon className="h-4 w-4" />,
+            label: qrPayload ? "Refresh QR" : "Generate QR",
+            onClick: onGenerateQR,
+            disabled: qrLoading
           }
         ].map((btn, i) => (
           <button
