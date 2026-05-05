@@ -2,7 +2,8 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Optional, Annotated
+
 
 
 # -------------------------------------------------------------------
@@ -36,8 +37,8 @@ class AccountCreateRequest(BaseModel):
     Creates a SystemUser and sends an email OTP.
     No citizen data yet — just identity credentials.
     """
-    email:    EmailStr
-    password: str = Field(..., min_length=8, description="Plaintext — hashed server-side")
+    email:    Annotated[Optional[EmailStr], Field(None, max_length=254,description="Optional email address. If omitted, username generated from NRC.")]
+    password: Optional[str] = Field(None, min_length=8, description="Plaintext — hashed server-side")
 
 
 class AccountCreateResponse(BaseModel):
@@ -89,7 +90,7 @@ class IdentitySubmitRequest(BaseModel):
     nrc_front_url:  Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC front image")
     nrc_back_url:   Optional[str] = Field(None, max_length=500, description="URL to uploaded NRC back image")
     face_image_url: Optional[str] = Field(None, max_length=500, description="URL to uploaded face photo")
-    public_key:     str  = Field(..., description="PEM-encoded ECDSA P-256 public key from WebCrypto")
+    public_key:     Optional[str]  = Field(None, description="PEM-encoded ECDSA P-256 public key from WebCrypto")
     language:       str  = Field(default="en", description="Preferred language code")
 
 class IdentitySubmitResponse(BaseModel):
