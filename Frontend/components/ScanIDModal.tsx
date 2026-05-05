@@ -26,6 +26,7 @@ import {
   Copy,
   Check,
 } from "lucide-react"
+import jsQR from "jsqr"
 
 interface ScannedIDResult {
   raw: string
@@ -240,9 +241,14 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
           animFrameRef.current = requestAnimationFrame(scanFrame)
         })
     } else {
-      // Fallback: try reading text from image data using basic scan
-      // Just keep looping — user can also use Upload Image option
-      animFrameRef.current = requestAnimationFrame(scanFrame)
+      // Fallback: use jsQR library for QR code detection
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const code = jsQR(imageData.data, imageData.width, imageData.height)
+      if (code) {
+        onDetected(code.data)
+      } else {
+        animFrameRef.current = requestAnimationFrame(scanFrame)
+      }
     }
   }
 
@@ -275,8 +281,15 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
           setErrorMsg("Failed to read the image. Please try again.")
         }
       } else {
-        setScanState("error")
-        setErrorMsg("QR detection not supported in this browser. Please use Chrome or Edge.")
+        // Fallback: use jsQR for uploaded images
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const code = jsQR(imageData.data, imageData.width, imageData.height)
+        if (code) {
+          onDetected(code.data)
+        } else {
+          setScanState("error")
+          setErrorMsg("No QR code found in the image. Try a clearer photo.")
+        }
       }
     }
   }
