@@ -310,6 +310,8 @@ def ro_create_citizen(body: IdentitySubmitRequest, ro_id: int) -> dict:
             meta={"nrc": body.nrc, "username": username}
         )
 
+        notify_officers_of_pending_review(citizen.full_name)
+
         return {
             "user_id": user.id,
             "citizen_id": citizen.id,
