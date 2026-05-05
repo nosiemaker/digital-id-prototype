@@ -771,6 +771,46 @@ export default function WalletPage() {
                     </div>
                   )}
 
+                  {/* Credit Score */}
+                  {enrollmentState === "ACTIVE" && (
+                    <div className="rounded-2xl border border-border bg-card p-6 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+                      <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                        <div className="relative flex items-center justify-center h-28 w-28 shrink-0">
+                          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="18" cy="18" r="16" fill="none" className="stroke-secondary" strokeWidth="2.5"></circle>
+                            <circle cx="18" cy="18" r="16" fill="none" className="stroke-primary" strokeWidth="2.5" strokeDasharray="100" strokeDashoffset="16" strokeLinecap="round"></circle>
+                          </svg>
+                          <div className="absolute flex flex-col items-center justify-center text-center mt-1">
+                            <span className="text-3xl font-black text-foreground">720</span>
+                            <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest mt-0.5">Score</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 text-center sm:text-left space-y-3 w-full">
+                          <div>
+                            <h2 className="text-lg font-bold text-foreground flex items-center justify-center sm:justify-start gap-2">
+                              Financial Credit Score
+                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                GOOD
+                              </span>
+                            </h2>
+                            <p className="text-xs text-muted-foreground mt-1">Based on your integrated financial and civil records.</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="rounded-xl bg-secondary/50 p-3">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Next Update</p>
+                              <p className="text-sm font-semibold text-foreground">15 Jun 2026</p>
+                            </div>
+                            <div className="rounded-xl bg-secondary/50 p-3">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Estimated Limit</p>
+                              <p className="text-sm font-semibold text-foreground">ZMW 50,000</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Recent Activity */}
                   <div className="rounded-2xl border border-border bg-card p-6">
                     <div className="flex items-center justify-between mb-4">
