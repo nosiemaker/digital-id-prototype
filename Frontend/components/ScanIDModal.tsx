@@ -36,6 +36,7 @@ interface ScannedIDResult {
   verified?: boolean
   email?: string
   phone?: string
+  isValid: boolean
 }
 
 interface ScanIDModalProps {
@@ -50,7 +51,7 @@ type ScanState = "idle" | "requesting" | "scanning" | "success" | "error" | "uns
 /* ------------------------------------------------------------------ */
 
 function parseQRPayload(raw: string): ScannedIDResult {
-  const result: ScannedIDResult = { raw }
+  const result: ScannedIDResult = { raw, isValid: false }
 
   // Try JSON first
   try {
@@ -64,6 +65,7 @@ function parseQRPayload(raw: string): ScannedIDResult {
         phone: parsed.phone,
         issuer: "Contact Share",
         verified: false,
+        isValid: true,
       }
     }
     // Default ID parsing
@@ -76,13 +78,14 @@ function parseQRPayload(raw: string): ScannedIDResult {
         : parsed.expiry,
       issuer: parsed.iss ?? parsed.issuer ?? "ZDID Registry",
       verified: true,
+      isValid: true,
     }
   } catch (_) {}
 
   // Try zdid:// URL scheme
   if (raw.startsWith("zdid://")) {
     const din = raw.replace("zdid://", "").split("?")[0]
-    return { raw, din, issuer: "ZDID Registry", verified: true }
+    return { raw, din, issuer: "ZDID Registry", verified: true, isValid: true }
   }
 
   // Try verify URL: https://verify.zdid.gov.zm?din=...
@@ -90,12 +93,12 @@ function parseQRPayload(raw: string): ScannedIDResult {
     try {
       const url = new URL(raw.startsWith("http") ? raw : `https://dummy.com?${raw}`)
       const din = url.searchParams.get("din")
-      if (din) return { raw, din, issuer: "ZDID Registry", verified: true }
+      if (din) return { raw, din, issuer: "ZDID Registry", verified: true, isValid: true }
     } catch (_) {}
   }
 
-  // Fallback — show raw
-  return { raw, verified: false }
+  // Fallback — invalid
+  return { raw, isValid: false }
 }
 
 /* ------------------------------------------------------------------ */
@@ -436,82 +439,105 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
                   </div>
                 </div>
 
-                {/* Parsed ID card */}
-                <div className="rounded-xl border border-border bg-secondary/30 overflow-hidden">
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-secondary/50">
-                    <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center">
-                      <User className="h-4 w-4 text-primary" />
+                {result.isValid ? (
+                  <>
+                    {/* Parsed ID card */}
+                    <div className="rounded-xl border border-border bg-secondary/30 overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-secondary/50">
+                        <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center">
+                          <User className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-foreground">{result.name || "Unknown Holder"}</p>
+                          <p className="text-[10px] text-muted-foreground">{result.issuer || "ZDID Registry"}</p>
+                        </div>
+                        {result.verified && (
+                          <div className="flex items-center gap-1 bg-primary text-primary-foreground rounded-full px-2.5 py-1 text-[10px] font-bold">
+                            <Shield className="h-3 w-3" /> Verified
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-4 py-3 space-y-2.5">
+                        {result.din && (
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Digital ID (DIN)</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-mono font-bold text-foreground">{result.din}</p>
+                              <button onClick={() => copyText(result.din!)} className="text-primary hover:text-primary/70 transition-colors">
+                                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {result.expiry && (
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expires</p>
+                            <p className="text-xs font-mono text-foreground">{result.expiry}</p>
+                          </div>
+                        )}
+                        {result.email && (
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Email</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-mono text-foreground">{result.email}</p>
+                              <button onClick={() => copyText(result.email!)} className="text-primary hover:text-primary/70 transition-colors">
+                                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {result.phone && (
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-mono text-foreground">{result.phone}</p>
+                              <button onClick={() => copyText(result.phone!)} className="text-primary hover:text-primary/70 transition-colors">
+                                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {!result.din && !result.email && !result.phone && (
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Raw Data</p>
+                            <p className="text-xs font-mono text-foreground break-all bg-secondary/50 rounded-lg px-3 py-2">{result.raw}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-foreground">{result.name || "Unknown Holder"}</p>
-                      <p className="text-[10px] text-muted-foreground">{result.issuer || "ZDID Registry"}</p>
-                    </div>
-                    {result.verified && (
-                      <div className="flex items-center gap-1 bg-primary text-primary-foreground rounded-full px-2.5 py-1 text-[10px] font-bold">
-                        <Shield className="h-3 w-3" /> Verified
-                      </div>
-                    )}
-                  </div>
-                  <div className="px-4 py-3 space-y-2.5">
-                    {result.din && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Digital ID (DIN)</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-mono font-bold text-foreground">{result.din}</p>
-                          <button onClick={() => copyText(result.din!)} className="text-primary hover:text-primary/70 transition-colors">
-                            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          </button>
+
+                    {/* Share button */}
+                    <button
+                      onClick={() => {
+                        const details = `Name: ${result.name || "Unknown"}\nDIN: ${result.din || "N/A"}\nIssuer: ${result.issuer || "ZDID Registry"}\nVerified: ${result.verified ? "Yes" : "No"}${result.expiry ? `\nExpires: ${result.expiry}` : ""}${result.email ? `\nEmail: ${result.email}` : ""}${result.phone ? `\nPhone: ${result.phone}` : ""}`
+                        copyText(details)
+                      }}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-secondary border border-border py-2.5 text-sm font-bold text-foreground hover:bg-secondary/80 transition-colors"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Share Contact Details
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Invalid QR */}
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3 border-b border-destructive/20 bg-destructive/20">
+                        <div className="h-9 w-9 rounded-full bg-destructive/15 flex items-center justify-center">
+                          <AlertTriangle className="h-4 w-4 text-destructive" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-destructive">Invalid QR Code</p>
+                          <p className="text-[10px] text-destructive/80">This QR code is not recognized by the system.</p>
                         </div>
                       </div>
-                    )}
-                    {result.expiry && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Expires</p>
-                        <p className="text-xs font-mono text-foreground">{result.expiry}</p>
-                      </div>
-                    )}
-                    {result.email && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Email</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-mono text-foreground">{result.email}</p>
-                          <button onClick={() => copyText(result.email!)} className="text-primary hover:text-primary/70 transition-colors">
-                            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {result.phone && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-mono text-foreground">{result.phone}</p>
-                          <button onClick={() => copyText(result.phone!)} className="text-primary hover:text-primary/70 transition-colors">
-                            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {!result.din && !result.email && !result.phone && (
-                      <div>
+                      <div className="px-4 py-3">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Raw Data</p>
                         <p className="text-xs font-mono text-foreground break-all bg-secondary/50 rounded-lg px-3 py-2">{result.raw}</p>
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Share button */}
-                <button
-                  onClick={() => {
-                    const details = `Name: ${result.name || "Unknown"}\nDIN: ${result.din || "N/A"}\nIssuer: ${result.issuer || "ZDID Registry"}\nVerified: ${result.verified ? "Yes" : "No"}${result.expiry ? `\nExpires: ${result.expiry}` : ""}${result.email ? `\nEmail: ${result.email}` : ""}${result.phone ? `\nPhone: ${result.phone}` : ""}`
-                    copyText(details)
-                  }}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-secondary border border-border py-2.5 text-sm font-bold text-foreground hover:bg-secondary/80 transition-colors"
-                >
-                  <Copy className="h-4 w-4" />
-                  Share Contact Details
-                </button>
+                    </div>
+                  </>
+                )}
 
                 <button
                   onClick={() => { setResult(null); setScanState("idle") }}
