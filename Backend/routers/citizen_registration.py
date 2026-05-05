@@ -6,9 +6,10 @@
 from fastapi import APIRouter, Request, status, Depends, HTTPException
 from asgiref.sync import sync_to_async
 
+from admin_ops.models import SystemUser
 from registration.schema import EnrollmentRejection
 from registration.services.citizen_registration import (approve_citizen_registration, reject_citizen_registration
-, get_all_pending, get_single_pending)
+, get_all_pending, get_single_pending, ro_create_citizen)
 from dependencies.auth import require_groups, UserRole
 from admin_ops.schema import (
     AccountCreateResponse,
@@ -83,6 +84,11 @@ async def resend_otp(body: ResendOTPRequest):
     """
     results = await sync_to_async(resend_otp_service)(str(body.email))
     return results
+
+@router.post("/ro/register-citizen")
+async def ro_register(data: IdentitySubmitRequest, current_user= Depends(require_groups([UserRole.REGISTRATION_OFFICER]))):
+    return await sync_to_async(ro_create_citizen)(data, ro_id=current_user["id"])
+
 
 # === Phase 2: Identity Submission ====
 @router.post(

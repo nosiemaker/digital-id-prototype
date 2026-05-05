@@ -4,6 +4,8 @@ import type {
   IdentitySubmitResponse,
   EnrollmentRequestResponse,
   EnrollmentRejection,
+  ROCitizenRegistrationResponse,
+  ROCitizenRegistrationRequest,
 } from '../../utils/types';
 
 export const enrollmentApi = {
@@ -31,4 +33,9 @@ export const enrollmentApi = {
     const { data } = await axiosInstance.put<EnrollmentRequestResponse>(`/enrollments/${requestId}/request_reject`, body);
     return data;
   },
+    roRegisterCitizen: async (body: ROCitizenRegistrationRequest): Promise<ROCitizenRegistrationResponse> => {
+    const { data } = await axiosInstance.post<ROCitizenRegistrationResponse>('/enrollments/ro/register-citizen', body);
+    return data;
+  },
 };
+

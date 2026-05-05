@@ -279,6 +279,32 @@ export interface EnrollmentRejection {
   rejection_reason: string;
 }
 
+// ====== RO-Assisted Registration ======
+export interface ROCitizenRegistrationRequest {
+  nrc: string;
+  full_name: string;
+  dob: string;                    // YYYY-MM-DD
+  gender: Gender;
+  district_id: number;
+  phone?: string;
+  residential_address?: string;
+  language?: Language;
+  public_key: string;             // PEM-encoded
+  nrc_front_url?: string;
+  nrc_back_url?: string;
+  face_image_url?: string;
+}
+
+export interface ROCitizenRegistrationResponse {
+  user_id: number;
+  citizen_id: number;
+  enrollment_request_id: number;
+  username: string;
+  default_password: string;
+  must_change_password: boolean;
+  message: string;
+}
+
 // ====== Digital ID =====
 
 export interface DigitalIDPayload {

@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { Eye, Clock, CheckCircle2, XCircle, Search, Loader2 } from "lucide-react"
+import { Eye, Clock, CheckCircle2, XCircle, Search, Loader2, Plus } from "lucide-react"
 import { enrollmentApi, type EnrollmentRequestResponse } from "@/lib/axios"
+import { AddCitizenModal } from "@/components/AddCitizenModel"
 
 const statusColors: Record<string, string> = {
   APPROVED: "bg-primary/15 text-primary",
@@ -21,6 +22,7 @@ export default function RegistrationsPage() {
   const [requests, setRequests] = useState<EnrollmentRequestResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [addModalOpen, setAddModalOpen] = useState(false)
 
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState("All")
@@ -50,6 +52,13 @@ export default function RegistrationsPage() {
         <div>
           <h1 className="text-base font-bold text-foreground">Registrations</h1>
           <p className="text-xs text-muted-foreground">Review and process incoming applications</p>
+           <button
+              onClick={() => setAddModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+            >
+              <Plus className="h-4 w-4" />
+              Add Citizen
+            </button>
         </div>
       </div>
 
@@ -170,8 +179,19 @@ export default function RegistrationsPage() {
               </table>
             </div>
           )}
-        </div>
-      </div>
+          </div>
+          </div>
+
+          <AddCitizenModal
+            open={addModalOpen}
+            onClose={() => setAddModalOpen(false)}
+            onCitizenAdded={() => {
+              // Refresh the pending list automatically
+              enrollmentApi.getPendingRequests()
+                .then(setRequests)
+                .catch(console.error)
+            }}
+          />
     </div>
   )
 }
