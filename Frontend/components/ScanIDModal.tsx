@@ -34,6 +34,8 @@ interface ScannedIDResult {
   expiry?: string
   issuer?: string
   verified?: boolean
+  email?: string
+  phone?: string
 }
 
 interface ScanIDModalProps {
@@ -50,9 +52,21 @@ type ScanState = "idle" | "requesting" | "scanning" | "success" | "error" | "uns
 function parseQRPayload(raw: string): ScannedIDResult {
   const result: ScannedIDResult = { raw }
 
-  // Try JSON first (our signed payload format)
+  // Try JSON first
   try {
     const parsed = JSON.parse(raw)
+    if (parsed.type === "contact") {
+      return {
+        raw,
+        name: parsed.name,
+        din: parsed.din,
+        email: parsed.email,
+        phone: parsed.phone,
+        issuer: "Contact Share",
+        verified: false,
+      }
+    }
+    // Default ID parsing
     return {
       raw,
       din: parsed.din ?? parsed.citizen_din ?? parsed.sub,
@@ -456,7 +470,29 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
                         <p className="text-xs font-mono text-foreground">{result.expiry}</p>
                       </div>
                     )}
-                    {!result.din && (
+                    {result.email && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Email</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-mono text-foreground">{result.email}</p>
+                          <button onClick={() => copyText(result.email!)} className="text-primary hover:text-primary/70 transition-colors">
+                            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {result.phone && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-mono text-foreground">{result.phone}</p>
+                          <button onClick={() => copyText(result.phone!)} className="text-primary hover:text-primary/70 transition-colors">
+                            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!result.din && !result.email && !result.phone && (
                       <div>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Raw Data</p>
                         <p className="text-xs font-mono text-foreground break-all bg-secondary/50 rounded-lg px-3 py-2">{result.raw}</p>
@@ -464,6 +500,18 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
                     )}
                   </div>
                 </div>
+
+                {/* Share button */}
+                <button
+                  onClick={() => {
+                    const details = `Name: ${result.name || "Unknown"}\nDIN: ${result.din || "N/A"}\nIssuer: ${result.issuer || "ZDID Registry"}\nVerified: ${result.verified ? "Yes" : "No"}${result.expiry ? `\nExpires: ${result.expiry}` : ""}${result.email ? `\nEmail: ${result.email}` : ""}${result.phone ? `\nPhone: ${result.phone}` : ""}`
+                    copyText(details)
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-secondary border border-border py-2.5 text-sm font-bold text-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  <Copy className="h-4 w-4" />
+                  Share Contact Details
+                </button>
 
                 <button
                   onClick={() => { setResult(null); setScanState("idle") }}

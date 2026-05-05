@@ -67,6 +67,7 @@ import { ShareIDModal } from "@/components/ShareIDModal"
 import { ScanIDModal } from "@/components/ScanIDModal"
 import { EditProfileModal } from "@/components/EditProfileModal"
 import { LinkPartnerModal } from "@/components/LinkPartnerModal"
+import { ContactShareModal } from "@/components/ContactShareModal"
 import { toast } from "sonner"
 
 
@@ -211,6 +212,7 @@ export default function WalletPage() {
   const { me, enrollmentState, loading: meLoading, error: meError } = useMe()
   const [activeTab, setActiveTab] = useState("wallet")
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [contactShareModalOpen, setContactShareModalOpen] = useState(false)
   const [scanModalOpen, setScanModalOpen] = useState(false)
   const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
 
@@ -736,13 +738,20 @@ export default function WalletPage() {
 
                   {/* Share ID Action Row */}
                   {enrollmentState === "ACTIVE" && me?.citizen_din && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <button
                         onClick={() => setShareModalOpen(true)}
                         className="group flex items-center justify-center gap-2.5 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all duration-150 shadow-lg shadow-primary/20"
                       >
                         <Share2 className="h-4 w-4" />
                         Share My ID
+                      </button>
+                      <button
+                        onClick={() => setContactShareModalOpen(true)}
+                        className="group flex items-center justify-center gap-2.5 rounded-xl bg-secondary border border-border px-4 py-3 text-sm font-bold text-foreground hover:border-primary/40 hover:bg-secondary/80 active:scale-[0.98] transition-all duration-150"
+                      >
+                        <User className="h-4 w-4 text-primary" />
+                        Share Contact
                       </button>
                       <button
                         onClick={() => setScanModalOpen(true)}
@@ -1332,6 +1341,13 @@ export default function WalletPage() {
         onGenerateQR={handleGenerateQR}
         din={me?.citizen_din ?? null}
         name={me?.name ?? ""}
+      />
+
+      {/* Contact Share Modal */}
+      <ContactShareModal
+        open={contactShareModalOpen}
+        onClose={() => setContactShareModalOpen(false)}
+        me={me}
       />
 
       {/* Scan ID Modal */}
