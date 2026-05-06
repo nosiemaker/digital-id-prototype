@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
-from .models import SystemUser, UserRole, ThirdPartyEnrollmentRequest
+from .models import SystemUser, UserRole, ThirdPartyEnrollmentRequest, UssdUser
 from registration.models import EnrollmentStatus
 from .services.user_management import approve_third_party_registration
 
@@ -67,3 +67,32 @@ class ThirdPartyEnrollmentRequestAdmin(admin.ModelAdmin):
                 f"Successfully approved {success_count} requests and created accounts.", 
                 level=messages.SUCCESS
             )
+
+
+@admin.register(UssdUser)
+class UssdUserAdmin(admin.ModelAdmin):
+    list_display = ('phone', 'get_citizen_name', 'get_citizen_nrc', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('phone', 'citizen__full_name', 'citizen__nrc', 'citizen__din')
+    readonly_fields = ('created_at', 'updated_at', 'password_hash')
+    fieldsets = (
+        ('Account Info', {
+            'fields': ('phone', 'citizen', 'is_active')
+        }),
+        ('Security', {
+            'fields': ('password_hash',),
+            'classes': ('collapse',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    @admin.display(description="Citizen Name", ordering='citizen__full_name')
+    def get_citizen_name(self, obj):
+        return obj.citizen.full_name if obj.citizen else '—'
+
+    @admin.display(description="NRC", ordering='citizen__nrc')
+    def get_citizen_nrc(self, obj):
+        return obj.citizen.nrc if obj.citizen else '—'

@@ -25,7 +25,13 @@
 #   Registrar Officer (RO) rejects  → status=REJECTED, rejection_reason stored
 
 from django.db import models
+from django.utils import timezone
 from citizens.models import Citizen
+
+
+# =============================================================================
+# USSD USER MODEL - For USSD login via phone number + password
+# =============================================================================
 
 
 # ============================================================================
@@ -984,3 +990,5 @@ class OfflineSyncQueue(models.Model):
         ]
     def __str__(self):
         return f"Sync [{self.event_type}] from {self.device_id} — {self.status}"
+
+
