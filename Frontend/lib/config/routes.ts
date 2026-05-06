@@ -45,6 +45,13 @@ export const sidebarRoutes: RouteConfig[] = [
     description: "Review and process citizen enrollment applications",
   },
   {
+    path: "/admin/qr-verify",
+    label: "QR Verify",
+    icon: "QrCode",
+    allowedRoles: ["REGISTRATION_OFFICER"],
+    description: "Scan and verify citizen QR codes",
+  },
+  {
     path: "/admin/analytics",
     label: "Analysis",
     icon: "BarChart3",

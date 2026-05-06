@@ -30,6 +30,7 @@ const AVAILABLE_SCOPES = [
 
 export default function AdminInstitutionsPage() {
   const [requests, setRequests] = useState<any[]>([])
+  const [approvedInstitutions, setApprovedInstitutions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["full_name", "nrc"])
@@ -38,6 +39,7 @@ export default function AdminInstitutionsPage() {
 
   useEffect(() => {
     fetchRequests()
+    fetchApproved()
   }, [])
 
   async function fetchRequests() {
@@ -50,6 +52,16 @@ export default function AdminInstitutionsPage() {
       toast.error("Failed to load institution requests")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchApproved() {
+    try {
+      const data = await thirdPartyApi.getActive()
+      setApprovedInstitutions(data)
+    } catch (err) {
+      console.error(err)
+      // Don't show error toast for approved institutions, just log
     }
   }
 
@@ -69,6 +81,7 @@ export default function AdminInstitutionsPage() {
       toast.success(`${selectedRequest.third_party_institution_details?.name || "Institution"} has been approved.`)
       setSelectedRequest(null)
       fetchRequests()
+      fetchApproved()
     } catch (err: any) {
       console.error("Approval error:", err)
       const detail = err.response?.data?.detail || err.message || "Approval failed"
@@ -298,6 +311,51 @@ export default function AdminInstitutionsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Approved Institutions Section */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-bold">Approved Institutions</h3>
+            <p className="text-sm text-muted-foreground mt-1">Institutions with active data access permissions.</p>
+          </div>
+          <div className="flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {approvedInstitutions.length} Active Partners
+          </div>
+        </div>
+
+        {approvedInstitutions.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {approvedInstitutions.map((inst) => (
+              <div key={inst.id} className="p-4 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold">{inst.third_party_institution_details?.name || inst.name}</h4>
+                    <p className="text-xs text-muted-foreground">REG: {inst.third_party_institution_details?.reg_number || inst.reg_number}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Scopes:</span> {inst.permitted_scope?.join(", ") || "None specified"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Approved:</span> {new Date(inst.approved_at || inst.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center rounded-lg border border-dashed border-border bg-secondary/20">
+            <ShieldCheck className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-xs text-muted-foreground">No approved institutions yet.</p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -117,7 +117,11 @@ export function ShareIDModal({
     } catch (err: any) {
       if (err?.name === "AbortError") return
       setNfcState("error")
-      setNfcError(err?.message || "NFC write failed. Make sure NFC is enabled and hold your device near the tag.")
+      if (err?.message?.includes("permission") || err?.message?.includes("denied") || err?.message?.includes("NotAllowedError")) {
+        setNfcError("NFC access denied. Please enable NFC on your device (Settings > NFC) and grant NFC permission to this app if prompted.")
+      } else {
+        setNfcError(err?.message || "NFC write failed. Make sure NFC is enabled on your device and hold it near the tag.")
+      }
     }
   }
 
