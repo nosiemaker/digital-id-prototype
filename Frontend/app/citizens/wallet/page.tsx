@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, use } from "react"
 import { tokenStore, referenceApi, citizenApi, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, kycApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type AuditLog, CitizenResponse, ProvinceOption, DistrictOption } from "@/lib/axios"
 import type { CitizenUpdate, PartnerLinkResponse } from "@/utils/types"
 import { motion } from "framer-motion"
+import { pickFile } from "@/lib/utils"
 
 
 import {
@@ -1588,18 +1589,22 @@ function AddFamilyMemberModal({
           <div className="space-y-2">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Supporting Document</label>
             <div className="relative group">
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-              <div className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 transition-colors ${file ? "border-primary/50 bg-primary/5" : "border-border group-hover:border-primary/30 bg-secondary/20"}`}>
+              <button
+                type="button"
+                onClick={async () => {
+                  const pickedFile = await pickFile('image/*,application/pdf')
+                  if (pickedFile) {
+                    setFile(pickedFile)
+                  }
+                }}
+                className="w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 transition-colors hover:border-primary/30 bg-secondary/20 group-hover:bg-secondary/30"
+              >
                 <Upload className={`h-6 w-6 ${file ? "text-primary" : "text-muted-foreground"}`} />
                 <span className="text-xs font-medium text-foreground">
-                  {file ? file.name : "Click or drag to upload document"}
+                  {file ? file.name : "Tap to select document"}
                 </span>
                 <span className="text-[10px] text-muted-foreground uppercase">Birth Cert, Marriage Cert, etc. (PDF/JPG)</span>
-              </div>
+              </button>
             </div>
           </div>
         </div>
