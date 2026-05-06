@@ -118,6 +118,17 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
   const streamRef = useRef<MediaStream | null>(null)
   const animFrameRef = useRef<number>(0)
   const activeRef = useRef(false)
+  const barcodeDetectorRef = useRef<any>(null)
+
+  useEffect(() => {
+    if ("BarcodeDetector" in window) {
+      try {
+        barcodeDetectorRef.current = new (window as any).BarcodeDetector({ formats: ["qr_code"] })
+      } catch (e) {
+        console.warn("BarcodeDetector init failed:", e)
+      }
+    }
+  }, [])
 
   // Set video srcObject when stream changes
   useEffect(() => {
@@ -211,6 +222,16 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
     setScanState("success")
   }
 
+  function fallbackJsQR(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR(imageData.data, imageData.width, imageData.height)
+    if (code) {
+      onDetected(code.data)
+    } else {
+      animFrameRef.current = requestAnimationFrame(scanFrame)
+    }
+  }
+
   function scanFrame() {
     if (!activeRef.current) return
     const video = videoRef.current
@@ -227,9 +248,8 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    // Prefer native BarcodeDetector
-    if ("BarcodeDetector" in window) {
-      ;(window as any).BarcodeDetector.detect(canvas)
+    if (barcodeDetectorRef.current) {
+      barcodeDetectorRef.current.detect(canvas)
         .then((barcodes: any[]) => {
           if (barcodes.length > 0) {
             onDetected(barcodes[0].rawValue)
@@ -237,18 +257,20 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
             animFrameRef.current = requestAnimationFrame(scanFrame)
           }
         })
-        .catch(() => {
-          animFrameRef.current = requestAnimationFrame(scanFrame)
-        })
+        .catch(() => fallbackJsQR(ctx, canvas))
     } else {
-      // Fallback: use jsQR library for QR code detection
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height)
-      if (code) {
-        onDetected(code.data)
-      } else {
-        animFrameRef.current = requestAnimationFrame(scanFrame)
-      }
+      fallbackJsQR(ctx, canvas)
+    }
+  }
+
+  function runJsQRFallbackForImage(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR(imageData.data, imageData.width, imageData.height)
+    if (code) {
+      onDetected(code.data)
+    } else {
+      setScanState("error")
+      setErrorMsg("No QR code found in the image. Try a clearer photo.")
     }
   }
 
@@ -267,9 +289,9 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
       const ctx = canvas.getContext("2d")!
       ctx.drawImage(img, 0, 0)
 
-      if ("BarcodeDetector" in window) {
+      if (barcodeDetectorRef.current) {
         try {
-          const barcodes = await (window as any).BarcodeDetector.detect(canvas)
+          const barcodes = await barcodeDetectorRef.current.detect(canvas)
           if (barcodes.length > 0) {
             onDetected(barcodes[0].rawValue)
           } else {
@@ -277,19 +299,10 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
             setErrorMsg("No QR code found in the image. Try a clearer photo.")
           }
         } catch {
-          setScanState("error")
-          setErrorMsg("Failed to read the image. Please try again.")
+          runJsQRFallbackForImage(ctx, canvas)
         }
       } else {
-        // Fallback: use jsQR for uploaded images
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const code = jsQR(imageData.data, imageData.width, imageData.height)
-        if (code) {
-          onDetected(code.data)
-        } else {
-          setScanState("error")
-          setErrorMsg("No QR code found in the image. Try a clearer photo.")
-        }
+        runJsQRFallbackForImage(ctx, canvas)
       }
     }
   }
