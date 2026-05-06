@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { FileText, Download, X, Loader2, AlertCircle, Eye } from "lucide-react"
+import { FileText, Download, X, Loader2, AlertCircle, Eye, ChevronDown } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,10 +12,6 @@ import { cn } from "@/lib/utils"
 // MULTIPART PDF PARSER
 // ============================================================================
 
-/**
- * Parses a multipart/form-data ArrayBuffer into a Map of part name → Uint8Array.
- * This is required because the backend streams multiple PDFs in a single response.
- */
 function parseMultipart(buffer: ArrayBuffer, boundary: string): Map<string, Uint8Array> {
   const bytes = new Uint8Array(buffer)
   const decoder = new TextDecoder()
@@ -24,7 +20,6 @@ function parseMultipart(buffer: ArrayBuffer, boundary: string): Map<string, Uint
   const boundaryBytes = new TextEncoder().encode(`--${boundary}`)
   const positions: number[] = []
 
-  // Find all boundary positions
   outer: for (let i = 0; i < bytes.length - boundaryBytes.length; i++) {
     for (let j = 0; j < boundaryBytes.length; j++) {
       if (bytes[i + j] !== boundaryBytes[j]) continue outer
@@ -33,8 +28,8 @@ function parseMultipart(buffer: ArrayBuffer, boundary: string): Map<string, Uint
   }
 
   for (let p = 0; p < positions.length - 1; p++) {
-    const start = positions[p] + boundaryBytes.length + 2 // skip \r\n
-    const end = positions[p + 1] - 2 // trim trailing \r\n
+    const start = positions[p] + boundaryBytes.length + 2
+    const end = positions[p + 1] - 2
 
     const chunk = bytes.slice(start, end)
     const chunkText = decoder.decode(chunk)
@@ -55,10 +50,6 @@ function parseMultipart(buffer: ArrayBuffer, boundary: string): Map<string, Uint
   return parts
 }
 
-/**
- * Creates a temporary blob URL for a PDF Uint8Array.
- * Caller must call URL.revokeObjectURL(url) when done.
- */
 function pdfToUrl(uint8Array: Uint8Array): string {
   const buffer = uint8Array.buffer.slice(0, uint8Array.byteLength) as ArrayBuffer
   const blob = new Blob([buffer], { type: 'application/pdf' })
@@ -86,7 +77,6 @@ export interface StreamingEndpoint {
 }
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
-
 
 export const BIRTH_REVIEW_ENDPOINT: StreamingEndpoint = {
   url: (id: number) => `${API_BASE}/births/${id}/review`,
@@ -169,7 +159,6 @@ export function useDocumentStream() {
   const [activeDoc, setActiveDoc] = useState<string | null>(null)
   const documentsRef = useRef<Map<string, string>>(new Map())
 
-  // Keep ref in sync with state
   useEffect(() => {
     documentsRef.current = documents
   }, [documents])
@@ -198,13 +187,11 @@ export function useDocumentStream() {
       const newDocs = new Map<string, string>()
 
       if (endpoint.isSinglePdf) {
-        // Single PDF stream — read directly
         const buffer = await res.arrayBuffer()
         const url = pdfToUrl(new Uint8Array(buffer))
         newDocs.set(endpoint.parts[0].name, url)
         setActiveDoc(endpoint.parts[0].name)
       } else {
-        // Multipart — parse boundary and extract parts
         const contentType = res.headers.get('Content-Type') || ''
         const boundaryMatch = contentType.match(/boundary=(.+)/)
         if (!boundaryMatch) {
@@ -222,14 +209,12 @@ export function useDocumentStream() {
           }
         }
 
-        // Set first available as active
         const firstAvailable = endpoint.parts.find(p => newDocs.has(p.name))
         if (firstAvailable) setActiveDoc(firstAvailable.name)
       }
 
       setDocuments(newDocs)
 
-      // Check if any expected parts are missing
       const missing = endpoint.parts.filter(p => !newDocs.has(p.name)).map(p => p.label)
       if (missing.length > 0) {
         console.warn('Missing document parts:', missing)
@@ -256,7 +241,6 @@ export function useDocumentStream() {
   const downloadDocument = useCallback((part: DocumentPart) => {
     const url = documentsRef.current.get(part.name)
     if (!url) return
-
     const a = document.createElement('a')
     a.href = url
     a.download = part.filename
@@ -285,8 +269,9 @@ export function useDocumentStream() {
 }
 
 // ============================================================================
-// COMPONENT: DocumentViewer (Full-Screen Overlay)
+// COMPONENT: DocumentViewer (Responsive Full-Screen Overlay)
 // ============================================================================
+
 interface DocumentViewerProps {
   onClose: () => void
   endpoint: StreamingEndpoint
@@ -326,51 +311,82 @@ export function DocumentViewer({
   const activePart = endpoint.parts.find(p => p.name === activeDoc)
   const availableParts = endpoint.parts.filter(p => documents.has(p.name))
   const missingParts = endpoint.parts.filter(p => !documents.has(p.name))
+  // Shorten label for tabs on mobile
+  const shortLabel = (label: string) => label.split('(')[0].trim()
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background h-screen w-screen overflow-hidden">
-      {/* Header */}
-      <header className="px-6 py-4 border-b border-border bg-muted/20 shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              {recordName || "Document Viewer"}
-            </h2>
-            {status && (
-              <Badge variant="outline" className={cn(
-                "mt-1 text-xs",
-                status === "APPROVED" && "border-green-500/30 bg-green-500/10 text-green-500",
-                status === "PENDING" && "border-yellow-500/30 bg-yellow-500/10 text-yellow-500",
-                status === "REJECTED" && "border-red-500/30 bg-red-500/10 text-red-500",
-              )}>
-                {status}
-              </Badge>
-            )}
+    <div className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden">
+
+      {/* ── Header ── */}
+      <header className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border bg-muted/20 shrink-0">
+        <div className="flex items-center justify-between gap-2">
+
+          {/* Title + badge */}
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+            <div className="min-w-0">
+              {/* MOBILE: truncate long names */}
+              <h2 className="text-sm sm:text-lg font-semibold truncate leading-tight">
+                {recordName || "Document Viewer"}
+              </h2>
+              {status && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] sm:text-xs mt-0.5",
+                    status === "APPROVED" && "border-green-500/30 bg-green-500/10 text-green-500",
+                    status === "PENDING" && "border-yellow-500/30 bg-yellow-500/10 text-yellow-500",
+                    status === "REJECTED" && "border-red-500/30 bg-red-500/10 text-red-500",
+                  )}
+                >
+                  {status}
+                </Badge>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {availableParts.length > 1 && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => downloadAll(endpoint.parts)}
-                className="h-8"
+                className="h-8 text-xs sm:text-sm px-2 sm:px-3"
               >
-                <Download className="h-3.5 w-3.5 mr-1.5" />
-                Download All
+                <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+                {/* MOBILE: icon-only; SM+: label */}
+                <span className="hidden sm:inline">Download All</span>
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+            {/* MOBILE: download active doc individually */}
+            {activePart && availableParts.length === 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadDocument(activePart)}
+                className="h-8 px-2 sm:hidden"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Layout */}
+      {/* ── Body: sidebar (desktop) / tab bar (mobile) + viewer ── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 border-r border-border bg-muted/10 flex flex-col shrink-0">
+
+        {/* ── DESKTOP SIDEBAR (hidden on mobile) ── */}
+        <div className="hidden sm:flex w-60 lg:w-64 border-r border-border bg-muted/10 flex-col shrink-0">
           <div className="p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Documents ({availableParts.length}/{endpoint.parts.length})
           </div>
@@ -385,21 +401,38 @@ export function DocumentViewer({
                   disabled={!isAvailable || loading}
                   className={cn(
                     "w-full text-left px-4 py-3 border-b border-border transition-colors flex items-center gap-2",
-                    isActive ? "bg-primary/10 border-l-2 border-l-primary" : "border-l-2 border-l-transparent hover:bg-muted/30",
+                    isActive
+                      ? "bg-primary/10 border-l-2 border-l-primary"
+                      : "border-l-2 border-l-transparent hover:bg-muted/30",
                     !isAvailable && "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  <FileText className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
-                  <div className="min-w-0">
-                    <p className={cn("text-sm font-medium truncate", isActive ? "text-primary" : "text-foreground")}>
+                  <FileText
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      isActive ? "text-primary" : "text-muted-foreground"
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={cn(
+                        "text-sm font-medium truncate",
+                        isActive ? "text-primary" : "text-foreground"
+                      )}
+                    >
                       {part.label}
                     </p>
-                    {!isAvailable && <p className="text-xs text-muted-foreground">Not available</p>}
+                    {!isAvailable && (
+                      <p className="text-xs text-muted-foreground">Not available</p>
+                    )}
                   </div>
                   {isAvailable && (
                     <Download
-                      className="h-3.5 w-3.5 ml-auto shrink-0 text-muted-foreground hover:text-primary cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); downloadDocument(part) }}
+                      className="h-3.5 w-3.5 shrink-0 text-muted-foreground hover:text-primary cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        downloadDocument(part)
+                      }}
                     />
                   )}
                 </button>
@@ -409,45 +442,87 @@ export function DocumentViewer({
           {missingParts.length > 0 && (
             <div className="p-3 border-t border-border">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
+                <AlertCircle className="h-3 w-3 shrink-0" />
                 {missingParts.length} document{missingParts.length > 1 ? 's' : ''} missing
               </p>
             </div>
           )}
         </div>
 
-        {/* PDF Viewer */}
-        <div className="flex-1 bg-muted/20 relative">
-          {loading ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Generating documents...</p>
-            </div>
-          ) : error ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8">
-              <AlertCircle className="h-10 w-10 text-red-500" />
-              <p className="text-sm font-medium text-red-600">{error}</p>
-              <p className="text-xs text-muted-foreground text-center max-w-md">
-                The documents could not be generated. This may happen if the record is missing required sub-documents or is not in the correct status.
-              </p>
-            </div>
-          ) : activeDoc && documents.get(activeDoc) ? (
-            <iframe
-              src={documents.get(activeDoc)!}
-              className="w-full h-full border-0"
-              title={activePart?.label || "Document"}
-            />
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <Eye className="h-10 w-10 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">Select a document to view</p>
+        {/* ── Main column: PDF viewer + mobile tab bar ── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* ── MOBILE TAB BAR (hidden on desktop) ── */}
+          {endpoint.parts.length > 1 && (
+            <div className="sm:hidden flex border-b border-border bg-muted/10 overflow-x-auto shrink-0 scrollbar-hide">
+              {endpoint.parts.map((part) => {
+                const isAvailable = documents.has(part.name)
+                const isActive = activeDoc === part.name
+                return (
+                  <button
+                    key={part.name}
+                    onClick={() => isAvailable && setActiveDoc(part.name)}
+                    disabled={!isAvailable || loading}
+                    className={cn(
+                      "flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors",
+                      isActive
+                        ? "border-primary text-primary bg-primary/5"
+                        : "border-transparent text-muted-foreground hover:text-foreground",
+                      !isAvailable && "opacity-40 cursor-not-allowed"
+                    )}
+                  >
+                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                    {shortLabel(part.label)}
+                    {isAvailable && (
+                      <Download
+                        className="h-3 w-3 ml-0.5 opacity-60"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          downloadDocument(part)
+                        }}
+                      />
+                    )}
+                  </button>
+                )
+              })}
             </div>
           )}
+
+          {/* ── PDF Viewer ── */}
+          <div className="flex-1 bg-muted/20 relative overflow-hidden">
+            {loading ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Generating documents…</p>
+              </div>
+            ) : error ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 sm:p-8">
+                <AlertCircle className="h-10 w-10 text-red-500 shrink-0" />
+                <p className="text-sm font-medium text-red-600 text-center">{error}</p>
+                <p className="text-xs text-muted-foreground text-center max-w-md">
+                  The documents could not be generated. This may happen if the record is missing
+                  required sub-documents or is not in the correct status.
+                </p>
+              </div>
+            ) : activeDoc && documents.get(activeDoc) ? (
+              <iframe
+                src={documents.get(activeDoc)!}
+                className="w-full h-full border-0"
+                title={activePart?.label || "Document"}
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <Eye className="h-10 w-10 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">Select a document to view</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
+
 // ============================================================================
 // COMPONENT: DocumentActionButtons
 // ============================================================================
@@ -478,7 +553,7 @@ export function BirthDocumentActions({
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1 flex-wrap", className)}>
       {status === "PENDING" && (
         <Button
           variant="ghost"
@@ -486,8 +561,8 @@ export function BirthDocumentActions({
           className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
           onClick={() => openViewer(BIRTH_REVIEW_ENDPOINT)}
         >
-          <Eye className="h-4 w-4 mr-1" />
-          Review Docs
+          <Eye className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Review Docs</span>
         </Button>
       )}
 
@@ -499,8 +574,8 @@ export function BirthDocumentActions({
             className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
             onClick={() => openViewer(BIRTH_CERTIFICATE_ENDPOINT)}
           >
-            <FileText className="h-4 w-4 mr-1" />
-            Certificate
+            <FileText className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Certificate</span>
           </Button>
           <Button
             variant="ghost"
@@ -508,23 +583,23 @@ export function BirthDocumentActions({
             className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
             onClick={() => openViewer(BIRTH_FULL_PACK_ENDPOINT)}
           >
-            <Download className="h-4 w-4 mr-1" />
-            Full Pack
+            <Download className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Full Pack</span>
           </Button>
         </>
       )}
 
       {activeEndpoint && (
         <DocumentViewer
-    onClose={() => {
-      setViewerOpen(false)
-      setActiveEndpoint(null)
-      }}
-      endpoint={activeEndpoint}
-      recordId={recordId}
-      recordName={recordName}
-      token={token}
-      status={status}
+          onClose={() => {
+            setViewerOpen(false)
+            setActiveEndpoint(null)
+          }}
+          endpoint={activeEndpoint}
+          recordId={recordId}
+          recordName={recordName}
+          token={token}
+          status={status}
         />
       )}
     </div>
@@ -548,7 +623,7 @@ export function DeathDocumentActions({
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1 flex-wrap", className)}>
       {status === "PENDING" && (
         <Button
           variant="ghost"
@@ -556,8 +631,8 @@ export function DeathDocumentActions({
           className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
           onClick={() => openViewer(DEATH_REVIEW_ENDPOINT)}
         >
-          <Eye className="h-4 w-4 mr-1" />
-          Review Docs
+          <Eye className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Review Docs</span>
         </Button>
       )}
 
@@ -569,8 +644,8 @@ export function DeathDocumentActions({
             className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
             onClick={() => openViewer(DEATH_CERTIFICATES_ENDPOINT)}
           >
-            <FileText className="h-4 w-4 mr-1" />
-            Certificates
+            <FileText className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Certificates</span>
           </Button>
           <Button
             variant="ghost"
@@ -578,15 +653,18 @@ export function DeathDocumentActions({
             className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
             onClick={() => openViewer(DEATH_FULL_PACK_ENDPOINT)}
           >
-            <Download className="h-4 w-4 mr-1" />
-            Full Pack
+            <Download className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Full Pack</span>
           </Button>
         </>
       )}
 
-      {activeEndpoint && viewerOpen && (
+      {activeEndpoint && (
         <DocumentViewer
-          onClose={() => { setViewerOpen(false); setActiveEndpoint(null) }}
+          onClose={() => {
+            setViewerOpen(false)
+            setActiveEndpoint(null)
+          }}
           endpoint={activeEndpoint}
           recordId={recordId}
           recordName={recordName}

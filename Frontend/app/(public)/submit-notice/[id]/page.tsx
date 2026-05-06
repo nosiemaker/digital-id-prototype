@@ -1,6 +1,10 @@
-'use client'
+"use client"
+
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useForm, Controller, SubmitHandler } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { FileText, ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -19,6 +23,31 @@ const steps = [
   { id: 3, label: 'Review & Submit' },
 ]
 
+const noticeOfDeathSchema = z.object({
+  district: z.string().min(1, 'District is required'),
+  informant_relationship: z.string().min(1, 'Relationship is required'),
+  deceased_din: z.string().optional(),
+  surname: z.string().optional(),
+  other_names: z.string().optional(),
+  occupation: z.string().optional(),
+  residential_address: z.string().optional(),
+  date_of_birth: z.string().optional(),
+  sex: z.enum(['MALE', 'FEMALE']).default('MALE'),
+  nationality: z.string().optional(),
+  national_identity_no: z.string().optional(),
+  social_security_no: z.string().optional(),
+  education_level: z.string().optional(),
+  death_type: z.enum(['NATURAL', 'SUDDEN', 'UNNATURAL']).default('NATURAL'),
+})
+
+type NoticeOfDeathForm = z.infer<typeof noticeOfDeathSchema>
+
+const stepFields: Record<number, (keyof NoticeOfDeathForm)[]> = {
+  1: ['district', 'informant_relationship'],
+  2: [],
+  3: [],
+}
+
 export default function PublicNoticeOfDeathPage() {
   const router = useRouter()
   const params = useParams()
@@ -26,38 +55,44 @@ export default function PublicNoticeOfDeathPage() {
 
   const [open, setOpen] = useState(true)
   const [step, setStep] = useState(1)
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [submitting, setSubmitting] = useState(false)
   const [districts, setDistricts] = useState<DistrictOption[]>([])
   const [loadingDistricts, setLoadingDistricts] = useState(false)
 
-  // Strictly matches NoticeOfDeathCreate schema.
-  // All other fields (dates, causes, informant details, serials, checkboxes)
-  // are auto-populated by the backend service layer.
-  const [form, setForm] = useState({
-    district: '',
-    informant_relationship: '',
-    deceased_din: '',
-    surname: '',
-    other_names: '',
-    occupation: '',
-    residential_address: '',
-    date_of_birth: '',
-    sex: 'MALE' as 'MALE' | 'FEMALE',
-    nationality: '',
-    national_identity_no: '',
-    social_security_no: '',
-    education_level: '',
-    death_type: 'NATURAL' as 'NATURAL' | 'SUDDEN' | 'UNNATURAL',
+  const {
+    register,
+    control,
+    handleSubmit,
+    trigger,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<NoticeOfDeathForm>({
+    resolver: zodResolver(noticeOfDeathSchema),
+    defaultValues: {
+      district: '',
+      informant_relationship: '',
+      deceased_din: '',
+      surname: '',
+      other_names: '',
+      occupation: '',
+      residential_address: '',
+      date_of_birth: '',
+      sex: 'MALE',
+      nationality: '',
+      national_identity_no: '',
+      social_security_no: '',
+      education_level: '',
+      death_type: 'NATURAL',
+    },
+    mode: 'onChange',
   })
 
   useEffect(() => {
     const fetchDistricts = async () => {
       setLoadingDistricts(true)
       try {
-        const districtsData = await referenceApi.getDistricts()
-        setDistricts(districtsData)
-      } catch (err) {
+        const data = await referenceApi.getDistricts()
+        setDistricts(data)
+      } catch {
         toast.error('Failed to load districts')
       } finally {
         setLoadingDistricts(false)
@@ -66,44 +101,33 @@ export default function PublicNoticeOfDeathPage() {
     fetchDistricts()
   }, [])
 
-  function validateStep(currentStep: number): boolean {
-    const newErrors: Record<string, string> = {}
-    if (currentStep === 1) {
-      if (!form.district.trim()) newErrors.district = 'District is required'
-      if (!form.informant_relationship.trim()) newErrors.informant_relationship = 'Relationship is required'
-    }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  const nextStep = async () => {
+    const isValid = await trigger(stepFields[step])
+    if (isValid) setStep(s => Math.min(s + 1, 3))
   }
+  const prevStep = () => setStep(s => Math.max(s - 1, 1))
 
-  const nextStep = () => { if (validateStep(step)) { setErrors({}); setStep(s => Math.min(s + 1, 3)) } }
-  const prevStep = () => { setErrors({}); setStep(s => Math.max(s - 1, 1)) }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!validateStep(step)) return
-
-    setSubmitting(true)
+  const onSubmit: SubmitHandler<NoticeOfDeathForm> = async (data) => {
     try {
-      // Build payload strictly matching NoticeOfDeathCreate
+      const clean = (val: string | undefined) => val?.trim() ? val.trim() : undefined
+
       const payload: Record<string, any> = {
-        district: form.district.trim(),
-        informant_relationship: form.informant_relationship.trim(),
+        district: data.district.trim(),
+        informant_relationship: data.informant_relationship.trim(),
       }
 
-      // Only attach optional fields if the user actually filled them
-      if (form.deceased_din.trim()) payload.deceased_din = form.deceased_din.trim()
-      if (form.surname.trim()) payload.surname = form.surname.trim()
-      if (form.other_names.trim()) payload.other_names = form.other_names.trim()
-      if (form.occupation.trim()) payload.occupation = form.occupation.trim()
-      if (form.residential_address.trim()) payload.residential_address = form.residential_address.trim()
-      if (form.date_of_birth) payload.date_of_birth = form.date_of_birth
-      if (form.sex) payload.sex = form.sex
-      if (form.nationality.trim()) payload.nationality = form.nationality.trim()
-      if (form.national_identity_no.trim()) payload.national_identity_no = form.national_identity_no.trim()
-      if (form.social_security_no.trim()) payload.social_security_no = form.social_security_no.trim()
-      if (form.education_level.trim()) payload.education_level = form.education_level.trim()
-      if (form.death_type && form.death_type !== 'NATURAL') {payload.death_type = form.death_type;}
+      if (clean(data.deceased_din)) payload.deceased_din = clean(data.deceased_din)
+      if (clean(data.surname)) payload.surname = clean(data.surname)
+      if (clean(data.other_names)) payload.other_names = clean(data.other_names)
+      if (clean(data.occupation)) payload.occupation = clean(data.occupation)
+      if (clean(data.residential_address)) payload.residential_address = clean(data.residential_address)
+      if (data.date_of_birth) payload.date_of_birth = data.date_of_birth
+      if (data.sex) payload.sex = data.sex
+      if (clean(data.nationality)) payload.nationality = clean(data.nationality)
+      if (clean(data.national_identity_no)) payload.national_identity_no = clean(data.national_identity_no)
+      if (clean(data.social_security_no)) payload.social_security_no = clean(data.social_security_no)
+      if (clean(data.education_level)) payload.education_level = clean(data.education_level)
+      if (data.death_type && data.death_type !== 'NATURAL') payload.death_type = data.death_type
 
       await deathRecordApi.submitNoticeOfDeath(parseInt(deathRecordId), payload)
       toast.success('Notice of Death submitted successfully. The Registrar will review your case.')
@@ -111,8 +135,6 @@ export default function PublicNoticeOfDeathPage() {
       router.push('/login')
     } catch (err: any) {
       toast.error(err.response?.data?.detail || err.detail || 'Failed to submit Notice of Death')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -153,7 +175,7 @@ export default function PublicNoticeOfDeathPage() {
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-4 space-y-6">
             {step === 1 && (
               <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-2">
@@ -164,43 +186,45 @@ export default function PublicNoticeOfDeathPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>District *</Label>
-                    <Select value={form.district} onValueChange={(value) => setForm({ ...form, district: value })}>
-                      <SelectTrigger className={cn(errors.district && "border-red-500")}>
-                        <SelectValue placeholder={loadingDistricts ? "Loading districts..." : "Select district"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingDistricts ? (
-                          <SelectItem value="loading" disabled>Loading districts...</SelectItem>
-                        ) : districts.length === 0 ? (
-                          <SelectItem value="no-districts" disabled>No districts available</SelectItem>
-                        ) : (
-                          districts.map((district) => (
-                            <SelectItem key={district.id} value={district.name}>
-                              {district.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {errors.district && <p className="text-xs text-red-500">{errors.district}</p>}
+                    <Controller name="district" control={control} render={({ field, fieldState }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
+                          <SelectValue placeholder={loadingDistricts ? "Loading districts..." : "Select district"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loadingDistricts ? (
+                            <SelectItem value="loading" disabled>Loading districts...</SelectItem>
+                          ) : districts.length === 0 ? (
+                            <SelectItem value="no-districts" disabled>No districts available</SelectItem>
+                          ) : (
+                            districts.map((district) => (
+                              <SelectItem key={district.id} value={district.name}>{district.name}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )} />
+                    {errors.district && <p className="text-xs text-red-500">{errors.district.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Your Relationship to Deceased *</Label>
-                    <Select value={form.informant_relationship} onValueChange={(value) => setForm({ ...form, informant_relationship: value })}>
-                      <SelectTrigger className={cn(errors.informant_relationship && "border-red-500")}>
-                        <SelectValue placeholder="Select relationship" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="spouse">Spouse</SelectItem>
-                        <SelectItem value="child">Child</SelectItem>
-                        <SelectItem value="parent">Parent</SelectItem>
-                        <SelectItem value="sibling">Sibling</SelectItem>
-                        <SelectItem value="relative">Other Relative</SelectItem>
-                        <SelectItem value="police">Police Officer</SelectItem>
-                        <SelectItem value="medical">Medical Staff</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.informant_relationship && <p className="text-xs text-red-500">{errors.informant_relationship}</p>}
+                    <Controller name="informant_relationship" control={control} render={({ field, fieldState }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={cn(fieldState.error && "border-red-500")}>
+                          <SelectValue placeholder="Select relationship" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="spouse">Spouse</SelectItem>
+                          <SelectItem value="child">Child</SelectItem>
+                          <SelectItem value="parent">Parent</SelectItem>
+                          <SelectItem value="sibling">Sibling</SelectItem>
+                          <SelectItem value="relative">Other Relative</SelectItem>
+                          <SelectItem value="police">Police Officer</SelectItem>
+                          <SelectItem value="medical">Medical Staff</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )} />
+                    {errors.informant_relationship && <p className="text-xs text-red-500">{errors.informant_relationship.message}</p>}
                   </div>
                 </div>
               </div>
@@ -214,55 +238,59 @@ export default function PublicNoticeOfDeathPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Deceased DIN (if known)</Label>
-                    <Input value={form.deceased_din} onChange={e => setForm({ ...form, deceased_din: e.target.value })} placeholder="e.g. 123456/01/1" />
+                    <Input {...register('deceased_din')} placeholder="e.g. 123456/01/1" />
                   </div>
                   <div className="space-y-2">
                     <Label>Surname</Label>
-                    <Input value={form.surname} onChange={e => setForm({ ...form, surname: e.target.value })} />
+                    <Input {...register('surname')} />
                   </div>
                   <div className="space-y-2">
                     <Label>Other Names</Label>
-                    <Input value={form.other_names} onChange={e => setForm({ ...form, other_names: e.target.value })} />
+                    <Input {...register('other_names')} />
                   </div>
                   <div className="space-y-2">
                     <Label>Date of Birth</Label>
-                    <Input type="date" value={form.date_of_birth} onChange={e => setForm({ ...form, date_of_birth: e.target.value })} />
+                    <Input type="date" {...register('date_of_birth')} />
                   </div>
                   <div className="space-y-2">
                     <Label>Sex</Label>
-                    <Select value={form.sex} onValueChange={(v: any) => setForm({ ...form, sex: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MALE">Male</SelectItem>
-                        <SelectItem value="FEMALE">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Controller name="sex" control={control} render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MALE">Male</SelectItem>
+                          <SelectItem value="FEMALE">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )} />
                   </div>
                   <div className="space-y-2">
                     <Label>Nationality</Label>
-                    <Input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} placeholder="e.g. Zambian" />
+                    <Input {...register('nationality')} placeholder="e.g. Zambian" />
                   </div>
                   <div className="space-y-2">
                     <Label>NRC / National ID</Label>
-                    <Input value={form.national_identity_no} onChange={e => setForm({ ...form, national_identity_no: e.target.value })} />
+                    <Input {...register('national_identity_no')} />
                   </div>
                   <div className="space-y-2">
                     <Label>Occupation</Label>
-                    <Input value={form.occupation} onChange={e => setForm({ ...form, occupation: e.target.value })} />
+                    <Input {...register('occupation')} />
                   </div>
                 </div>
 
                 <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2 pt-4">Death Classification</h3>
                 <div className="space-y-2">
                   <Label>Type of Death</Label>
-                  <Select value={form.death_type} onValueChange={(v: any) => setForm({ ...form, death_type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NATURAL">Natural Death</SelectItem>
-                      <SelectItem value="SUDDEN">Sudden Death (Post-Mortem Required)</SelectItem>
-                      <SelectItem value="UNNATURAL">Unnatural Cause (Coroner Required)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Controller name="death_type" control={control} render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NATURAL">Natural Death</SelectItem>
+                        <SelectItem value="SUDDEN">Sudden Death (Post-Mortem Required)</SelectItem>
+                        <SelectItem value="UNNATURAL">Unnatural Cause (Coroner Required)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )} />
                 </div>
               </div>
             )}
@@ -272,10 +300,10 @@ export default function PublicNoticeOfDeathPage() {
                 <div className="p-4 rounded-lg border border-border bg-muted/20 space-y-3">
                   <p className="text-sm font-medium text-foreground">Summary</p>
                   <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
-                    <li>District: <span className="text-foreground">{form.district}</span></li>
-                    <li>Relationship: <span className="text-foreground">{form.informant_relationship}</span></li>
-                    <li>Death Type: <span className="text-foreground">{form.death_type}</span></li>
-                    {form.deceased_din && <li>Deceased DIN: <span className="text-foreground">{form.deceased_din}</span></li>}
+                    <li>District: <span className="text-foreground">{watch('district')}</span></li>
+                    <li>Relationship: <span className="text-foreground">{watch('informant_relationship')}</span></li>
+                    <li>Death Type: <span className="text-foreground">{watch('death_type')}</span></li>
+                    {watch('deceased_din') && <li>Deceased DIN: <span className="text-foreground">{watch('deceased_din')}</span></li>}
                   </ul>
                   <p className="text-xs text-muted-foreground pt-2">
                     By submitting, you confirm these details are accurate. The Registrar will review the case alongside the Medical Certificate.
@@ -295,9 +323,9 @@ export default function PublicNoticeOfDeathPage() {
                   Next <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
-                <Button type="submit" onClick={handleSubmit} className="bg-primary hover:bg-primary/90" disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
-                  Submit Notice
+                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+                  {isSubmitting ? 'Submitting...' : 'Submit Notice'}
                 </Button>
               )}
             </div>

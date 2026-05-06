@@ -190,7 +190,7 @@ export default function VerifyOTPPage() {
                     )}
 
                     {/* OTP inputs */}
-                    <div className="flex gap-2.5 justify-between mb-6" onPaste={handlePaste}>
+                    <div className="flex flex-row gap-2.5 justify-between mb-6" onPaste={handlePaste}>
                         {digits.map((digit, i) => (
                             <input
                                 key={i}
@@ -201,7 +201,7 @@ export default function VerifyOTPPage() {
                                 value={digit}
                                 onChange={(e) => handleDigitChange(i, e.target.value)}
                                 onKeyDown={(e) => handleKeyDown(i, e)}
-                                className={`w-11 h-11 md:w-12 md:h-12 text-center text-sm font-medium rounded-lg border bg-secondary/40 text-foreground outline-none transition-all duration-150
+                                className={`w-8 h-11 md:w-12 md:h-12 text-center text-sm font-medium rounded-lg border bg-secondary/40 text-foreground outline-none transition-all duration-150
                   ${digit ? "border-primary bg-primary/5" : "border-border"}
                   focus:border-primary focus:ring-2 focus:ring-primary/20
                   ${apiError ? "border-red-500/60" : ""}`}

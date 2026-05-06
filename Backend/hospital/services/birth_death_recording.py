@@ -35,7 +35,7 @@ from Utils.audit_logger import audit
 from Utils.email_service import send_notice_of_death_link_email
 #from Utils.certificate_generator import generate_certificate
 from admin_ops.models import SystemUser
-from citizens.models import Citizen, CitizenStatus
+from citizens.models import Citizen, CitizenStatus, District
 from citizens.serializer import CitizenSerializer
 from citizens.utilities.id_generation import generate_id, child_seed_generation
 from hospital.Utils.mccd_generator import generate_mccd
@@ -116,6 +116,15 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         getattr(informant, 'postal_address', None) or informant.residential_address
     )
     enriched_data.pop("informant_din", None)  # Remove the DIN sentinel — MCCD stores the resolved name
+
+    # Resolve district ID to district name
+    district_value = enriched_data.get("district")
+    if district_value:
+        try:
+            district_obj = District.objects.get(id=int(district_value))
+            enriched_data["district"] = district_obj.name
+        except (District.DoesNotExist, ValueError):
+            enriched_data["district"] = str(district_value)  # Use as-is if not a valid ID
 
     # Resolve the Citizen to a SystemUser so we can set the informant FK on DeathRecords
     try:
@@ -512,13 +521,24 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
         mother_names = parse_full_name(mother_citizen.full_name)
         father_names = parse_full_name(father_citizen.full_name) if father_citizen else {}
 
-        # --- 4. Build NoticeOfBirth data dict ---
+        # --- 4. Resolve district ID to district name ---
+        district_value = request_body.get("district")
+        if district_value:
+            try:
+                district_obj = District.objects.get(id=int(district_value))
+                district_name = district_obj.name
+            except (District.DoesNotExist, ValueError):
+                district_name = str(district_value)  # Use as-is if not a valid ID
+        else:
+            district_name = ""
+
+        # --- 5. Build NoticeOfBirth data dict ---
         # Merges form-submitted fields with Citizen data; Citizen data takes precedence
         # for personal details (NRC, NAPSA, nationality, etc.) to ensure accuracy.
         notice_data = {
             # Form reference fields
             "serial_number":  f'NB-{secrets.token_hex(4).upper()}', # Auto generated
-            "district":       request_body.get("district"),
+            "district":       district_name,
             "date_and_time":  request_body.get("date_and_time_of_birth_notification"),
             # Section 1: Birth details
             "date_of_birth":          request_body.get("date_of_birth"),
@@ -1347,11 +1367,21 @@ def get_birth_certificates_by_user(user_id: int) -> dict:
     certificates = BirthCertificate.objects.filter(
         models.Q(mother_system_user_id=user_id) | models.Q(father_system_user_id=user_id)
     )
-    if certificates:
-        serializer = BirthCertificateSerializer(certificates, many=True)
-        return {"details": "Certificates Found", "certificates": serializer.data}
-    else:
+    if not certificates.exists():
         return {"details": "No Certificates Found", "certificates": []}
+
+    data = BirthCertificateSerializer(certificates, many=True).data
+
+    cert_ids = [c.get("id") for c in data if c.get("id") is not None]
+    records_map = {
+        r.birth_certificate_id: r.id
+        for r in BirthRecords.objects.filter(birth_certificate_id__in=cert_ids)
+    }
+
+    for cert in data:
+        cert["birth_records_id"] = records_map.get(cert.get("id"))
+
+    return {"details": "Certificates Found", "certificates": data}
 
 
 def get_burial_permits_by_user(user_id: int) -> dict:
@@ -1369,15 +1399,21 @@ def get_burial_permits_by_user(user_id: int) -> dict:
     """
     death_records = DeathRecords.objects.filter(
         informant_id=user_id
-    ).exclude(burial_permit_id__isnull=True)
+    ).exclude(burial_permit_id__isnull=True).select_related("burial_permit")
 
-    if death_records:
-        permits = [dr.burial_permit for dr in death_records if dr.burial_permit]
-        serializer = BurialPermitSerializer(permits, many=True)
-        return {"details": "Burial Permits Found", "permits": serializer.data}
-    else:
+    if not death_records.exists():
         return {"details": "No Burial Permits Found", "permits": []}
 
+    permits_data = BurialPermitSerializer(
+        [dr.burial_permit for dr in death_records], many=True
+    ).data
+
+    records_map = {dr.burial_permit_id: dr.id for dr in death_records}
+    for permit in permits_data:
+        permit["death_records_id"] = records_map.get(permit.get("id"))
+        permit["informant_id"] = user_id
+
+    return {"details": "Burial Permits Found", "permits": permits_data}
 
 def get_death_certificates_by_user(user_id: int) -> dict:
     """
@@ -1394,14 +1430,21 @@ def get_death_certificates_by_user(user_id: int) -> dict:
     """
     death_records = DeathRecords.objects.filter(
         informant_id=user_id
-    ).exclude(death_certificate_id__isnull=True)
+    ).exclude(death_certificate_id__isnull=True).select_related("death_certificate")
 
-    if death_records:
-        certificates = [dr.death_certificate for dr in death_records if dr.death_certificate]
-        serializer = DeathCertificateSerializer(certificates, many=True)
-        return {"details": "Death Certificates Found", "certificates": serializer.data}
-    else:
+    if not death_records.exists():
         return {"details": "No Death Certificates Found", "certificates": []}
+
+    certs_data = DeathCertificateSerializer(
+        [dr.death_certificate for dr in death_records], many=True
+    ).data
+
+    records_map = {dr.death_certificate_id: dr.id for dr in death_records}
+    for cert in certs_data:
+        cert["death_records_id"] = records_map.get(cert.get("id"))
+        cert["informant_id"] = user_id
+
+    return {"details": "Death Certificates Found", "certificates": certs_data}
 
 
 # ============================================================================
