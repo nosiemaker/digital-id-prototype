@@ -71,28 +71,49 @@ export function ImageUploadZone({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      const file = e.dataTransfer.files[0]
-      if (file && file.type.startsWith("image/")) onChange(file)
-    },
-    [onChange]
-  )
-
   return (
-    <div className="flex flex-col gap-2">
-      <label className="block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        {label}
-      </label>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {label}
+          </label>
+          <span className="text-[10px] text-muted-foreground mt-0.5">{hint}</span>
+        </div>
+        {state.url && <Check className="h-4 w-4 text-primary shrink-0" />}
+      </div>
 
-      <div
-        className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors min-h-[160px] group
-          ${state.url ? "border-primary/60 bg-primary/5" : "border-border group-hover:border-primary/40 bg-secondary/30 group-hover:bg-secondary/50"}`}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
-      >
+      {state.preview && (
+        <div className="relative rounded-xl overflow-hidden border border-border bg-secondary/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={state.preview}
+            alt={label}
+            className="w-full max-h-40 object-cover"
+          />
+          {state.uploading && (
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-primary">
+              <Loader2 className="h-6 w-6 animate-spin mb-2" />
+              <span className="text-xs font-medium">Uploading...</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!state.preview && state.uploading && (
+        <div className="flex items-center justify-center p-6 border border-border rounded-xl bg-secondary/30">
+          <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+          <span className="text-xs text-muted-foreground">Uploading...</span>
+        </div>
+      )}
+
+      <label className={`relative flex items-center justify-center w-full gap-2 rounded-xl border py-3 text-sm font-bold transition-colors cursor-pointer ${
+        state.uploading 
+          ? "bg-secondary/50 border-border text-muted-foreground cursor-not-allowed" 
+          : "bg-secondary border-border text-foreground hover:bg-secondary/80"
+      }`}>
+        <Upload className="h-4 w-4" />
+        {state.preview ? "Change Image" : "Attach Image"}
         <input
           ref={inputRef}
           type="file"
@@ -105,45 +126,12 @@ export function ImageUploadZone({
             if (e.target) e.target.value = ''
           }}
         />
-
-        {state.uploading && (
-          <div className="flex flex-col items-center gap-2 text-primary">
-            <Loader2 className="h-7 w-7 animate-spin" />
-            <span className="text-xs font-medium">Uploading…</span>
-          </div>
-        )}
-
-        {!state.uploading && state.preview && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={state.preview}
-            alt={label}
-            className="max-h-28 rounded-lg object-cover shadow"
-          />
-        )}
-
-        {!state.uploading && !state.preview && (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <Upload className="h-7 w-7" />
-            <span className="text-sm font-medium">Click or drag to upload</span>
-            <span className="text-xs">{hint}</span>
-          </div>
-        )}
-
-        {state.url && (
-          <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary">
-            <Check className="h-3 w-3 text-primary-foreground" />
-          </div>
-        )}
-      </div>
+      </label>
 
       {state.error && (
-        <p className="text-xs text-destructive flex items-center gap-1">
-          <X className="h-3 w-3" /> {state.error}
+        <p className="text-xs text-destructive flex items-center gap-1.5 mt-1 bg-destructive/10 p-2 rounded-lg border border-destructive/20">
+          <X className="h-3.5 w-3.5 shrink-0" /> {state.error}
         </p>
-      )}
-      {state.url && (
-        <p className="text-xs text-primary truncate">✓ Uploaded successfully</p>
       )}
     </div>
   )
