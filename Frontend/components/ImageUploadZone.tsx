@@ -87,9 +87,8 @@ export function ImageUploadZone({
       </label>
 
       <div
-        className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors cursor-pointer min-h-[160px]
-          ${state.url ? "border-primary/60 bg-primary/5" : "border-border hover:border-primary/40 bg-secondary/30 hover:bg-secondary/50"}`}
-        onClick={() => inputRef.current?.click()}
+        className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors min-h-[160px] group
+          ${state.url ? "border-primary/60 bg-primary/5" : "border-border group-hover:border-primary/40 bg-secondary/30 group-hover:bg-secondary/50"}`}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
@@ -97,10 +96,12 @@ export function ImageUploadZone({
           ref={inputRef}
           type="file"
           accept="image/*"
-          className="hidden"
+          disabled={state.uploading}
+          className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer disabled:cursor-not-allowed"
           onChange={(e) => {
             const file = e.target.files?.[0]
             if (file) onChange(file)
+            if (e.target) e.target.value = ''
           }}
         />
 

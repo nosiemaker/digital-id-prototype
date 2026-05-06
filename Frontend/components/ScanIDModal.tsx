@@ -372,10 +372,10 @@ export function ScanIDModal({ open, onClose }: ScanIDModalProps) {
                 </button>
 
                 {/* Upload image fallback */}
-                <label className="w-full flex items-center justify-center gap-2 rounded-xl bg-secondary border border-border py-2.5 text-sm font-bold text-foreground hover:bg-secondary/80 transition-colors cursor-pointer">
+                <label className="relative w-full flex items-center justify-center gap-2 rounded-xl bg-secondary border border-border py-2.5 text-sm font-bold text-foreground hover:bg-secondary/80 transition-colors cursor-pointer">
                   <ScanLine className="h-4 w-4 text-primary" />
                   Upload QR Image
-                  <input type="file" accept="image/*" className="hidden" onChange={handleUploadImage} />
+                  <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={handleUploadImage} />
                 </label>
               </div>
             )}
