@@ -1347,11 +1347,21 @@ def get_birth_certificates_by_user(user_id: int) -> dict:
     certificates = BirthCertificate.objects.filter(
         models.Q(mother_system_user_id=user_id) | models.Q(father_system_user_id=user_id)
     )
-    if certificates:
-        serializer = BirthCertificateSerializer(certificates, many=True)
-        return {"details": "Certificates Found", "certificates": serializer.data}
-    else:
+    if not certificates.exists():
         return {"details": "No Certificates Found", "certificates": []}
+
+    data = BirthCertificateSerializer(certificates, many=True).data
+
+    cert_ids = [c.get("id") for c in data if c.get("id") is not None]
+    records_map = {
+        r.birth_certificate_id: r.id
+        for r in BirthRecords.objects.filter(birth_certificate_id__in=cert_ids)
+    }
+
+    for cert in data:
+        cert["birth_records_id"] = records_map.get(cert.get("id"))
+
+    return {"details": "Certificates Found", "certificates": data}
 
 
 def get_burial_permits_by_user(user_id: int) -> dict:
@@ -1369,15 +1379,21 @@ def get_burial_permits_by_user(user_id: int) -> dict:
     """
     death_records = DeathRecords.objects.filter(
         informant_id=user_id
-    ).exclude(burial_permit_id__isnull=True)
+    ).exclude(burial_permit_id__isnull=True).select_related("burial_permit")
 
-    if death_records:
-        permits = [dr.burial_permit for dr in death_records if dr.burial_permit]
-        serializer = BurialPermitSerializer(permits, many=True)
-        return {"details": "Burial Permits Found", "permits": serializer.data}
-    else:
+    if not death_records.exists():
         return {"details": "No Burial Permits Found", "permits": []}
 
+    permits_data = BurialPermitSerializer(
+        [dr.burial_permit for dr in death_records], many=True
+    ).data
+
+    records_map = {dr.burial_permit_id: dr.id for dr in death_records}
+    for permit in permits_data:
+        permit["death_records_id"] = records_map.get(permit.get("id"))
+        permit["informant_id"] = user_id
+
+    return {"details": "Burial Permits Found", "permits": permits_data}
 
 def get_death_certificates_by_user(user_id: int) -> dict:
     """
@@ -1394,14 +1410,21 @@ def get_death_certificates_by_user(user_id: int) -> dict:
     """
     death_records = DeathRecords.objects.filter(
         informant_id=user_id
-    ).exclude(death_certificate_id__isnull=True)
+    ).exclude(death_certificate_id__isnull=True).select_related("death_certificate")
 
-    if death_records:
-        certificates = [dr.death_certificate for dr in death_records if dr.death_certificate]
-        serializer = DeathCertificateSerializer(certificates, many=True)
-        return {"details": "Death Certificates Found", "certificates": serializer.data}
-    else:
+    if not death_records.exists():
         return {"details": "No Death Certificates Found", "certificates": []}
+
+    certs_data = DeathCertificateSerializer(
+        [dr.death_certificate for dr in death_records], many=True
+    ).data
+
+    records_map = {dr.death_certificate_id: dr.id for dr in death_records}
+    for cert in certs_data:
+        cert["death_records_id"] = records_map.get(cert.get("id"))
+        cert["informant_id"] = user_id
+
+    return {"details": "Death Certificates Found", "certificates": certs_data}
 
 
 # ============================================================================
