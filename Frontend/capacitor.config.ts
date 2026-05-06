@@ -7,6 +7,14 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://digital-id-eta.vercel.app/login',
     cleartext: true
+  },
+  plugins: {
+    Camera: {
+      allowEditing: false,
+      saveToGallery: false,
+      quality: 85
+    },
+    Filesystem: {}
   }
 };
 

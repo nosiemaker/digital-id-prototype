@@ -35,7 +35,7 @@ from Utils.audit_logger import audit
 from Utils.email_service import send_notice_of_death_link_email
 #from Utils.certificate_generator import generate_certificate
 from admin_ops.models import SystemUser
-from citizens.models import Citizen, CitizenStatus
+from citizens.models import Citizen, CitizenStatus, District
 from citizens.serializer import CitizenSerializer
 from citizens.utilities.id_generation import generate_id, child_seed_generation
 from hospital.Utils.mccd_generator import generate_mccd
@@ -116,6 +116,15 @@ def submit_mccd(request_body: dict, health_worker_id: int) -> dict:
         getattr(informant, 'postal_address', None) or informant.residential_address
     )
     enriched_data.pop("informant_din", None)  # Remove the DIN sentinel — MCCD stores the resolved name
+
+    # Resolve district ID to district name
+    district_value = enriched_data.get("district")
+    if district_value:
+        try:
+            district_obj = District.objects.get(id=int(district_value))
+            enriched_data["district"] = district_obj.name
+        except (District.DoesNotExist, ValueError):
+            enriched_data["district"] = str(district_value)  # Use as-is if not a valid ID
 
     # Resolve the Citizen to a SystemUser so we can set the informant FK on DeathRecords
     try:
@@ -512,13 +521,24 @@ def record_submission(record_type: str, request_body: dict, user_id: int):
         mother_names = parse_full_name(mother_citizen.full_name)
         father_names = parse_full_name(father_citizen.full_name) if father_citizen else {}
 
-        # --- 4. Build NoticeOfBirth data dict ---
+        # --- 4. Resolve district ID to district name ---
+        district_value = request_body.get("district")
+        if district_value:
+            try:
+                district_obj = District.objects.get(id=int(district_value))
+                district_name = district_obj.name
+            except (District.DoesNotExist, ValueError):
+                district_name = str(district_value)  # Use as-is if not a valid ID
+        else:
+            district_name = ""
+
+        # --- 5. Build NoticeOfBirth data dict ---
         # Merges form-submitted fields with Citizen data; Citizen data takes precedence
         # for personal details (NRC, NAPSA, nationality, etc.) to ensure accuracy.
         notice_data = {
             # Form reference fields
             "serial_number":  f'NB-{secrets.token_hex(4).upper()}', # Auto generated
-            "district":       request_body.get("district"),
+            "district":       district_name,
             "date_and_time":  request_body.get("date_and_time_of_birth_notification"),
             # Section 1: Birth details
             "date_of_birth":          request_body.get("date_of_birth"),

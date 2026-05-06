@@ -37,36 +37,10 @@ public class MainActivity extends BridgeActivity {
             nfcPendingIntent = PendingIntent.getActivity(this, 0, nfcIntent, flags);
         }
 
-        // ── WebView: Grant camera/NFC permissions to web content ───────────────
-        WebView webView = getBridge().getWebView();
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onPermissionRequest(final PermissionRequest request) {
-                String[] requestedResources = request.getResources();
-                for (String resource : requestedResources) {
-                    if (resource.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
-                        // Camera requested — ensure OS permission is granted first
-                        if (ContextCompat.checkSelfPermission(MainActivity.this,
-                                Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                            request.grant(request.getResources());
-                        } else {
-                            ActivityCompat.requestPermissions(MainActivity.this,
-                                    new String[]{Manifest.permission.CAMERA},
-                                    PERMISSION_REQUEST_CODE);
-                            // Grant once the user accepts (will re-trigger via WebView reload or JS)
-                            request.grant(request.getResources());
-                        }
-                        return;
-                    }
-                    if (resource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
-                        request.grant(request.getResources());
-                        return;
-                    }
-                }
-                // Grant any other requested WebView resources
-                request.grant(requestedResources);
-            }
-        });
+        // ── WebView setup ────────────────────────────────────────────────────────
+        // Removed custom WebChromeClient. Capacitor's built-in BridgeWebChromeClient 
+        // automatically handles camera permissions and is strictly required for 
+        // <input type="file"> (onShowFileChooser) to work correctly!
 
         // ── Runtime Permissions: Request camera/NFC on startup ─────────────────
         requestAppPermissions();

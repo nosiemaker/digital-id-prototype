@@ -112,8 +112,8 @@ import dj_database_url
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
-        conn_max_age=0,
-        conn_health_checks=True,
+        conn_max_age=600,
+        conn_health_checks=False,
     )
 }
 
@@ -176,7 +176,7 @@ EMAIL_API_URL = config('EMAIL_API_URL', default='')
 EMAIL_API_SECRET = config('EMAIL_API_SECRET', default='')
 
 
-# DATABASE_URL='postgres://postgres.oflccsjshbkuksuacfge:hamusonde11.@aws-0-eu-west-1.pooler.supabase.com:5432/postgres'
+# DATABASE_URL='postgres://postgres.oflccsjshbkuksuacfge:hamusonde11.@aws-0-eu-west-1.pooler.supabase.com:6543/postgres'
 
 #EMAIL_HOST_USER='hamusondemuntanga@gmail.com'
 #EMAIL_HOST_PASSWORD='hwhb qrlb yatd fckn'

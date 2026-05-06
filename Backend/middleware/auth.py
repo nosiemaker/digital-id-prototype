@@ -24,7 +24,9 @@ PUBLIC_ROUTES = [
     "/users/set-password",
     "/districts/provinces",
     "/districts/",
-    "/deaths/submit/{death_record_id}/notice_of_death"
+    "/deaths/submit/{death_record_id}/notice_of_death",
+    "/ussd",
+    "/ussd/health"
 ]
 
 class AuthMiddleware(BaseHTTPMiddleware):

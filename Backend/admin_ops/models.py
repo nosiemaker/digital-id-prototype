@@ -97,6 +97,45 @@ class SystemUser(AbstractUser):
         return f"{self.email}({self.id}) ({self.role})"
 
 
+class UssdUser(models.Model):
+    """
+    Stores USSD login credentials linked to a Citizen.
+    
+    The phone number is captured from the SIM card when the user dials in.
+    User sets a password during registration which is stored as a hash.
+    
+    This is separate from web authentication to allow USSD-only users
+    to access their DIN without needing a full SystemUser account.
+    """
+    phone = models.CharField(
+        max_length=20, 
+        unique=True,
+        help_text="Phone number from the USSD SIM card (e.g., +260xxxxxxxxx)"
+    )
+    password_hash = models.CharField(
+        max_length=128,
+        help_text="Hashed password for USSD login"
+    )
+    citizen = models.ForeignKey(
+        Citizen, 
+        on_delete=models.CASCADE,
+        related_name="ussd_users"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "ussd_user"
+        indexes = [
+            models.Index(fields=["phone"]),
+            models.Index(fields=["citizen"]),
+        ]
+    
+    def __str__(self):
+        return f"USSD User: {self.phone} -> {self.citizen.din if hasattr(self.citizen, 'din') else self.citizen.id}"
+
+
 class Transaction(models.Model):
     """
     GSB payment transactions. Initiated by third-party institution,
