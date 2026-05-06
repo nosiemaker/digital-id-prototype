@@ -9,7 +9,7 @@ const greetings = [
   { text: "bwaji", lang: "Nyanja" },
   { text: "Mwapona", lang: "Tonga" },
   { text: "Mucwani", lang: "Lozi" },
-  { text: "Shani", lang: "Kaonde" },
+  { text: "Mwaichela", lang: "Kaonde" },
   { text: "Hello", lang: "English" },
 ]
 
