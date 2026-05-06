@@ -251,6 +251,41 @@ export default function WalletPage() {
   const [districts, setDistricts] = useState<DistrictOption[]>([])
   const [locationsLoading, setLocationsLoading] = useState(false)
 
+  // Pull to refresh state
+  const [pullStartY, setPullStartY] = useState<number | null>(null)
+  const [pullDistance, setPullDistance] = useState(0)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    const target = e.currentTarget as HTMLElement
+    if (target.scrollTop <= 0) {
+      setPullStartY(e.touches[0].clientY)
+    } else {
+      setPullStartY(null)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLElement>) => {
+    if (pullStartY === null || isRefreshing) return
+    const y = e.touches[0].clientY
+    const distance = Math.max(0, y - pullStartY)
+    if (distance > 0) {
+      setPullDistance(Math.min(distance * 0.4, 80))
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (pullStartY === null || isRefreshing) return
+    if (pullDistance > 60) {
+      setIsRefreshing(true)
+      setPullDistance(60)
+      window.location.reload()
+    } else {
+      setPullDistance(0)
+    }
+    setPullStartY(null)
+  }
+
   /* -------------------- Helper Functions -------------------- */
 
   // Helper function to calculate age from date of birth
@@ -549,8 +584,31 @@ export default function WalletPage() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-auto">
-        {/* Top bar */}
+      <main 
+        className="flex-1 overflow-auto relative"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Pull to refresh indicator */}
+        <div 
+          className="absolute top-0 left-0 right-0 flex justify-center items-center overflow-hidden transition-all duration-200 z-50 pointer-events-none"
+          style={{ height: `${pullDistance}px`, opacity: pullDistance / 60 }}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <div 
+              className="flex items-center justify-center h-8 w-8 rounded-full bg-secondary shadow-md transition-transform" 
+              style={{ transform: `rotate(${pullDistance * 3}deg)` }}
+            >
+              <ArrowRight className="h-4 w-4 text-primary rotate-90" />
+            </div>
+          )}
+        </div>
+        
+        <div style={{ transform: `translateY(${pullDistance}px)`, transition: pullStartY === null ? 'transform 0.2s ease-out' : 'none', minHeight: '100%' }}>
+          {/* Top bar */}
         <div className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-sm h-16 flex items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             {/* Mobile Menu Trigger */}
@@ -1368,6 +1426,7 @@ export default function WalletPage() {
               )}
             </div>
           )}
+        </div>
         </div>
       </main>
 
