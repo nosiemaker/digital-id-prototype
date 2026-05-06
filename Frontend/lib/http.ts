@@ -127,7 +127,18 @@ axiosInstance.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status !== 401 || original._retry) {
+    const PRE_AUTH_ROUTES = [
+      '/enrollments/verify-otp',
+      '/enrollments/register',
+      '/enrollments/resend-otp',
+      '/auth/login',
+    ]
+
+    const isPreAuth = PRE_AUTH_ROUTES.some(
+      route => original.url?.includes(route)
+    )
+
+    if (error.response?.status !== 401 || original._retry || isPreAuth) {
       return Promise.reject(normaliseError(error));
     }
 

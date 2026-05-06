@@ -121,23 +121,33 @@ export default function AnalyticsPage() {
             </button>
           </div>
           
-          <div className="space-y-6">
-            {(data?.distributions?.citizen_types || []).map((type: any) => (
-              <div key={type.label}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{type.label}</span>
-                  <span className="text-sm font-bold">{type.value?.toLocaleString()}</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-                  <div 
-                    className="h-full bg-primary rounded-full" 
-                    style={{ 
-                      width: `${(type.value / (Math.max(...data.distributions.citizen_types.map((t: any) => t.value)) || 1)) * 100}%` 
-                    }} 
-                  />
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="flex items-center justify-center bg-secondary/10 rounded-2xl p-6 h-full min-h-[250px] relative">
+              <div className="absolute top-4 left-4 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Live View</span>
               </div>
-            ))}
+              <img src="/zm.svg" alt="Zambia Map" className="w-full max-w-[280px] object-contain drop-shadow-2xl opacity-90 transition-transform duration-700 hover:scale-105" />
+            </div>
+
+            <div className="space-y-6">
+              {(data?.distributions?.citizen_types || []).map((type: any) => (
+                <div key={type.label}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">{type.label}</span>
+                    <span className="text-sm font-bold">{type.value?.toLocaleString()}</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                    <div 
+                      className="h-full bg-primary rounded-full" 
+                      style={{ 
+                        width: `${(type.value / (Math.max(...data.distributions.citizen_types.map((t: any) => t.value)) || 1)) * 100}%` 
+                      }} 
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-border pt-8">

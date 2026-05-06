@@ -15,6 +15,7 @@ import Link from "next/link"
 import { useState, useEffect, useCallback, use } from "react"
 import { tokenStore, referenceApi, citizenApi, digitalIdApi, qrApi, authApi, auditApi, thirdPartyApi, kycApi, type DigitalIDPayload as ApiDigitalIDPayload, type QRPayload as ApiQRPayload, type ServerPublicKeyResponse, type AuditLog, CitizenResponse, ProvinceOption, DistrictOption } from "@/lib/axios"
 import type { CitizenUpdate, PartnerLinkResponse } from "@/utils/types"
+import { motion } from "framer-motion"
 
 
 import {
@@ -42,8 +43,13 @@ import {
   ArrowRight,
   Share2,
   ScanLine,
+  Upload,
   Menu,
   X,
+  Plus,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
 } from "lucide-react"
 import { Logo } from "@/components/Logo"
 import {
@@ -61,7 +67,10 @@ import { ShareIDModal } from "@/components/ShareIDModal"
 import { ScanIDModal } from "@/components/ScanIDModal"
 import { EditProfileModal } from "@/components/EditProfileModal"
 import { LinkPartnerModal } from "@/components/LinkPartnerModal"
+import { ContactShareModal } from "@/components/ContactShareModal"
 import { toast } from "sonner"
+import { useHasCertificates } from "@/hooks/useHasCertificates"
+import CitizenCertificatesView from "@/app/citizens/certificates/page"
 
 
 interface QRPayload extends ApiQRPayload { }
@@ -78,6 +87,7 @@ const sidebarLinks = [
   { id: "activity", label: "Activity Log", icon: History },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "partners", label: "Partners", icon: Link2 },
+  { id: "certificates", label: "Certificates", icon: FileText},
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
@@ -98,11 +108,12 @@ const notifications = [
 ]
 
 const familyMembers = [
-  { relation: "Spouse", name: "Chanda Kalinda", din: "ZM-2024-002-1142", status: "Verified" },
-  { relation: "Son", name: "Mutale Kalinda", din: "ZM-2024-002-8871", status: "Verified" },
-  { relation: "Daughter", name: "Lombe Kalinda", din: "ZM-2024-002-8873", status: "Verified" },
-  { relation: "Father", name: "John Kalinda", din: "ZM-2020-001-4412", status: "Verified" },
-  { relation: "Mother", name: "Mary Kalinda", din: "ZM-2020-001-4413", status: "Verified" },
+  { relation: "Father", name: "John Kalinda", din: "ZM-2020-001-4412", status: "Verified", gender: "MALE" },
+  { relation: "Mother", name: "Mary Kalinda", din: "ZM-2020-001-4413", status: "Verified", gender: "FEMALE" },
+  { relation: "Spouse", name: "Chanda Kalinda", din: "ZM-2024-002-1142", status: "Verified", gender: "FEMALE" },
+  { relation: "Son", name: "Mutale Kalinda", din: "ZM-2024-002-8871", status: "Verified", gender: "MALE" },
+  { relation: "Daughter", name: "Lombe Kalinda", din: "ZM-2024-002-8873", status: "Verified", gender: "FEMALE" },
+  { relation: "Brother", name: "Mwaba Kalinda", din: "ZM-2024-003-5521", status: "Verified", gender: "MALE" },
 ]
 
 function getPageTitle(tab: string) {
@@ -138,12 +149,14 @@ function SidebarContent({
   activeTab,
   setActiveTab,
   me,
-  handleSignOut
+  handleSignOut,
+  links,
 }: {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   me: any;
   handleSignOut: (e: React.MouseEvent) => void;
+  links: typeof sidebarLinks
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -155,14 +168,15 @@ function SidebarContent({
         </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {sidebarLinks.map((link) => {
+        {links.map((link) => {
           const Icon = link.icon
           const isActive = activeTab === link.id
           return (
             <button
               key={link.id}
               onClick={() => setActiveTab(link.id)}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+                 ${isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -202,8 +216,10 @@ function SidebarContent({
 export default function WalletPage() {
   const router = useRouter()
   const { me, enrollmentState, loading: meLoading, error: meError } = useMe()
+  const { hasCertificates, loading: certsLoading } = useHasCertificates()
   const [activeTab, setActiveTab] = useState("wallet")
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [contactShareModalOpen, setContactShareModalOpen] = useState(false)
   const [scanModalOpen, setScanModalOpen] = useState(false)
   const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
 
@@ -228,6 +244,10 @@ export default function WalletPage() {
   const [logsLoading, setLogsLoading] = useState(false)
   const [logsTotal, setLogsTotal] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [familyView, setFamilyView] = useState<"tree" | "list">("tree")
+  const [familyScale, setFamilyScale] = useState(1)
+  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false)
+  const [isSubmittingMember, setIsSubmittingMember] = useState(false)
 
   const [citizenData, setCitizenData] = useState<CitizenResponse | null>(null)
   const [citizenLoading, setCitizenLoading] = useState(false)
@@ -237,6 +257,7 @@ export default function WalletPage() {
   const [provinces, setProvinces] = useState<ProvinceOption[]>([])
   const [districts, setDistricts] = useState<DistrictOption[]>([])
   const [locationsLoading, setLocationsLoading] = useState(false)
+
 
   /* -------------------- Helper Functions -------------------- */
 
@@ -252,6 +273,12 @@ export default function WalletPage() {
     return age
   }
 
+  const sidebarLink = sidebarLinks.filter((link) => {
+    if (link.id === "certificates") {
+      return !certsLoading && hasCertificates
+    }
+    return true
+  })
   // Determine citizen type based on age
   const getCitizenType = (dob: string, citizenType?: string): string => {
     if (citizenType) return citizenType
@@ -407,6 +434,24 @@ export default function WalletPage() {
     }
   }
 
+  const handleAddFamilyMember = async (data: any) => {
+    setIsSubmittingMember(true)
+    try {
+      // Mock API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // In a real app, this would hit POST /family/add
+      console.log("Adding family member:", data)
+      
+      toast.success(`${data.relation} request submitted successfully. Once verified, they will appear in your tree.`)
+      setAddMemberModalOpen(false)
+    } catch (err: any) {
+      toast.error("Failed to submit family request")
+    } finally {
+      setIsSubmittingMember(false)
+    }
+  }
+
 
   const fetchLogs = useCallback(async (page = 1) => {
     setLogsLoading(true)
@@ -514,6 +559,7 @@ export default function WalletPage() {
           setActiveTab={setActiveTab}
           me={me}
           handleSignOut={handleSignOut}
+          links={sidebarLink}
         />
       </aside>
 
@@ -541,6 +587,7 @@ export default function WalletPage() {
                   }}
                   me={me}
                   handleSignOut={handleSignOut}
+                  links={sidebarLink}
                 />
               </SheetContent>
             </Sheet>
@@ -583,7 +630,7 @@ export default function WalletPage() {
           )}
 
           {!meLoading && !meError && me && (
-            <>
+            <div className="space-y-6">
               {/* Enrollment banner */}
               <EnrollmentBanner state={enrollmentState} />
 
@@ -707,13 +754,20 @@ export default function WalletPage() {
 
                   {/* Share ID Action Row */}
                   {enrollmentState === "ACTIVE" && me?.citizen_din && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <button
                         onClick={() => setShareModalOpen(true)}
                         className="group flex items-center justify-center gap-2.5 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all duration-150 shadow-lg shadow-primary/20"
                       >
                         <Share2 className="h-4 w-4" />
                         Share My ID
+                      </button>
+                      <button
+                        onClick={() => setContactShareModalOpen(true)}
+                        className="group flex items-center justify-center gap-2.5 rounded-xl bg-secondary border border-border px-4 py-3 text-sm font-bold text-foreground hover:border-primary/40 hover:bg-secondary/80 active:scale-[0.98] transition-all duration-150"
+                      >
+                        <User className="h-4 w-4 text-primary" />
+                        Share Contact
                       </button>
                       <button
                         onClick={() => setScanModalOpen(true)}
@@ -730,6 +784,46 @@ export default function WalletPage() {
                         {qrLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCodeIcon className="h-4 w-4 text-primary" />}
                         {qrPayload ? "Refresh QR" : "Generate QR"}
                       </button>
+                    </div>
+                  )}
+
+                  {/* Credit Score */}
+                  {enrollmentState === "ACTIVE" && (
+                    <div className="rounded-2xl border border-border bg-card p-6 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+                      <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                        <div className="relative flex items-center justify-center h-28 w-28 shrink-0">
+                          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="18" cy="18" r="16" fill="none" className="stroke-secondary" strokeWidth="2.5"></circle>
+                            <circle cx="18" cy="18" r="16" fill="none" className="stroke-primary" strokeWidth="2.5" strokeDasharray="100" strokeDashoffset="16" strokeLinecap="round"></circle>
+                          </svg>
+                          <div className="absolute flex flex-col items-center justify-center text-center mt-1">
+                            <span className="text-3xl font-black text-foreground">720</span>
+                            <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest mt-0.5">Score</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 text-center sm:text-left space-y-3 w-full">
+                          <div>
+                            <h2 className="text-lg font-bold text-foreground flex items-center justify-center sm:justify-start gap-2">
+                              Financial Credit Score
+                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                GOOD
+                              </span>
+                            </h2>
+                            <p className="text-xs text-muted-foreground mt-1">Based on your integrated financial and civil records.</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="rounded-xl bg-secondary/50 p-3">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Next Update</p>
+                              <p className="text-sm font-semibold text-foreground">15 Jun 2026</p>
+                            </div>
+                            <div className="rounded-xl bg-secondary/50 p-3">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Estimated Limit</p>
+                              <p className="text-sm font-semibold text-foreground">ZMW 50,000</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -941,34 +1035,116 @@ export default function WalletPage() {
               {activeTab === "family" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="rounded-2xl border border-border bg-card p-6">
-                    <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-                      <Users className="h-5 w-5 text-primary" /> Verified Family Tree
-                    </h2>
-                    <div className="mb-10 p-8 rounded-3xl bg-secondary/20 border border-border flex flex-col items-center">
-                      <p className="text-sm text-muted-foreground">Family tree integration coming soon</p>
+                    <div className="flex items-center justify-between mb-8">
+                      <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary" /> Family Tree
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setAddMemberModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all border border-primary/20">
+                          <Plus className="h-3.5 w-3.5" /> Add Member
+                        </button>
+                        <div className="flex bg-secondary/30 p-1 rounded-lg border border-border">
+                          <button onClick={() => setFamilyView("tree")} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${familyView === "tree" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Tree View</button>
+                          <button onClick={() => setFamilyView("list")} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${familyView === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>List View</button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {familyMembers.map((member) => (
-                        <div key={member.din} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/30 hover:border-primary/40 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center font-bold text-primary">
-                              {member.name.split(" ").map((n) => n[0]).join("")}
+
+                    {familyView === "tree" ? (
+                      <div className="relative overflow-hidden rounded-2xl bg-secondary/10 border border-border h-[600px] cursor-grab active:cursor-grabbing">
+                        <div className="absolute inset-0 opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'linear-gradient(to right, var(--primary) 1px, transparent 1px), linear-gradient(to bottom, var(--primary) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                        <motion.div drag animate={{ scale: familyScale }} transition={{ type: "spring", stiffness: 300, damping: 30 }} dragConstraints={{ left: -500, right: 500, top: -400, bottom: 400 }} className="absolute inset-0 flex items-center justify-center min-w-[1200px] min-h-[1000px] origin-center">
+                          <div className="flex flex-col items-center gap-16 py-12">
+                            <div className="flex gap-20 relative">
+                              <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 w-px h-16 bg-primary/30" />
+                              <div className="absolute -bottom-16 left-1/4 right-1/4 h-px bg-primary/30" />
+                              {familyMembers.filter(m => m.relation === "Father" || m.relation === "Mother").map((parent) => (
+                                <div key={parent.din} className="flex flex-col items-center gap-3 group">
+                                  <div className="h-20 w-20 rounded-[28px] bg-card border-2 border-border flex items-center justify-center relative group-hover:border-primary/50 transition-all duration-300 shadow-xl group-hover:scale-110">
+                                    <User className={`h-10 w-10 ${parent.relation === "Father" ? "text-blue-400" : "text-pink-400"}`} />
+                                    <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-primary flex items-center justify-center border-2 border-card shadow-lg"><CheckCircle2 className="h-3.5 w-3.5 text-white" /></div>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{parent.name}</p>
+                                    <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-semibold">{parent.relation}</p>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <div>
-                              <p className="text-sm font-bold text-foreground">{member.name}</p>
-                              <p className="text-[10px] text-muted-foreground">{member.relation} · {member.din}</p>
+                            <div className="flex gap-24 relative">
+                              <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 w-px h-16 bg-primary/30" />
+                              <div className="flex flex-col items-center gap-3 relative group">
+                                <div className="h-24 w-24 rounded-[32px] bg-primary/20 border-4 border-primary flex items-center justify-center shadow-[0_0_40px_rgba(0,201,141,0.2)] group-hover:scale-110 transition-transform duration-300"><User className="h-12 w-12 text-primary" /></div>
+                                <div className="text-center"><p className="text-base font-black text-primary uppercase tracking-wide">You</p><p className="text-xs font-bold text-foreground">{me?.name?.split(" ")[0] || "User"}</p></div>
+                                <div className="absolute top-12 -right-24 w-24 h-px border-t-2 border-dashed border-primary/30" />
+                              </div>
+                              {familyMembers.filter(m => m.relation === "Spouse").map((spouse) => (
+                                <div key={spouse.din} className="flex flex-col items-center gap-3 group">
+                                  <div className="h-24 w-24 rounded-[32px] bg-card border-2 border-border flex items-center justify-center relative group-hover:border-primary/50 transition-all duration-300 shadow-xl group-hover:scale-110">
+                                    <User className="h-12 w-12 text-pink-400" />
+                                    <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-primary flex items-center justify-center border-2 border-card shadow-lg"><CheckCircle2 className="h-3.5 w-3.5 text-white" /></div>
+                                  </div>
+                                  <div className="text-center"><p className="text-base font-bold text-foreground group-hover:text-primary transition-colors">{spouse.name}</p><p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Spouse</p></div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex gap-16 relative">
+                              <div className="absolute -top-16 left-[20%] right-[20%] h-px bg-primary/30" />
+                              {familyMembers.filter(m => m.relation === "Son" || m.relation === "Daughter").map((child) => (
+                                <div key={child.din} className="flex flex-col items-center gap-3 relative group">
+                                  <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-px h-16 bg-primary/30" />
+                                  <div className="h-20 w-20 rounded-[28px] bg-card border-2 border-border flex items-center justify-center relative group-hover:border-primary/50 transition-all duration-300 shadow-xl group-hover:scale-110">
+                                    <User className={`h-10 w-10 ${child.relation === "Son" ? "text-blue-400" : "text-pink-400"}`} />
+                                  </div>
+                                  <div className="text-center"><p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{child.name}</p><p className="text-[11px] text-muted-foreground uppercase tracking-widest font-semibold">{child.relation}</p></div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                            {member.status}
-                          </span>
+                        </motion.div>
+                        <div className="absolute bottom-6 right-6 flex flex-col gap-3">
+                          <div className="flex flex-col bg-card/80 backdrop-blur-md border border-border rounded-xl shadow-xl overflow-hidden">
+                            <button onClick={() => setFamilyScale(prev => Math.min(prev + 0.2, 2))} className="p-3 hover:bg-primary/10 transition-colors border-b border-border text-foreground"><ZoomIn className="h-4 w-4" /></button>
+                            <button onClick={() => setFamilyScale(1)} className="p-3 hover:bg-primary/10 transition-colors border-b border-border text-foreground"><Maximize className="h-4 w-4" /></button>
+                            <button onClick={() => setFamilyScale(prev => Math.max(prev - 0.2, 0.4))} className="p-3 hover:bg-primary/10 transition-colors text-foreground"><ZoomOut className="h-4 w-4" /></button>
+                          </div>
+                          <div className="bg-card/80 backdrop-blur-md border border-border rounded-xl p-3 flex flex-col gap-1 shadow-lg">
+                            <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest text-center mb-1">Canvas</div>
+                            <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-primary animate-pulse" /><span className="text-[11px] font-bold text-foreground">{(familyScale * 100).toFixed(0)}% Scale</span></div>
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {familyMembers.map((member) => (
+                          <div key={member.din} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/30 hover:border-primary/40 transition-all cursor-pointer group">
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center font-bold text-primary group-hover:scale-105 transition-transform">{member.name.split(" ").map((n) => n[0]).join("")}</div>
+                              <div>
+                                <p className="text-sm font-bold text-foreground">{member.name}</p>
+                                <p className="text-[10px] text-muted-foreground">{member.relation} • {member.din}</p>
+                                <div className="flex items-center gap-1.5 mt-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /><span className="text-[9px] font-bold text-emerald-500 uppercase">Verified</span></div>
+                              </div>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
+              {activeTab === "certificates" && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Option A: Inline your existing certificates UI component */}
+                    <CitizenCertificatesView />
+                    
+                    {/* Option B: If you prefer routing instead of tabs, replace the button onClick in SidebarContent with:
+                        onClick={() => link.id === "certificates" ? router.push("/citizen/certificates") : setActiveTab(link.id)}
+                    */}
+                  </div>
+                )}
               {activeTab === "activity" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="rounded-2xl border border-border bg-card p-6">
@@ -1216,7 +1392,7 @@ export default function WalletPage() {
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </main>
@@ -1231,6 +1407,13 @@ export default function WalletPage() {
         onGenerateQR={handleGenerateQR}
         din={me?.citizen_din ?? null}
         name={me?.name ?? ""}
+      />
+
+      {/* Contact Share Modal */}
+      <ContactShareModal
+        open={contactShareModalOpen}
+        onClose={() => setContactShareModalOpen(false)}
+        me={me}
       />
 
       {/* Scan ID Modal */}
@@ -1267,6 +1450,116 @@ export default function WalletPage() {
         provinces={provinces}
         districts={districts}
       />
+
+      {/* Add Family Member Modal */}
+      <AddFamilyMemberModal
+        open={addMemberModalOpen}
+        onClose={() => setAddMemberModalOpen(false)}
+        onSubmit={handleAddFamilyMember}
+        isSubmitting={isSubmittingMember}
+      />
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+// Add Family Member Modal Component
+/* ------------------------------------------------------------------ */
+function AddFamilyMemberModal({
+  open,
+  onClose,
+  onSubmit,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: any) => void;
+  isSubmitting: boolean;
+}) {
+  const [relation, setRelation] = useState("Spouse")
+  const [din, setDin] = useState("")
+  const [file, setFile] = useState<File | null>(null)
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="w-full max-w-md bg-card border border-border rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="p-6 border-b border-border bg-secondary/20">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-foreground">Add Family Member</h2>
+            <button onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">
+              <X className="h-5 w-5 text-muted-foreground" />
+            </button>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">Submit a request to link a verified citizen to your tree.</p>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Relationship Type */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Relationship Type</label>
+            <select 
+              value={relation}
+              onChange={(e) => setRelation(e.target.value)}
+              className="w-full h-12 bg-secondary/50 border border-border rounded-xl px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer"
+            >
+              <option>Spouse</option>
+              <option>Father</option>
+              <option>Mother</option>
+              <option>Son</option>
+              <option>Daughter</option>
+              <option>Brother</option>
+              <option>Sister</option>
+            </select>
+          </div>
+
+          {/* Member DIN */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Digital ID Number (DIN)</label>
+            <input 
+              type="text"
+              placeholder="e.g., ZM-2024-001-XXXX"
+              value={din}
+              onChange={(e) => setDin(e.target.value)}
+              className="w-full h-12 bg-secondary/50 border border-border rounded-xl px-4 text-sm font-mono focus:ring-2 focus:ring-primary/20 outline-none"
+            />
+          </div>
+
+          {/* Supporting Document */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Supporting Document</label>
+            <div className="relative group">
+              <input 
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <div className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 transition-colors ${file ? "border-primary/50 bg-primary/5" : "border-border group-hover:border-primary/30 bg-secondary/20"}`}>
+                <Upload className={`h-6 w-6 ${file ? "text-primary" : "text-muted-foreground"}`} />
+                <span className="text-xs font-medium text-foreground">
+                  {file ? file.name : "Click or drag to upload document"}
+                </span>
+                <span className="text-[10px] text-muted-foreground uppercase">Birth Cert, Marriage Cert, etc. (PDF/JPG)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 bg-secondary/10 border-t border-border flex flex-col gap-3">
+          <button 
+            onClick={() => onSubmit({ relation, din, file })}
+            disabled={isSubmitting || !din || !file}
+            className="w-full h-12 bg-primary text-primary-foreground rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+          >
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Submit Verification Request
+          </button>
+          <button onClick={onClose} className="w-full h-12 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

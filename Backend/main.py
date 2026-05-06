@@ -66,7 +66,7 @@ app.add_middleware(
 )
 
 app.mount("/media", StaticFiles(directory="media"), name="media")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="staticfiles"), name="static")
 
 @app.get("/")
 async def root():

@@ -31,6 +31,11 @@ class BirthCertificateSerializer(ModelSerializer):
         model = BirthCertificate
         fields = "__all__"
 
+    def get_birth_records_id(self, obj):
+        # Reverse lookup to find the parent BirthRecords submission
+        record = BirthRecords.objects.filter(birth_certificate=obj).first()
+        return record.id if record else None
+
 
 class BirthRecordRequestSerializer(ModelSerializer):
     """
