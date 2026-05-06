@@ -52,13 +52,6 @@ export default function RegistrationsPage() {
         <div>
           <h1 className="text-base font-bold text-foreground">Registrations</h1>
           <p className="text-xs text-muted-foreground">Review and process incoming applications</p>
-           <button
-              onClick={() => setAddModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-            >
-              <Plus className="h-4 w-4" />
-              Add Citizen
-            </button>
         </div>
       </div>
 
@@ -86,8 +79,8 @@ export default function RegistrationsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
@@ -97,16 +90,28 @@ export default function RegistrationsPage() {
               className="w-full rounded-lg border border-border bg-input pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
             />
           </div>
-          <div className="flex gap-2">
-            {["All", "PENDING", "APPROVED", "REJECTED"].map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilter(s)}
-                className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${filter === s ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
-              >
-                {s === "All" ? "All" : s[0] + s.slice(1).toLowerCase()}
-              </button>
-            ))}
+
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            {/* Filter Buttons */}
+            <div className="flex gap-2 mr-auto lg:mr-0">
+              {["All", "PENDING", "APPROVED", "REJECTED"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${filter === s ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                >
+                  {s === "All" ? "All" : s[0] + s.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Citizen</span>
+            </button>
           </div>
         </div>
 
