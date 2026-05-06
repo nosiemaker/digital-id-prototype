@@ -403,7 +403,7 @@ def submit_notice_of_death(request_body: dict, death_record_id: int, citizen_id:
     # Link the notice to the DeathRecords entry and signal readiness for RO review
     death_records.notice_of_death   = notice_of_death
     death_records.ready_for_review  = True
-    death_records.save(update_fields=["notice_of_death"])
+    death_records.save(update_fields=["notice_of_death", "ready_for_review"])
 
     return {
         "details": "Notice of Death Linked",
