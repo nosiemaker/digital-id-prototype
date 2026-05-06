@@ -431,7 +431,7 @@ export interface BirthRecordSubmission {
   district: string;
   date_and_time_of_birth_notification: string;
   date_of_birth: string
-  place_of_birth: "HEALTH_FACILITY" | "HOME";
+  place_of_birth: "HEALTH_FACILITY" | "HOME" | "OTHER";
   health_facility_name?: string;
   other_place_specified?: string;
   child_surname: string;
@@ -450,7 +450,7 @@ export interface BirthRecordSubmission {
   mother_usual_place_of_residence?: string;
   attendant_at_birth: "MIDWIFE" | "TBA" | "OTHER";
   attendant_other_specified?: string;
-  marital_status: "MARRIED" | "NOT_MARRIED";
+  marital_status: "MARRIED" | "NOT_MARRIED" | "DIVORCED" | "WIDOWED";
   father_acknowledgement_signature?: string;
   father_acknowledgement_date?: string;
   mother_consent_signature?: string;
@@ -767,4 +767,56 @@ export interface StatisticsResponse {
   approved_requests: number;
   denied_requests: number;
   pending_requests: number;
+}
+
+export interface BirthCertificate {
+  id: number
+  reg_no: string
+  district: string
+  date_of_birth: string
+  sex: string
+  place_of_birth: string
+  surname: string
+  other_names: string
+  father_name: string
+  mother_name: string
+  informant_name: string
+  date_of_registration: string
+  registrar_name: string
+  birth_records_id: number
+  status?: string
+  mother_system_user_id?: number
+  father_system_user_id?: number
+}
+
+export interface DeathCertificate {
+  id: number
+  registration_no: string
+  district: string
+  date_of_death: string
+  place_of_death: string
+  deceased_names_and_surname: string
+  sex: string
+  age: string
+  nationality: string
+  occupation: string
+  cause_of_death: string
+  informant_name: string
+  informant_relationship: string
+  date_of_registration: string
+  registrar_general_name: string
+  death_records_id: number
+  status?: string
+  informant_id?: number
+}
+
+export interface BurialPermit {
+  id: number
+  deceased_name: string
+  place_of_death: string
+  date_of_death: string
+  issuing_authority: string
+  issued_date: string
+  death_records_id: number
+  informant_id?: number 
 }

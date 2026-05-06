@@ -68,6 +68,8 @@ import { ScanIDModal } from "@/components/ScanIDModal"
 import { EditProfileModal } from "@/components/EditProfileModal"
 import { LinkPartnerModal } from "@/components/LinkPartnerModal"
 import { toast } from "sonner"
+import { useHasCertificates } from "@/hooks/useHasCertificates"
+import CitizenCertificatesView from "@/app/citizens/certificates/page"
 
 
 interface QRPayload extends ApiQRPayload { }
@@ -84,6 +86,7 @@ const sidebarLinks = [
   { id: "activity", label: "Activity Log", icon: History },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "partners", label: "Partners", icon: Link2 },
+  { id: "certificates", label: "Certificates", icon: FileText},
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
@@ -145,12 +148,14 @@ function SidebarContent({
   activeTab,
   setActiveTab,
   me,
-  handleSignOut
+  handleSignOut,
+  links,
 }: {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   me: any;
   handleSignOut: (e: React.MouseEvent) => void;
+  links: typeof sidebarLinks
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -162,14 +167,15 @@ function SidebarContent({
         </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {sidebarLinks.map((link) => {
+        {links.map((link) => {
           const Icon = link.icon
           const isActive = activeTab === link.id
           return (
             <button
               key={link.id}
               onClick={() => setActiveTab(link.id)}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+                 ${isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -209,6 +215,7 @@ function SidebarContent({
 export default function WalletPage() {
   const router = useRouter()
   const { me, enrollmentState, loading: meLoading, error: meError } = useMe()
+  const { hasCertificates, loading: certsLoading } = useHasCertificates()
   const [activeTab, setActiveTab] = useState("wallet")
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [scanModalOpen, setScanModalOpen] = useState(false)
@@ -249,6 +256,7 @@ export default function WalletPage() {
   const [districts, setDistricts] = useState<DistrictOption[]>([])
   const [locationsLoading, setLocationsLoading] = useState(false)
 
+
   /* -------------------- Helper Functions -------------------- */
 
   // Helper function to calculate age from date of birth
@@ -263,6 +271,12 @@ export default function WalletPage() {
     return age
   }
 
+  const sidebarLink = sidebarLinks.filter((link) => {
+    if (link.id === "certificates") {
+      return !certsLoading && hasCertificates
+    }
+    return true
+  })
   // Determine citizen type based on age
   const getCitizenType = (dob: string, citizenType?: string): string => {
     if (citizenType) return citizenType
@@ -543,6 +557,7 @@ export default function WalletPage() {
           setActiveTab={setActiveTab}
           me={me}
           handleSignOut={handleSignOut}
+          links={sidebarLink}
         />
       </aside>
 
@@ -570,6 +585,7 @@ export default function WalletPage() {
                   }}
                   me={me}
                   handleSignOut={handleSignOut}
+                  links={sidebarLink}
                 />
               </SheetContent>
             </Sheet>
@@ -1070,6 +1086,16 @@ export default function WalletPage() {
                 </div>
               )}
 
+              {activeTab === "certificates" && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Option A: Inline your existing certificates UI component */}
+                    <CitizenCertificatesView />
+                    
+                    {/* Option B: If you prefer routing instead of tabs, replace the button onClick in SidebarContent with:
+                        onClick={() => link.id === "certificates" ? router.push("/citizen/certificates") : setActiveTab(link.id)}
+                    */}
+                  </div>
+                )}
               {activeTab === "activity" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="rounded-2xl border border-border bg-card p-6">

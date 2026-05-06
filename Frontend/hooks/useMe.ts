@@ -64,8 +64,8 @@ export function useMe(): UseMeResult {
   function deriveState(m: MeResponse | null): EnrollmentState {
     if (!m) return "UNKNOWN"
     // No citizen_din means the user has never submitted identity docs.
-    // citizen_status is null until a Citizen record is created.
     if (!m.citizen_din && !m.citizen_status) return "NOT_STARTED"
+    
     switch (m.citizen_status) {
       case "PENDING":   return "PENDING"
       case "ACTIVE":    return "ACTIVE"

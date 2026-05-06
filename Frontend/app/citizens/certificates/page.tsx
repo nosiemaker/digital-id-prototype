@@ -1,39 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Baby,
   Skull,
   FileText,
   Download,
   Loader2,
-  AlertCircle,
-  Clock,
-  CheckCircle2,
   Hash,
   Calendar,
+  Shield,
   User,
   Home,
   Building2,
   MapPin,
-  ChevronLeft,
-  ChevronRight,
   Search,
-  Filter,
 } from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,7 +23,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { birthRecordApi, deathRecordApi } from "@/lib/axios"
 import { useRoleGuard } from "@/hooks/use-role-guard"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { useMe } from "@/hooks/useMe"
+import {
+  BirthCertificate,
+  BurialPermit,
+  DeathCertificate
+} from "@/utils/types"
 import {
   DocumentViewer,
   BIRTH_CERTIFICATE_ENDPOINT,
@@ -49,64 +36,13 @@ import {
   type StreamingEndpoint,
 } from "@/components/document-viewer"
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface BirthCertificate {
-  id: number
-  reg_no: string
-  district: string
-  date_of_birth: string
-  sex: string
-  place_of_birth: string
-  surname: string
-  other_names: string
-  father_name: string
-  mother_name: string
-  informant_name: string
-  date_of_registration: string
-  registrar_name: string
-  birth_records_id: number
-  status?: string
-}
-
-interface DeathCertificate {
-  id: number
-  registration_no: string
-  district: string
-  date_of_death: string
-  place_of_death: string
-  deceased_names_and_surname: string
-  sex: string
-  age: string
-  nationality: string
-  occupation: string
-  cause_of_death: string
-  informant_name: string
-  informant_relationship: string
-  date_of_registration: string
-  registrar_general_name: string
-  death_records_id: number
-  status?: string
-}
-
-interface BurialPermit {
-  id: number
-  deceased_name: string
-  place_of_death: string
-  date_of_death: string
-  issuing_authority: string
-  issued_date: string
-  death_records_id: number
-}
-
-// ============================================================================
+// ===========
 // COMPONENT
-// ============================================================================
+// ===========
 
 export default function CitizenCertificatesPage() {
   useRoleGuard(["CITIZEN"])
+  const { me, enrollmentState, loading: meLoading } = useMe()
 
   const [activeTab, setActiveTab] = useState("birth")
   const [birthCerts, setBirthCerts] = useState<BirthCertificate[]>([])
@@ -114,47 +50,62 @@ export default function CitizenCertificatesPage() {
   const [burialPermits, setBurialPermits] = useState<BurialPermit[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerEndpoint, setViewerEndpoint] = useState<StreamingEndpoint | null>(null)
   const [viewerRecordId, setViewerRecordId] = useState<number | null>(null)
   const [viewerRecordName, setViewerRecordName] = useState<string>("")
-
-  // Get auth token from your auth context/hook
-  const [token, setToken] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('zdid_access_token') || ''
-    }
-    return ''
-  })
+  const [error, setError] = useState<string | null>(null)
+  const [token, setToken] = useState<string>("")
 
   useEffect(() => {
-    fetchData()
     const stored = localStorage.getItem('zdid_access_token')
     if (stored) setToken(stored)
   }, [])
 
-  async function fetchData() {
-    setLoading(true)
-    try {
-      const [birthData, deathData, permitData] = await Promise.all([
+  useEffect(() => {
+    if (meLoading || !me?.user_id || enrollmentState !== "ACTIVE") return
+
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const [birthData, deathData, permitData] = await Promise.all([
         birthRecordApi.getMyCertificates(),
         deathRecordApi.getMyCertificates(),
         deathRecordApi.getMyBurialPermits(),
       ])
-
-      setBirthCerts(birthData.certificates || [])
-      setDeathCerts(deathData.certificates || [])
-      setBurialPermits(permitData.permits || [])
-    } catch (err: any) {
-      toast.error(err.detail || "Failed to fetch your certificates")
-    } finally {
-      setLoading(false)
+        setBirthCerts(birthData.certificates || [])
+        setDeathCerts(deathData.certificates || [])
+        setBurialPermits(permitData.permits || [])
+      } catch (err: any) {
+        setError(err.detail || "Failed to fetch your certificates")
+      } finally {
+        setLoading(false)
+      }
     }
+    fetchData()
+  }, [meLoading, me?.user_id, enrollmentState])
+
+  const belongsToUser = (cert: any, type: 'birth' | 'death' | 'permit') => {
+    if(!me?.user_id) return false
+    if (cert.status && cert.status !== "APPROVED") return false
+
+    if (type === 'birth') {
+      return cert.mother_system_user === me?.user_id || cert.father_system_user === me?.user_id
+    }
+    if (type === 'death' || type === 'permit') {
+      return cert.informant_id === me?.user_id || cert.informant === me?.user_id
+    }
+    return false
   }
+
+  const ownedBirthCerts = useMemo(() => birthCerts.filter(c => belongsToUser(c, 'birth')), [birthCerts, me?.user_id])
+  const ownedDeathCerts = useMemo(() => deathCerts.filter(c => belongsToUser(c, 'death')), [deathCerts, me?.user_id])
+  const ownedPermits = useMemo(() => burialPermits.filter(p => belongsToUser(p, 'permit')), [burialPermits, me?.user_id])
 
   function openBirthCertificate(cert: BirthCertificate) {
     setViewerEndpoint(BIRTH_CERTIFICATE_ENDPOINT)
-    setViewerRecordId(cert.birth_records_id)
+    setViewerRecordId((cert as any).birth_records_id ?? cert.id)
     setViewerRecordName(`${cert.other_names} ${cert.surname}`)
     setViewerOpen(true)
   }
@@ -178,9 +129,37 @@ export default function CitizenCertificatesPage() {
     })
   }
 
-  const filteredBirthCerts = filterItems(birthCerts, search)
-  const filteredDeathCerts = filterItems(deathCerts, search)
-  const filteredPermits = filterItems(burialPermits, search)
+  const filteredBirthCerts = filterItems(ownedBirthCerts, search)
+  const filteredDeathCerts = filterItems(ownedDeathCerts, search)
+  const filteredPermits = filterItems(ownedPermits, search)
+
+    if (meLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  
+  if (enrollmentState !== "ACTIVE") {
+    return (
+      <div className="p-6 lg:p-8 max-w-2xl mx-auto space-y-6">
+        <div className="rounded-2xl border border-border bg-card p-8 text-center space-y-4">
+          <Shield className="h-12 w-12 mx-auto text-muted-foreground/50" />
+          <h2 className="text-xl font-bold text-foreground">Certificates Unavailable</h2>
+          <p className="text-sm text-muted-foreground">
+            {enrollmentState === "NOT_STARTED" 
+              ? "Complete your identity enrollment to view and download certificates."
+              : "Your enrollment is currently under review. Certificates will appear here once your account is fully activated."}
+          </p>
+          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+            Status: {enrollmentState}
+          </Badge>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
@@ -480,16 +459,16 @@ export default function CitizenCertificatesPage() {
       </Tabs>
 
       {/* Document Viewer Dialog */}
-      {viewerOpen && viewerEndpoint && viewerRecordId && (
-        <DocumentViewer
-          onClose={() => setViewerOpen(false)}
-          endpoint={viewerEndpoint}
-          recordId={viewerRecordId}
-          recordName={viewerRecordName || undefined}
-          token={token}
-          status={(birthCerts?.find((r: any) => r.id === viewerRecordId) || deathCerts?.find((r: any) => r.id === viewerRecordId))?.status || "APPROVED"}
-        />
-      )}
+        {viewerOpen && viewerEndpoint  && (
+          <DocumentViewer
+            onClose={() => setViewerOpen(false)}
+            endpoint={viewerEndpoint}
+            recordId={viewerRecordId}
+            recordName={viewerRecordName || undefined}
+            token={token}
+            status="APPROVED"
+          />
+        )}
     </div>
   )
 }

@@ -1,17 +1,17 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Search, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
-import { citizenApi} from '@/lib/api/citizens'
+import { citizenApi } from '@/lib/api/citizens'
 import type { CitizenLookupResult } from '@/utils/types'
 
 interface DINLookupInputProps {
   value: string
   onChange: (din: string) => void
   onCitizenFound?: (citizen: CitizenLookupResult) => void
+  onLookupError?: (error: string | null) => void
   placeholder?: string
   label?: string
   error?: string
@@ -23,7 +23,8 @@ export function DINLookupInput({
   value,
   onChange,
   onCitizenFound,
-  placeholder = 'Enter DIN (e.g., 123456/01/1)',
+  onLookupError,
+  placeholder = 'Enter DIN (e.g., ZM-BOTK2TLMCEIP5)',
   label = 'Citizen DIN',
   error,
   disabled,
@@ -31,7 +32,10 @@ export function DINLookupInput({
 }: DINLookupInputProps) {
   const [loading, setLoading] = useState(false)
   const [found, setFound] = useState<CitizenLookupResult | null>(null)
+  const [lookupError, setLookupError] = useState<string | null>(null)
   const [debouncedDin, setDebouncedDin] = useState(value)
+  
+  const activeRequestRef = useRef<string | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedDin(value), 600)
@@ -41,27 +45,41 @@ export function DINLookupInput({
   const lookupCitizen = useCallback(async (din: string) => {
     if (!din || din.length < 5) {
       setFound(null)
+      setLookupError(null)
+      onLookupError?.(null)
       return
     }
+
+    if (activeRequestRef.current === din) return
+    activeRequestRef.current = din
+
     setLoading(true)
+    setLookupError(null)
+    
     try {
       const citizen = await citizenApi.lookup(din)
-      setFound(citizen)
-      onCitizenFound?.(citizen)
+      if (activeRequestRef.current === din) {
+        setFound(citizen)
+        onCitizenFound?.(citizen)
+        onLookupError?.(null)
+      }
     } catch (err: any) {
-      setFound(null)
-      // Only show toast on explicit 404 or network errors, not during typing
-      if (err.response?.status === 404 || !err.response) {
-        toast.error(err.response?.data?.detail || 'Citizen not found')
+      if (activeRequestRef.current === din) {
+        setFound(null)
+        const msg = err.response?.data?.detail || 'Citizen not found or invalid DIN'
+        setLookupError(msg)
+        onLookupError?.(msg)
       }
     } finally {
-      setLoading(false)
+      if (activeRequestRef.current === din) setLoading(false)
     }
-  }, [onCitizenFound])
+  }, [onCitizenFound, onLookupError]) // ✅ Stable deps only
 
   useEffect(() => {
     if (debouncedDin) lookupCitizen(debouncedDin)
   }, [debouncedDin, lookupCitizen])
+
+  const displayError = error || lookupError
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -69,21 +87,41 @@ export function DINLookupInput({
       <div className="relative">
         <Input
           value={value}
-          onChange={(e) => { onChange(e.target.value); setFound(null) }}
+          onChange={(e) => {
+            onChange(e.target.value)
+            setFound(null)
+            setLookupError(null)
+            onLookupError?.(null)
+            activeRequestRef.current = null // 🔹 Reset guard on typing
+          }}
           placeholder={placeholder}
           disabled={disabled || loading}
-          className={cn('pl-9 pr-10', error && 'border-red-500')}
+          className={cn('pl-9 pr-10', displayError && 'border-red-500')}
         />
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </div>
         {found && (
-          <button type="button" onClick={() => { onChange(''); setFound(null) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive">
+          <button
+            type="button"
+            onClick={() => {
+              onChange('')
+              setFound(null)
+              setLookupError(null)
+              onLookupError?.(null)
+              activeRequestRef.current = null
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+      {displayError && (
+        <p className="text-xs text-red-500 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />{displayError}
+        </p>
+      )}
       {found && (
         <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/5 border border-green-500/20 animate-in fade-in slide-in-from-top-2">
           <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />

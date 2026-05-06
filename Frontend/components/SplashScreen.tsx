@@ -5,10 +5,10 @@ import { useState, useEffect } from "react"
 
 const greetings = [
   { text: "Hello", lang: "English" },
-  { text: "Mwapoleni", lang: "Bemba" },
-  { text: "Moni", lang: "Nyanja" },
-  { text: "Kamwaamba", lang: "Tonga" },
-  { text: "Mulumile", lang: "Lozi" },
+  { text: "Shani", lang: "Bemba" },
+  { text: "bwaji", lang: "Nyanja" },
+  { text: "Mwapona", lang: "Tonga" },
+  { text: "Mucwani", lang: "Lozi" },
   { text: "Shani", lang: "Kaonde" },
   { text: "Hello", lang: "English" },
 ]
