@@ -175,7 +175,7 @@ export default function PublicNoticeOfDeathPage() {
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-4 space-y-6">
+          <form id='notice-of-death-form' onSubmit={handleSubmit(onSubmit)} className="px-6 py-4 space-y-6">
             {step === 1 && (
               <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-2">
@@ -323,7 +323,7 @@ export default function PublicNoticeOfDeathPage() {
                   Next <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
-                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
+                <Button type="submit" form="notice-of-death-form"className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
                   {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
                   {isSubmitting ? 'Submitting...' : 'Submit Notice'}
                 </Button>
