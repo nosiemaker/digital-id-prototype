@@ -1592,18 +1592,22 @@ function AddFamilyMemberModal({
               <button
                 type="button"
                 onClick={async () => {
-                  const pickedFile = await pickFile('image/*,application/pdf')
-                  if (pickedFile) {
-                    setFile(pickedFile)
+                  try {
+                    const pickedFile = await pickFile('image/*,application/pdf')
+                    if (pickedFile) {
+                      setFile(pickedFile)
+                    }
+                  } catch (error) {
+                    console.error('File selection failed:', error)
                   }
                 }}
                 className="w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 transition-colors hover:border-primary/30 bg-secondary/20 group-hover:bg-secondary/30"
               >
                 <Upload className={`h-6 w-6 ${file ? "text-primary" : "text-muted-foreground"}`} />
                 <span className="text-xs font-medium text-foreground">
-                  {file ? file.name : "Tap to select document"}
+                  {file ? file.name : "Click to upload document"}
                 </span>
-                <span className="text-[10px] text-muted-foreground uppercase">Birth Cert, Marriage Cert, etc. (PDF/JPG)</span>
+                <span className="text-[10px] text-muted-foreground uppercase">Camera or Gallery (PDF/JPG)</span>
               </button>
             </div>
           </div>
