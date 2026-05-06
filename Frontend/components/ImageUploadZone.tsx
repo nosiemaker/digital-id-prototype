@@ -89,6 +89,7 @@ export function ImageUploadZone({
       <div
         className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors min-h-[160px] group
           ${state.url ? "border-primary/60 bg-primary/5" : "border-border group-hover:border-primary/40 bg-secondary/30 group-hover:bg-secondary/50"}`}
+        onClick={() => inputRef.current?.click()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
