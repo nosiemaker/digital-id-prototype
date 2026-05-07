@@ -17,6 +17,7 @@ import { tokenStore, referenceApi, citizenApi, digitalIdApi, qrApi, authApi, aud
 import type { CitizenUpdate, PartnerLinkResponse } from "@/utils/types"
 import { motion } from "framer-motion"
 import { pickFile } from "@/lib/utils"
+import { useTranslation } from 'react-i18next'
 
 
 import {
@@ -81,17 +82,6 @@ interface ServerPublicKey extends ServerPublicKeyResponse { }
 // Sidebar & mock data (preserved from original)
 /* ------------------------------------------------------------------ */
 
-const sidebarLinks = [
-  { id: "wallet", label: "My ID Wallet", icon: LayoutDashboard },
-  { id: "profile", label: "Profile", icon: User },
-  { id: "family", label: "Family Tree", icon: Users },
-  { id: "activity", label: "Activity Log", icon: History },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "partners", label: "Partners", icon: Link2 },
-  { id: "certificates", label: "Certificates", icon: FileText },
-  { id: "settings", label: "Settings", icon: Settings },
-]
-
 const recentActivity = [
   { action: "ID Verified", location: "Zanaco Bank, Lusaka", time: "2 hours ago", status: "success", type: "verify" },
   { action: "ID Shared", location: "Ministry of Health Portal", time: "Yesterday", status: "success", type: "share" },
@@ -117,28 +107,28 @@ const familyMembers = [
   { relation: "Brother", name: "Mwaba Kalinda", din: "ZM-2024-003-5521", status: "Verified", gender: "MALE" },
 ]
 
-function getPageTitle(tab: string) {
+function getPageTitle(tab: string, t: any) {
   switch (tab) {
-    case "wallet": return "My Digital ID Wallet"
-    case "profile": return "My Profile"
-    case "family": return "My Family Tree"
-    case "activity": return "Activity Log"
-    case "notifications": return "Notifications"
-    case "partners": return "Official Partners"
-    case "settings": return "Settings"
-    default: return "Digital ID Wallet"
+    case "wallet": return t("My Digital ID Wallet")
+    case "profile": return t("My Profile")
+    case "family": return t("My Family Tree")
+    case "activity": return t("Activity Log")
+    case "notifications": return t("Notifications")
+    case "partners": return t("Official Partners")
+    case "settings": return t("Settings")
+    default: return t("Digital ID Wallet")
   }
 }
 
-function getPageSubtitle(tab: string) {
+function getPageSubtitle(tab: string, t: any) {
   switch (tab) {
-    case "wallet": return "Manage and share your identity"
-    case "profile": return "View and manage your personal details"
-    case "family": return "View your verified family connections"
-    case "activity": return "A history of your identity usage"
-    case "notifications": return "Stay updated on your ID status"
-    case "partners": return "Connect with verified services and institutions"
-    case "settings": return "Manage your preferences and security"
+    case "wallet": return t("Manage and share your identity")
+    case "profile": return t("View and manage your personal details")
+    case "family": return t("View your verified family connections")
+    case "activity": return t("A history of your identity usage")
+    case "notifications": return t("Stay updated on your ID status")
+    case "partners": return t("Connect with verified services and institutions")
+    case "settings": return t("Manage your preferences and security")
     default: return ""
   }
 }
@@ -218,7 +208,19 @@ export default function WalletPage() {
   const router = useRouter()
   const { me, enrollmentState, loading: meLoading, error: meError } = useMe()
   const { hasCertificates, loading: certsLoading } = useHasCertificates()
+  const { t, i18n } = useTranslation()
   const [activeTab, setActiveTab] = useState("wallet")
+
+  const sidebarLinks = [
+    { id: "wallet", label: t("My ID Wallet"), icon: LayoutDashboard },
+    { id: "profile", label: t("Profile"), icon: User },
+    { id: "family", label: t("Family Tree"), icon: Users },
+    { id: "activity", label: t("Activity Log"), icon: History },
+    { id: "notifications", label: t("Notifications"), icon: Bell },
+    { id: "partners", label: t("Partners"), icon: Link2 },
+    { id: "certificates", label: t("Certificates"), icon: FileText },
+    { id: "settings", label: t("Settings"), icon: Settings },
+  ]
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [contactShareModalOpen, setContactShareModalOpen] = useState(false)
   const [scanModalOpen, setScanModalOpen] = useState(false)
@@ -651,8 +653,8 @@ export default function WalletPage() {
               </Sheet>
 
               <div>
-                <h1 className="text-base font-bold text-foreground">{getPageTitle(activeTab)}</h1>
-                <p className="text-xs text-muted-foreground">{getPageSubtitle(activeTab)}</p>
+                <h1 className="text-base font-bold text-foreground">{getPageTitle(activeTab, t)}</h1>
+                <p className="text-xs text-muted-foreground">{getPageSubtitle(activeTab, t)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1378,19 +1380,46 @@ export default function WalletPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="rounded-2xl border border-border bg-card p-6">
                         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
-                          <User className="h-4 w-4 text-primary" /> Account Preferences
+                          <User className="h-4 w-4 text-primary" /> {t('Account Preferences')}
                         </h3>
                         <div className="space-y-4">
+                          <div className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors text-left group">
+                            <div className="flex items-center gap-3">
+                              <Globe className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                              <div>
+                                <p className="text-xs font-bold text-foreground">{t('Language')}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {i18n.language === 'en' ? t('English (UK)') :
+                                   i18n.language === 'bemba' ? 'Bemba' :
+                                   i18n.language === 'nyanja' ? 'Nyanja' :
+                                   i18n.language === 'tonga' ? 'Tonga' :
+                                   i18n.language === 'lozi' ? 'Lozi' :
+                                   i18n.language === 'kaonde' ? 'Kaonde' : t('English (UK)')}
+                                </p>
+                              </div>
+                            </div>
+                            <select
+                              value={i18n.language}
+                              onChange={(e) => i18n.changeLanguage(e.target.value)}
+                              className="bg-transparent border-none outline-none text-xs font-bold text-primary cursor-pointer"
+                            >
+                              <option value="en">{t('English (UK)')}</option>
+                              <option value="bemba">Bemba</option>
+                              <option value="nyanja">Nyanja</option>
+                              <option value="tonga">Tonga</option>
+                              <option value="lozi">Lozi</option>
+                              <option value="kaonde">Kaonde</option>
+                            </select>
+                          </div>
                           {[
-                            { label: "Language", value: "English (UK)", icon: Globe },
-                            { label: "Theme", value: "System Default", icon: Moon },
-                            { label: "Linked Devices", value: "1 Device", icon: Smartphone },
+                            { label: "Theme", value: t('System Default'), icon: Moon },
+                            { label: "Linked Devices", value: t('1 Device'), icon: Smartphone },
                           ].map((setting) => (
                             <button key={setting.label} className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors text-left group">
                               <div className="flex items-center gap-3">
                                 <setting.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                 <div>
-                                  <p className="text-xs font-bold text-foreground">{setting.label}</p>
+                                  <p className="text-xs font-bold text-foreground">{t(setting.label)}</p>
                                   <p className="text-[10px] text-muted-foreground">{setting.value}</p>
                                 </div>
                               </div>
@@ -1402,19 +1431,19 @@ export default function WalletPage() {
 
                       <div className="rounded-2xl border border-border bg-card p-6">
                         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-primary" /> Security & Privacy
+                          <Shield className="h-4 w-4 text-primary" /> {t('Security & Privacy')}
                         </h3>
                         <div className="space-y-4">
                           {[
-                            { label: "Two-Factor Auth", value: "Available", icon: Smartphone },
-                            { label: "Change Password", value: "Secure account", icon: Settings },
-                            { label: "Privacy Mode", value: "Standard", icon: Eye },
+                            { label: "Two-Factor Auth", value: t('Available'), icon: Smartphone },
+                            { label: "Change Password", value: t('Secure account'), icon: Settings },
+                            { label: "Privacy Mode", value: t('Standard'), icon: Eye },
                           ].map((setting) => (
                             <button key={setting.label} className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors text-left group">
                               <div className="flex items-center gap-3">
                                 <setting.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                 <div>
-                                  <p className="text-xs font-bold text-foreground">{setting.label}</p>
+                                  <p className="text-xs font-bold text-foreground">{t(setting.label)}</p>
                                   <p className="text-[10px] text-muted-foreground">{setting.value}</p>
                                 </div>
                               </div>
@@ -1426,18 +1455,18 @@ export default function WalletPage() {
 
                       <div className="rounded-2xl border border-border bg-card p-6 md:col-span-2">
                         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
-                          <Bell className="h-4 w-4 text-primary" /> Notification Settings
+                          <Bell className="h-4 w-4 text-primary" /> {t('Notification Settings')}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {[
-                            { label: "Email Notifications", desc: "Receive updates about your ID via email." },
-                            { label: "Push Notifications", desc: "Get real-time alerts on your smartphone." },
-                            { label: "SMS Alerts", desc: "Critical security alerts via text message." },
-                            { label: "Newsletter", desc: "Receive monthly updates from Digital ID Zambia." },
+                            { label: "Email Notifications", desc: t("Receive updates about your ID via email.") },
+                            { label: "Push Notifications", desc: t("Get real-time alerts on your smartphone.") },
+                            { label: "SMS Alerts", desc: t("Critical security alerts via text message.") },
+                            { label: "Newsletter", desc: t("Receive monthly updates from Digital ID Zambia.") },
                           ].map((item) => (
                             <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/10">
                               <div className="flex-1 pr-4">
-                                <p className="text-xs font-bold text-foreground">{item.label}</p>
+                                <p className="text-xs font-bold text-foreground">{t(item.label)}</p>
                                 <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                               </div>
                               <div className="h-5 w-9 rounded-full bg-primary/20 relative flex items-center px-1 cursor-pointer">

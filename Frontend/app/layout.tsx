@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AuthWrapper } from '@/components/auth-provider';
+import { I18nProvider } from '@/components/i18n-provider';
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -25,9 +26,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <AuthWrapper>
-         {children}
-        </AuthWrapper>
+        <I18nProvider>
+          <AuthWrapper>
+           {children}
+          </AuthWrapper>
+        </I18nProvider>
         <Analytics />
       </body>
     </html>
