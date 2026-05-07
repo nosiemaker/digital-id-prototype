@@ -219,7 +219,10 @@ export interface CitizenSummary {
 export interface CitizenResponse extends CitizenBase {
   din: string;
   status: CitizenStatus;
-  district?: string;
+  district?: {
+      name: string
+      province?: { name: string }
+  };
   gender?: string;
   residential_address?: string;
   citizen_type?: string;

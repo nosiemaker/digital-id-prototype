@@ -1,16 +1,20 @@
 "use client"
 
+import { Capacitor } from "@capacitor/core"
+import { Filesystem, Directory } from "@capacitor/filesystem"
+import { Share } from "@capacitor/share"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { FileText, Download, X, Loader2, AlertCircle, Eye, ChevronDown } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
 // ============================================================================
 // MULTIPART PDF PARSER
 // ============================================================================
+
+const isNative = typeof window !== "undefined" && Capacitor.isNativePlatform()
 
 function parseMultipart(buffer: ArrayBuffer, boundary: string): Map<string, Uint8Array> {
   const bytes = new Uint8Array(buffer)
@@ -224,7 +228,6 @@ export function useDocumentStream() {
     } catch (e: any) {
       const msg = e.message || 'Failed to load documents'
       setError(msg)
-      toast.error(msg)
       return null
     } finally {
       setLoading(false)
@@ -238,9 +241,32 @@ export function useDocumentStream() {
     setError(null)
   }, [])
 
-  const downloadDocument = useCallback((part: DocumentPart) => {
+  const downloadDocument = useCallback(async (part: DocumentPart) => {
     const url = documentsRef.current.get(part.name)
     if (!url) return
+
+    if(isNative) {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) throw new Error("Failed to fetch PDF")
+        const blob = await res.blob()
+
+        const result = await Filesystem.writeFile({
+            path: part.filename,
+            data: blob,
+            directory: Directory.Documents,
+        })
+
+        await Share.share({
+            url: result.uri,
+            title: part.label,
+            dialogTitle: "View or Save Document",
+        })
+      } catch (err: any) {
+        console.error("Native document open failed:", err)
+        setError(err?.message || "Unable to open document. Please check storage permissions.")
+      }
+    }
     const a = document.createElement('a')
     a.href = url
     a.download = part.filename
@@ -490,7 +516,7 @@ export function DocumentViewer({
 
           {/* ── PDF Viewer ── */}
           <div className="flex-1 bg-muted/20 relative overflow-hidden">
-            {loading ? (
+           {loading ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">Generating documents…</p>
@@ -505,11 +531,25 @@ export function DocumentViewer({
                 </p>
               </div>
             ) : activeDoc && documents.get(activeDoc) ? (
-              <iframe
-                src={documents.get(activeDoc)!}
-                className="w-full h-full border-0"
-                title={activePart?.label || "Document"}
-              />
+              isNative ? (
+                // Native mobile view
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 bg-muted/10">
+                  <FileText className="h-16 w-16 text-primary/30" />
+                  <p className="text-center text-sm text-muted-foreground max-w-xs">
+                    PDFs open in your device's default viewer. Tap below to view, save, or share.
+                  </p>
+                  <Button onClick={() => activePart && downloadDocument(activePart)}>
+                    <Eye className="h-4 w-4 mr-2" /> Open Document
+                  </Button>
+                </div>
+              ) : (
+                // Web view
+                <iframe
+                  src={documents.get(activeDoc)!}
+                  className="w-full h-full border-0"
+                  title={activePart?.label || "Document"}
+                />
+              )
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <Eye className="h-10 w-10 text-muted-foreground/50" />

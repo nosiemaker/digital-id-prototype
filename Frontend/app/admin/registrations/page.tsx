@@ -143,7 +143,7 @@ export default function RegistrationsPage() {
                   ) : filtered.map((req) => {
                     const citizen = req.citizen
                     const Icon = StatusIcon[req.status] ?? Clock
-                    const province = (citizen as any).district?.province_name ?? (citizen as any).province ?? "-"
+                    const province = citizen?.district?.province?.name ?? "-"
                     return (
                       <tr key={req.id} className="hover:bg-secondary/30 transition-colors">
                         <td className="px-5 py-3.5">

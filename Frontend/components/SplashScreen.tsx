@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 const greetings = [
   { text: "Hello", lang: "English" },
   { text: "Shani", lang: "Bemba" },
-  { text: "bwaji", lang: "Nyanja" },
+  { text: "Bwanji", lang: "Nyanja" },
   { text: "Mwapona", lang: "Tonga" },
   { text: "Mucwani", lang: "Lozi" },
   { text: "Mwaichela", lang: "Kaonde" },

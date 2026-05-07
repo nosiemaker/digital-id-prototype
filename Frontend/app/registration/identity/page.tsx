@@ -38,7 +38,7 @@ const step1Schema = z.object({
   lastName:    z.string().min(1, "Last name is required."),
   dob:         z.string().min(1, "Date of birth is required."),
   gender:      z.enum(["MALE", "FEMALE"], { errorMap: () => ({ message: "Please select a gender." }) }),
-  nrc:         z.string().min(1, "NRC number is required."),
+  nrc:         z.string().min(1, "NRC number is required.").regex(/^\d{6}\/\d{2}\/\d$/, "Invalid NRC format. Expected: 123456/78/9"),
   province:    z.string().min(1, "Please select a province."),
   district_id: z.string().min(1, "Please select a district."),
 })
@@ -162,6 +162,13 @@ export default function IdentityRegistrationPage() {
       const msg = e instanceof Error ? e.message : "Upload failed."
       setter(s => ({ ...s, uploading: false, error: msg }))
     }
+  }
+
+  const formatNrc = (val: string) => {
+      const clean = val.replace(/\D/g, "").slice(0, 9);
+      if (clean.length <= 6) return clean;
+      if (clean.length <= 8) return `${clean.slice(0, 6)}/${clean.slice(6)}`;
+      return `${clean.slice(0, 6)}/${clean.slice(6, 8)}/${clean.slice(8)}`;
   }
 
   function validateStep(): string | null {
@@ -310,7 +317,15 @@ export default function IdentityRegistrationPage() {
                     <option value="FEMALE">Female</option>
                   </select>
                 </div>
-                <div className="sm:col-span-2"><label className={label}>NRC Number</label><input type="text" className={input} placeholder="e.g. 123456/78/9" value={form.nrc} onChange={e => update("nrc", e.target.value)} /></div>
+                <div className="sm:col-span-2">
+                  <label className={label}>NRC Number</label>
+                  <input 
+                    type="text" 
+                    className={input} 
+                    placeholder="e.g. 123456/78/9" 
+                    value={form.nrc} 
+                    onChange={e => update("nrc", formatNrc(e.target.value))} 
+                  /></div>
 
                 {/* Province — UI filter only, not sent to backend */}
                 <div>

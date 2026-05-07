@@ -328,7 +328,7 @@ export default function DeathRecordsPage() {
                       </div>
                       <div className="md:col-span-4">
                         <Label className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5 block">Interval (A)</Label>
-                        <Input placeholder="e.g. 5 days" className="h-12 bg-white" {...register("cause_a_interval")} />
+                        <Input placeholder="e.g. 5 days" className="h-12 bg-background" {...register("cause_a_interval")} />
                       </div>
                     </div>
                   </div>
@@ -363,7 +363,7 @@ export default function DeathRecordsPage() {
                       </div>
                       <div className="md:col-span-4">
                         <Label className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5 block">Interval (B)</Label>
-                        <Input placeholder="e.g. 2 years" className="h-12 bg-white" {...register("cause_b_interval")} />
+                        <Input placeholder="e.g. 2 years" className="h-12 bg-background" {...register("cause_b_interval")} />
                       </div>
                     </div>
                   </div>
@@ -398,7 +398,7 @@ export default function DeathRecordsPage() {
                       </div>
                       <div className="md:col-span-4">
                         <Label className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5 block">Interval (C)</Label>
-                        <Input placeholder="e.g. 10 years" className="h-12 bg-white" {...register("cause_c_interval")} />
+                        <Input placeholder="e.g. 10 years" className="h-12 bg-background" {...register("cause_c_interval")} />
                       </div>
                     </div>
                   </div>
@@ -413,13 +413,13 @@ export default function DeathRecordsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 p-4 rounded-xl bg-slate-50/30 border border-slate-100">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Condition 1</Label>
-                    <Input placeholder="Contributing condition…" className="bg-white" {...register("other_condition_1")} />
-                    <Input placeholder="Duration…" className="bg-white text-xs" {...register("other_condition_1_interval")} />
+                    <Input placeholder="Contributing condition…" className="bg-background" {...register("other_condition_1")} />
+                    <Input placeholder="Duration…" className="bg-background text-xs" {...register("other_condition_1_interval")} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Condition 2</Label>
-                    <Input placeholder="Additional condition…" className="bg-white" {...register("other_condition_2")} />
-                    <Input placeholder="Duration…" className="bg-white text-xs" {...register("other_condition_2_interval")} />
+                    <Input placeholder="Additional condition…" className="bg-background" {...register("other_condition_2")} />
+                    <Input placeholder="Duration…" className="bg-background text-xs" {...register("other_condition_2_interval")} />
                   </div>
                 </div>
               </div>

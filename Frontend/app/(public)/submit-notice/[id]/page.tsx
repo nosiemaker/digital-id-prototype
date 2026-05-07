@@ -145,7 +145,6 @@ export default function PublicNoticeOfDeathPage() {
     } catch (err: any) {
       const detail = err.response?.data?.detail
       
-      // Handle Python backend serializer errors: { field: ["error"] } or { field: "error" }
       if (typeof detail === 'object' && detail !== null) {
         let generalMsg = ''
         Object.entries(detail).forEach(([field, messages]) => {

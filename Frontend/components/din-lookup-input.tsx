@@ -33,20 +33,20 @@ export function DINLookupInput({
   const [loading, setLoading] = useState(false)
   const [found, setFound] = useState<CitizenLookupResult | null>(null)
   const [lookupError, setLookupError] = useState<string | null>(null)
-  const [debouncedDin, setDebouncedDin] = useState(value)
-  
-  const activeRequestRef = useRef<string | null>(null)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedDin(value), 600)
-    return () => clearTimeout(timer)
-  }, [value])
+  const activeRequestRef = useRef<string | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const resetState = useCallback(() => {
+    setFound(null)
+    setLookupError(null)
+    onLookupError?.(null)
+  }, [onLookupError])
 
   const lookupCitizen = useCallback(async (din: string) => {
-    if (!din || din.length < 5) {
-      setFound(null)
-      setLookupError(null)
-      onLookupError?.(null)
+    // 🛡️ Ignore incomplete DINs (Zambian DINs are ~17 chars)
+    if (!din || din.length < 12) {
+      resetState()
       return
     }
 
@@ -54,30 +54,41 @@ export function DINLookupInput({
     activeRequestRef.current = din
 
     setLoading(true)
-    setLookupError(null)
-    
+    resetState()
+
     try {
       const citizen = await citizenApi.lookup(din)
       if (activeRequestRef.current === din) {
         setFound(citizen)
         onCitizenFound?.(citizen)
-        onLookupError?.(null)
       }
     } catch (err: any) {
       if (activeRequestRef.current === din) {
-        setFound(null)
         const msg = err.response?.data?.detail || 'Citizen not found or invalid DIN'
         setLookupError(msg)
         onLookupError?.(msg)
       }
     } finally {
-      if (activeRequestRef.current === din) setLoading(false)
+      if (activeRequestRef.current === din) {
+        setLoading(false)
+      }
     }
-  }, [onCitizenFound, onLookupError]) // ✅ Stable deps only
+  }, [onCitizenFound, onLookupError, resetState])
 
   useEffect(() => {
-    if (debouncedDin) lookupCitizen(debouncedDin)
-  }, [debouncedDin, lookupCitizen])
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => lookupCitizen(value), 800) // 800ms pause
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [value, lookupCitizen])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      activeRequestRef.current = null
+    }
+  }, [])
 
   const displayError = error || lookupError
 
@@ -89,10 +100,8 @@ export function DINLookupInput({
           value={value}
           onChange={(e) => {
             onChange(e.target.value)
-            setFound(null)
-            setLookupError(null)
-            onLookupError?.(null)
-            activeRequestRef.current = null // 🔹 Reset guard on typing
+            resetState()
+            activeRequestRef.current = null
           }}
           placeholder={placeholder}
           disabled={disabled || loading}
@@ -106,9 +115,7 @@ export function DINLookupInput({
             type="button"
             onClick={() => {
               onChange('')
-              setFound(null)
-              setLookupError(null)
-              onLookupError?.(null)
+              resetState()
               activeRequestRef.current = null
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive"
