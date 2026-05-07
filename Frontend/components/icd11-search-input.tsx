@@ -69,7 +69,7 @@ function injectECTAssets(): Promise<void> {
         .ctw-window {
           position: fixed !important;
           z-index: 99999 !important;
-          background: white !important;
+          background: hsl(var(--card)) !important;
           border-radius: 12px !important;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25) !important;
           width: 90% !important;
@@ -80,7 +80,7 @@ function injectECTAssets(): Promise<void> {
           left: 50% !important;
           transform: translate(-50%, -50%) !important;
           overflow: hidden !important;
-          color: #1a1a1a !important;
+          color: hsl(var(--foreground)) !important;
           pointer-events: auto !important;
           font-family: inherit !important;
         }
@@ -108,10 +108,11 @@ function injectECTAssets(): Promise<void> {
           border-radius: 8px !important; 
           border: 1px solid transparent !important;
           margin-bottom: 4px !important;
+          color: hsl(var(--foreground)) !important;
         }
         .ctw-window .ctw-entity-item:hover { 
-          background: #f1f5f9 !important; 
-          border-color: #3b82f6 !important;
+          background: hsl(var(--accent)) !important; 
+          border-color: hsl(var(--primary)) !important;
         }
         .ctw-window .ctw-entity-code {
           background: #3b82f6 !important;
